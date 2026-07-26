@@ -15,6 +15,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 
 FROM dependencies AS build
 COPY turbo.json tsconfig.base.json eslint.config.mjs ./
+COPY scripts/prepare-next-standalone.mjs scripts/prepare-next-standalone.mjs
 COPY apps/web apps/web
 COPY packages/contracts packages/contracts
 COPY packages/ui packages/ui
