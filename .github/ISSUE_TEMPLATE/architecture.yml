@@ -1,0 +1,35 @@
+name: Architecture decision
+description: Propose a durable technical or domain decision.
+title: "[Architecture]: "
+labels: ["type: architecture", "status: proposed"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and decision drivers
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Credible alternatives and trade-offs
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed decision
+    validations:
+      required: true
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences and migration
+    validations:
+      required: true
+  - type: textarea
+    id: trigger
+    attributes:
+      label: Validation and review trigger
+    validations:
+      required: true

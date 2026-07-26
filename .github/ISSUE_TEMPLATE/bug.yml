@@ -1,0 +1,59 @@
+name: Bug report
+description: Report reproducible incorrect behavior.
+title: "[Bug]: "
+labels: ["type: bug", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include secrets, credentials, or customer data.
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who is affected and what can they not complete?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest reliable sequence and sanitized inputs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Data boundary impact
+      options:
+        - No known data or tenant impact
+        - Possible incorrect business data
+        - Possible tenant or permission boundary impact
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed secrets and customer data.
+          required: true
+        - label: This is not a privately reportable security vulnerability.
+          required: true

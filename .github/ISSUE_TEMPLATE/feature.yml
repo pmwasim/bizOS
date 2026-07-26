@@ -1,0 +1,38 @@
+name: Product capability
+description: Propose a user outcome, not an implementation.
+title: "[Capability]: "
+labels: ["type: feature", "status: discovery"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who is trying to do what, and what happens today?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe success without prescribing a screen or technology.
+    validations:
+      required: true
+  - type: textarea
+    id: simplicity
+    attributes:
+      label: Simplest useful experience
+      description: What can remain hidden until the user asks for more?
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Countries, currencies, tax, permissions, and integrations
+      description: List known variations and unknowns.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Research, support cases, or observed workflow.
