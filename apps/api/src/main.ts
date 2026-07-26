@@ -20,10 +20,8 @@ async function bootstrap(): Promise<void> {
   app.use(urlencoded({ extended: false, limit: "50kb", parameterLimit: 100 }));
   app.use(
     helmet({
-      contentSecurityPolicy: false,
       crossOriginResourcePolicy: { policy: "same-site" },
       frameguard: { action: "deny" },
-      strictTransportSecurity: false,
     }),
   );
   app.enableShutdownHooks();
