@@ -1,0 +1,44 @@
+packages:
+  - apps/*
+  - packages/*
+
+autoInstallPeers: false
+engineStrict: true
+injectWorkspacePackages: true
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+preferWorkspacePackages: true
+saveExact: true
+strictPeerDependencies: true
+
+allowBuilds:
+  "@prisma/engines": true
+  lefthook: true
+  msgpackr-extract: false
+  prisma: true
+  sharp: true
+
+catalog:
+  typescript: 6.0.3
+  vitest: 4.1.10
+  zod: 4.4.3
+
+minimumReleaseAgeExclude:
+  - "@next/env@16.2.12"
+  - "@next/swc-darwin-arm64@16.2.12"
+  - "@next/swc-darwin-x64@16.2.12"
+  - "@next/swc-linux-arm64-gnu@16.2.12"
+  - "@next/swc-linux-arm64-musl@16.2.12"
+  - "@next/swc-linux-x64-gnu@16.2.12"
+  - "@next/swc-linux-x64-musl@16.2.12"
+  - "@next/swc-win32-arm64-msvc@16.2.12"
+  - "@next/swc-win32-x64-msvc@16.2.12"
+  - "@turbo/darwin-64@2.10.7"
+  - "@turbo/darwin-arm64@2.10.7"
+  - "@turbo/linux-64@2.10.7"
+  - "@turbo/linux-arm64@2.10.7"
+  - "@turbo/windows-64@2.10.7"
+  - "@turbo/windows-arm64@2.10.7"
+  - next@16.2.12
+  - turbo@2.10.7
+  - "@next/eslint-plugin-next@16.2.12"

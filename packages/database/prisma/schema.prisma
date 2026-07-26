@@ -1,0 +1,12 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Phase 0 deliberately contains no business tables. The first migration will be accepted only
+// after tenant isolation, audit fields, public identifiers, money representation, and lifecycle
+// rules have executable database tests. See docs/database-strategy.md and ADR-0005.

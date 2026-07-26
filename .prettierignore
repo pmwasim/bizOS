@@ -1,0 +1,8 @@
+.next
+.pnpm-store
+.turbo
+coverage
+dist
+node_modules
+packages/database/generated
+pnpm-lock.yaml

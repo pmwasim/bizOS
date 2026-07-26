@@ -1,0 +1,31 @@
+{
+  "name": "@bizo/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build && node ../../scripts/prepare-next-standalone.mjs",
+    "clean": "rm -rf .next coverage tsconfig.tsbuildinfo",
+    "dev": "next dev --port ${WEB_PORT:-3000}",
+    "lint": "eslint .",
+    "start": "PORT=${WEB_PORT:-3000} HOSTNAME=0.0.0.0 node .next/standalone/apps/web/server.js",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bizo/contracts": "workspace:*",
+    "@bizo/ui": "workspace:*",
+    "next": "16.2.12",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

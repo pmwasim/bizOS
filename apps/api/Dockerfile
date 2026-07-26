@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1.7
+FROM node:22.23.1-bookworm-slim AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /workspace
+
+FROM base AS dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/config/package.json packages/config/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --ignore-scripts
+
+FROM dependencies AS build
+COPY turbo.json tsconfig.base.json eslint.config.mjs ./
+COPY apps/api apps/api
+COPY packages/config packages/config
+COPY packages/contracts packages/contracts
+RUN pnpm --filter @bizo/api... build
+RUN pnpm --filter @bizo/api --prod deploy /opt/bizo
+RUN cp -R apps/api/dist /opt/bizo/dist
+
+FROM node:22.23.1-bookworm-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+RUN groupadd --system --gid 1001 bizo \
+    && useradd --system --uid 1001 --gid bizo --home-dir /app bizo
+COPY --from=build --chown=bizo:bizo /opt/bizo ./
+USER bizo
+EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:3001/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+CMD ["node", "dist/main.js"]
