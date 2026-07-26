@@ -1,9 +1,11 @@
 name: Container builds
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - ".dockerignore"
+      - ".github/workflows/containers.yml"
       - "apps/**"
       - "packages/**"
       - "package.json"
@@ -13,6 +15,7 @@ on:
     branches: [main]
     paths:
       - ".dockerignore"
+      - ".github/workflows/containers.yml"
       - "apps/**"
       - "packages/**"
       - "package.json"
