@@ -55,7 +55,8 @@ audit evidence. Availability matters, but a fast cross-tenant response is a secu
 ### Supply chain
 
 - Exact dependencies, frozen pnpm lockfile, release-age gate, Dependabot, dependency review, CodeQL,
-  secret scanning, SBOM, image scan, artifact provenance, and pinned Actions.
+  secret scanning, SBOM, image scan, artifact provenance, pinned Actions, and a CI audit that
+  rejects known moderate-or-higher advisories.
 - Protected default branch, required review/checks, CODEOWNERS, signed release tags, and least
   GitHub workflow permissions.
 

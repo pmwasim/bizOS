@@ -33,5 +33,7 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Audit dependencies
+        run: pnpm security:audit
       - name: Run foundation gate
         run: pnpm check
