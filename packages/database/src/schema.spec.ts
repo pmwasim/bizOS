@@ -66,3 +66,38 @@ describe("purchase order approval readiness migration", () => {
     );
   });
 });
+
+describe("invoice document slice migration", () => {
+  const invoiceMigrationUrl = new URL(
+    "../prisma/migrations/20260728010000_invoice_document_slice/migration.sql",
+    import.meta.url,
+  );
+  const invoiceConstraintsUrl = new URL(
+    "../prisma/migrations/20260728010100_invoice_document_constraints/migration.sql",
+    import.meta.url,
+  );
+
+  it("adds invoice type, statuses, numbering, and PDF artifact columns", async () => {
+    const migration = await readFile(invoiceMigrationUrl, "utf8");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'INVOICE'");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'READY_TO_SEND'");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'SEND_FAILED'");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'ARCHIVED'");
+    expect(migration).toContain('"invoice_prefix"');
+    expect(migration).toContain('"next_invoice_number"');
+    expect(migration).toContain('"invoice_due_days"');
+    expect(migration).toContain('"due_date"');
+    expect(migration).toContain('"source_quotation_id"');
+    expect(migration).toContain('"po_number_snapshot"');
+    expect(migration).toContain('"pdf_storage_key"');
+    expect(migration).toContain('"pdf_checksum_sha256"');
+  });
+
+  it("keeps invoice and quotation field rules in a follow-up constraints migration", async () => {
+    const migration = await readFile(invoiceConstraintsUrl, "utf8");
+    expect(migration).toContain("documents_invoice_fields_check");
+    expect(migration).toContain("documents_archive_consistency_check");
+    expect(migration).toContain("\"type\"::text = 'INVOICE'");
+    expect(migration).toContain('"due_date" IS NOT NULL');
+  });
+});
