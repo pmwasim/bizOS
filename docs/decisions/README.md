@@ -17,6 +17,7 @@ constraints until superseded.
 | [0010](0010-outbox-bullmq-r2.md)               | Outbox, BullMQ/Redis, and R2 responsibilities | Accepted |
 | [0011](0011-rest-openapi-contracts.md)         | REST/OpenAPI public contracts                 | Accepted |
 | [0012](0012-governed-extensions-and-ai.md)     | Governed plugins and AI agents                | Accepted |
+| [0013](0013-quotation-document-slice.md)       | Shared document facts, explicit quote service | Accepted |
 
 ## Template
 

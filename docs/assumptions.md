@@ -1,7 +1,7 @@
 # Assumptions
 
 Status: Active register  
-Last reviewed: 2026-07-26
+Last reviewed: 2026-07-27
 
 Assumptions are explicit so they can be tested or replaced without pretending they are facts.
 
@@ -19,5 +19,7 @@ Assumptions are explicit so they can be tested or replaced without pretending th
 | A-010 | No jurisdiction-specific tax implementation is safe without specialist acceptance                       | Tax design only in Phase 0                           | Country rollout is funded and reviewed                   |
 | A-011 | Node 22 and exact current framework releases are acceptable for the foundation                          | CI enforces the engine and lockfile                  | Support policy, advisory, or provider constraint changes |
 | A-012 | English is the initial authoring language but Arabic/RTL is an early target                             | Tokens and layouts cannot assume LTR                 | Market sequencing changes                                |
+| A-013 | Auth.js 5 beta is the compatible implementation of the accepted Auth.js boundary for Next.js 16         | Pin the exact version and test every session upgrade | Stable v5 release, security advisory, or session failure |
+| A-014 | A production SMTP provider will accept PDF attachments and provide a stable message identifier          | Keep delivery behind a provider-neutral adapter      | Provider selection or deliverability testing fails       |
 
 An assumption becomes an ADR when it creates a durable architectural constraint.

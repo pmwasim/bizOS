@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "default": "./dist/auth.js"
+    },
+    "./customers": {
+      "types": "./dist/customers.d.ts",
+      "default": "./dist/customers.js"
+    },
     "./health": {
       "types": "./dist/health.d.ts",
       "default": "./dist/health.js"
@@ -11,6 +19,18 @@
     "./jobs": {
       "types": "./dist/jobs.d.ts",
       "default": "./dist/jobs.js"
+    },
+    "./money": {
+      "types": "./dist/money.d.ts",
+      "default": "./dist/money.js"
+    },
+    "./platform": {
+      "types": "./dist/platform.d.ts",
+      "default": "./dist/platform.js"
+    },
+    "./quotations": {
+      "types": "./dist/quotations.d.ts",
+      "default": "./dist/quotations.js"
     }
   },
   "scripts": {

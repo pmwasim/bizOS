@@ -1,7 +1,8 @@
 # bizOS handbook
 
-Status: Phase 0 baseline  
-Last reviewed: 2026-07-26
+Status: MVP delivery baseline
+
+Last reviewed: 2026-07-27
 
 This handbook is the source of truth for product intent, engineering constraints, and accepted
 architecture. A code change that invalidates a handbook statement must update the relevant document
@@ -12,6 +13,7 @@ in the same pull request.
 - [Vision](vision.md)
 - [Product overview](product-overview.md)
 - [Product requirements](product-requirements.md)
+- [Quotation MVP](mvp-quotation.md)
 - [User personas](user-personas.md)
 - [UX principles](ux-principles.md)
 - [Information architecture](information-architecture.md)

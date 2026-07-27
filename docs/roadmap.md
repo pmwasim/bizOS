@@ -13,13 +13,27 @@ Exit criteria:
 - deployment provider decision, production IaC, integration test environment, and launch SLOs are
   planned before product build begins.
 
-## Phase 1 - Document workflow core
+## MVP - Send the first quotation
+
+The active delivery gate is one complete journey:
+
+1. sign up and set up one business;
+2. add a customer;
+3. create a quotation using exact money and a simple tax default;
+4. generate and download a professional PDF;
+5. send the exact PDF through configured SMTP delivery.
+
+No broader module begins until a new user completes this journey in under five minutes, the
+cross-tenant and authorization tests pass against PostgreSQL, the PDF is reproducible from the
+stored version, and responsive WCAG 2.2 AA acceptance is complete.
+
+## Phase 1 - Broader document workflow core
 
 Discovery and delivery sequence:
 
-1. tenancy, businesses, memberships, parties, numbering, files, and audit;
-2. workflow tasks, approvals, and notification foundation;
-3. offers and customer acceptance;
+1. additional membership administration, parties, numbering, files, and audit views;
+2. customer quotation acceptance and revision;
+3. workflow tasks, approvals, and notification foundation;
 4. purchase orders and supplier coordination;
 5. supplier invoice intake and approval;
 6. customer invoice issuance.
