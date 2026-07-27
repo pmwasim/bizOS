@@ -8,16 +8,20 @@ WORKDIR /workspace
 FROM base AS dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/api/package.json apps/api/package.json
+COPY packages/authorization/package.json packages/authorization/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/database/package.json packages/database/package.json
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 
 FROM dependencies AS build
 COPY turbo.json tsconfig.base.json eslint.config.mjs ./
 COPY apps/api apps/api
+COPY packages/authorization packages/authorization
 COPY packages/config packages/config
 COPY packages/contracts packages/contracts
+COPY packages/database packages/database
 RUN pnpm --filter @bizo/api... build
 RUN pnpm --filter @bizo/api --prod deploy /opt/bizo
 RUN cp -R apps/api/dist /opt/bizo/dist
