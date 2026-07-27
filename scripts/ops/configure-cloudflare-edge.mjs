@@ -15,14 +15,6 @@ if (!token || !accountId) {
   process.exit(1);
 }
 
-function describeCredential(label, value) {
-  const hasWhitespace = /\s/.test(value);
-  const looksLikeApiToken = /^[A-Za-z0-9_-]{30,}$/.test(value);
-  console.warn(
-    `${label}: length=${value.length} whitespace=${hasWhitespace} token_shape=${looksLikeApiToken}`,
-  );
-}
-
 async function cf(path, init = {}) {
   const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     ...init,
@@ -149,9 +141,6 @@ async function ensureSecurityHeaders(zoneId) {
 }
 
 async function main() {
-  describeCredential("CLOUDFLARE_API_TOKEN", token);
-  describeCredential("CLOUDFLARE_ACCOUNT_ID", accountId);
-
   const tokenStatus = await cf("/user/tokens/verify");
   console.warn(`Cloudflare token status: ${tokenStatus.status}`);
 

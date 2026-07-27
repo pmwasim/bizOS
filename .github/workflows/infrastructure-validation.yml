@@ -23,10 +23,8 @@ jobs:
           node <<'NODE'
           const token = String(process.env.CLOUDFLARE_API_TOKEN ?? "").trim();
           const accountId = String(process.env.CLOUDFLARE_ACCOUNT_ID ?? "").trim();
-          console.log(`token_length=${token.length}`);
-          console.log(`account_id_length=${accountId.length}`);
-          console.log(`token_has_whitespace=${/\s/.test(token)}`);
-          console.log(`token_shape_ok=${/^[A-Za-z0-9_-]{30,}$/.test(token)}`);
+          console.log(`token_present=${Boolean(token)}`);
+          console.log(`account_id_present=${Boolean(accountId)}`);
           if (!token || !accountId) {
             console.error("Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID");
             process.exit(1);
@@ -38,7 +36,8 @@ jobs:
           console.log(`http_status=${response.status}`);
           console.log(`success=${body.success}`);
           if (!body.success) {
-            console.error(JSON.stringify(body.errors ?? body));
+            const codes = (body.errors ?? []).map((error) => error.code).join(",");
+            console.error(`verify_failed codes=${codes || "unknown"}`);
             process.exit(1);
           }
           console.log(`token_status=${body.result?.status ?? "unknown"}`);

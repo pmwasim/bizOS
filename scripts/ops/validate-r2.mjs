@@ -55,7 +55,7 @@ async function main() {
 
   console.warn(`R2 bucket=${bucket}`);
   console.warn(`R2 endpoint_host=${new URL(endpoint).host}`);
-  console.warn(`R2 access_key_length=${accessKeyId.length}`);
+  console.warn(`R2 access_key_present=${Boolean(accessKeyId)}`);
 
   const client = new S3Client({
     credentials: { accessKeyId, secretAccessKey },
