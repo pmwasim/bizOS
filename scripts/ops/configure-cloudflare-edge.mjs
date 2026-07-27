@@ -24,12 +24,26 @@ async function cf(path, init = {}) {
       ...(init.headers ?? {}),
     },
   });
-  const body = await response.json();
+  const text = await response.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new Error(`Cloudflare API ${path} failed: non-JSON response http=${response.status}`);
+  }
   if (!response.ok || body.success === false) {
     const message = JSON.stringify(body.errors ?? body);
-    throw new Error(`Cloudflare API ${path} failed: ${message}`);
+    const error = new Error(`Cloudflare API ${path} failed: ${message}`);
+    error.status = response.status;
+    error.codes = (body.errors ?? []).map((item) => item.code);
+    throw error;
   }
   return body.result;
+}
+
+function isAuthorizationError(error) {
+  const codes = error?.codes ?? [];
+  return codes.includes(10000) || codes.includes(9109) || error?.status === 403;
 }
 
 function assertBizOsOnly(name) {
@@ -71,73 +85,91 @@ async function upsertCname(zoneId, name, target, proxied) {
 }
 
 async function ensureHttps(zoneId) {
-  await cf(`/zones/${zoneId}/settings/ssl`, {
-    method: "patch",
-    body: JSON.stringify({ value: "strict" }),
-  });
-  await cf(`/zones/${zoneId}/settings/always_use_https`, {
-    method: "patch",
-    body: JSON.stringify({ value: "on" }),
-  });
-  console.warn("Enabled Full (strict) TLS and Always Use HTTPS.");
+  try {
+    await cf(`/zones/${zoneId}/settings/ssl`, {
+      method: "PATCH",
+      body: JSON.stringify({ value: "strict" }),
+    });
+    await cf(`/zones/${zoneId}/settings/always_use_https`, {
+      method: "PATCH",
+      body: JSON.stringify({ value: "on" }),
+    });
+    console.warn("Enabled Full (strict) TLS and Always Use HTTPS.");
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      console.warn(
+        "Skipping SSL/HTTPS settings: token lacks Zone Settings Edit. Set SSL to Full (strict) in the dashboard or expand the token.",
+      );
+      return;
+    }
+    throw error;
+  }
 }
 
 async function ensureSecurityHeaders(zoneId) {
-  const rulesets = await cf(`/zones/${zoneId}/rulesets`);
-  const entry = rulesets.find((ruleset) => ruleset.phase === "http_response_headers_transform");
-  const expression =
-    '(http.host eq "bizos.qloudihub.com" or http.host eq "api.bizos.qloudihub.com")';
-  const action_parameters = {
-    headers: {
-      "Strict-Transport-Security": {
-        operation: "set",
-        value: "max-age=31536000; includeSubDomains; preload",
+  try {
+    const rulesets = await cf(`/zones/${zoneId}/rulesets`);
+    const entry = rulesets.find((ruleset) => ruleset.phase === "http_response_headers_transform");
+    const expression =
+      '(http.host eq "bizos.qloudihub.com" or http.host eq "api.bizos.qloudihub.com")';
+    const action_parameters = {
+      headers: {
+        "Strict-Transport-Security": {
+          operation: "set",
+          value: "max-age=31536000; includeSubDomains; preload",
+        },
+        "X-Content-Type-Options": { operation: "set", value: "nosniff" },
+        "Referrer-Policy": { operation: "set", value: "strict-origin-when-cross-origin" },
+        "Permissions-Policy": {
+          operation: "set",
+          value: "camera=(), microphone=(), geolocation=()",
+        },
+        "Cache-Control": {
+          operation: "set",
+          value: "private, no-store",
+        },
       },
-      "X-Content-Type-Options": { operation: "set", value: "nosniff" },
-      "Referrer-Policy": { operation: "set", value: "strict-origin-when-cross-origin" },
-      "Permissions-Policy": {
-        operation: "set",
-        value: "camera=(), microphone=(), geolocation=()",
-      },
-      "Cache-Control": {
-        operation: "set",
-        value: "private, no-store",
-      },
-    },
-  };
-  const rule = {
-    action: "rewrite",
-    expression,
-    description: "bizOS secure headers and no-store for app/API hosts",
-    enabled: true,
-    action_parameters,
-  };
+    };
+    const rule = {
+      action: "rewrite",
+      expression,
+      description: "bizOS secure headers and no-store for app/API hosts",
+      enabled: true,
+      action_parameters,
+    };
 
-  if (!entry) {
-    await cf(`/zones/${zoneId}/rulesets`, {
-      method: "POST",
+    if (!entry) {
+      await cf(`/zones/${zoneId}/rulesets`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: "bizOS response headers",
+          kind: "zone",
+          phase: "http_response_headers_transform",
+          rules: [rule],
+        }),
+      });
+      console.warn("Created response header transform ruleset for bizOS hosts.");
+      return;
+    }
+
+    const detail = await cf(`/zones/${zoneId}/rulesets/${entry.id}`);
+    const withoutBizOs = (detail.rules ?? []).filter(
+      (item) => !String(item.description ?? "").includes("bizOS"),
+    );
+    await cf(`/zones/${zoneId}/rulesets/${entry.id}`, {
+      method: "PUT",
       body: JSON.stringify({
-        name: "bizOS response headers",
-        kind: "zone",
-        phase: "http_response_headers_transform",
-        rules: [rule],
+        rules: [...withoutBizOs, rule],
       }),
     });
-    console.warn("Created response header transform ruleset for bizOS hosts.");
-    return;
+    console.warn("Updated response header transform rules for bizOS hosts.");
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      console.warn("Skipping response header rules: token lacks Transform Rules / Rulesets Edit.");
+      return;
+    }
+    throw error;
   }
-
-  const detail = await cf(`/zones/${zoneId}/rulesets/${entry.id}`);
-  const withoutBizOs = (detail.rules ?? []).filter(
-    (item) => !String(item.description ?? "").includes("bizOS"),
-  );
-  await cf(`/zones/${zoneId}/rulesets/${entry.id}`, {
-    method: "PUT",
-    body: JSON.stringify({
-      rules: [...withoutBizOs, rule],
-    }),
-  });
-  console.warn("Updated response header transform rules for bizOS hosts.");
 }
 
 async function main() {
