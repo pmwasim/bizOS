@@ -1,0 +1,25 @@
+name: Configure Render domains
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure-domains:
+    name: Add production custom domains
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Configure Render custom domains
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
+          WEB_CUSTOM_DOMAIN: bizos.qloudihub.com
+          API_CUSTOM_DOMAIN: api.bizos.qloudihub.com
+        run: node scripts/ops/configure-render-domains.mjs
