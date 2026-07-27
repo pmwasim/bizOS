@@ -57,7 +57,8 @@ Infrequent Access is intentionally unused because the free allowance applies to 
 
 ## Validation
 
-Run GitHub Actions workflow `Infrastructure validation` (workflow_dispatch). The R2 job:
+Run GitHub Actions workflow `Infrastructure validation` (workflow_dispatch). The R2 job runs
+`pnpm --filter @bizo/storage validate:r2`, which:
 
 1. Writes a uniquely named probe object under `infrastructure/probes/`
 2. Reads and checksum-verifies it

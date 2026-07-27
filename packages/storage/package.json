@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "validate:r2": "node ./scripts/validate-r2.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1095.0",
