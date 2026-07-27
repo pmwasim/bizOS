@@ -1,0 +1,43 @@
+name: Deploy Cloudflare health worker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy bizos-health Worker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    defaults:
+      run:
+        working-directory: ops/cloudflare-health-worker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Deploy Worker with Wrangler
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required."
+            exit 1
+          fi
+          npx --yes wrangler@4.114.0 deploy
+      - name: Record workers.dev hint
+        run: |
+          {
+            echo "## Cloudflare free health worker"
+            echo "- Worker name: \`bizos-health\`"
+            echo "- Cron: every 30 minutes"
+            echo "- KV: \`bizos-health-status\`"
+            echo "- Confirm \`*.workers.dev/status\` from the Wrangler deploy log"
+          } >> "$GITHUB_STEP_SUMMARY"

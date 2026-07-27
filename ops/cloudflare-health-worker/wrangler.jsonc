@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bizos-health",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-27",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+  "triggers": {
+    // Free plan allows up to 5 cron triggers/account. 30-minute cadence keeps KV writes low.
+    "crons": ["*/30 * * * *"],
+  },
+  "kv_namespaces": [
+    {
+      "binding": "STATUS",
+      "id": "b1302b5221a14f58a38200caecbe88e1",
+    },
+  ],
+}
