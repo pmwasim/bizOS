@@ -66,6 +66,30 @@ export const businessSummarySchema = z.strictObject({
   role: z.enum(["OWNER", "ADMIN", "MEMBER"]),
 });
 
+export const businessSettingsSchema = z.strictObject({
+  id: z.uuid(),
+  name: z.string(),
+  legalName: z.string().nullable(),
+  email: z.email().nullable(),
+  phone: z.string().nullable(),
+  addressLine1: z.string().nullable(),
+  addressLine2: z.string().nullable(),
+  city: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  countryCode: countryCodeSchema,
+  baseCurrency: currencyCodeSchema,
+  currencyScale: z.number().int(),
+  locale: z.string(),
+  timeZone: z.string(),
+  quotationPrefix: z.string(),
+  quotationValidityDays: z.number().int(),
+  defaultMessage: z.string().nullable(),
+  taxEnabled: z.boolean(),
+  taxName: z.string(),
+  taxRegistrationNumber: z.string().nullable(),
+  taxRatePercent: z.string(),
+});
+
 export const currentUserWorkspaceSchema = z.strictObject({
   user: z.strictObject({
     id: z.uuid(),
@@ -77,6 +101,7 @@ export const currentUserWorkspaceSchema = z.strictObject({
 });
 
 export type BusinessSummary = z.infer<typeof businessSummarySchema>;
+export type BusinessSettings = z.infer<typeof businessSettingsSchema>;
 export type CreateBusinessRequest = z.infer<typeof createBusinessRequestSchema>;
 export type CurrentUserWorkspace = z.infer<typeof currentUserWorkspaceSchema>;
 export type UpdateBusinessSettingsRequest = z.infer<typeof updateBusinessSettingsRequestSchema>;

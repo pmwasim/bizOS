@@ -7,6 +7,7 @@ import { Logger } from "nestjs-pino";
 import { readApiEnvironment } from "@bizo/config/api";
 
 import { AppModule } from "./app.module.js";
+import { ProblemDetailsFilter } from "./common/problem-details.filter.js";
 
 async function bootstrap(): Promise<void> {
   const environment = readApiEnvironment(process.env);
@@ -34,6 +35,7 @@ async function bootstrap(): Promise<void> {
       whitelist: true,
     }),
   );
+  app.useGlobalFilters(new ProblemDetailsFilter());
 
   await app.listen(environment.API_PORT, "0.0.0.0");
 }

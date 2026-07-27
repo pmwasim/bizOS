@@ -69,6 +69,26 @@ The implementation reference is the [desktop flow](design/mvp/desktop-flow-conce
   changing facts requires a new draft version.
 - SMTP attachments are in-memory bytes. Email delivery cannot read arbitrary files or URLs.
 
+## Implemented API slice
+
+The current `/api/v1` foundation exposes:
+
+- `POST /auth/signup`, `POST /auth/verify`, and authenticated `GET /me`.
+- `POST /businesses` plus settings read and update.
+- Customer create, list, read, and update within a resolved business.
+
+Every non-public route requires a short-lived internal assertion. Business routes independently
+resolve an active membership, apply the role policy, set database row-security context, validate
+strict request contracts, return no-store responses, and record mutation audit events. Quotation,
+PDF, and delivery endpoints are the next slice; this section must be updated when they are
+executable.
+
+The deployable NestJS application does not emit TypeScript declarations. Public types are owned by
+the contract and shared-library packages; keeping generated ORM types out of application declaration
+output prevents build-time type expansion without changing runtime architecture. The API also pins
+the workspace Zod catalog version directly because it constructs runtime pipes from contract
+schemas; this prevents structurally incompatible validator copies from entering the same type graph.
+
 ## Release evidence
 
 - Unit tests for runtime schemas, exact money, quotation totals, permissions, PDF generation, and

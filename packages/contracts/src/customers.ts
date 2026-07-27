@@ -24,3 +24,4 @@ export const customerSchema = createCustomerRequestSchema.extend({
 
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
 export type Customer = z.infer<typeof customerSchema>;
+export type UpdateCustomerRequest = CreateCustomerRequest;

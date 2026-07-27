@@ -1,7 +1,16 @@
 import { Module, RequestMethod } from "@nestjs/common";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 
+import { DatabaseModule } from "./database/database.module.js";
+import { CustomersModule } from "./customers/customers.module.js";
+import { NoStoreInterceptor } from "./common/no-store.interceptor.js";
 import { HealthModule } from "./health/health.module.js";
+import { IdentityModule } from "./identity/identity.module.js";
+import { PlatformModule } from "./platform/platform.module.js";
+import { InternalAuthGuard } from "./security/internal-auth.guard.js";
+import { SecurityModule } from "./security/security.module.js";
 
 @Module({
   imports: [
@@ -22,7 +31,18 @@ import { HealthModule } from "./health/health.module.js";
         },
       },
     }),
+    ThrottlerModule.forRoot([{ limit: 100, ttl: 60_000 }]),
+    DatabaseModule,
+    SecurityModule,
     HealthModule,
+    IdentityModule,
+    PlatformModule,
+    CustomersModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: InternalAuthGuard },
+    { provide: APP_INTERCEPTOR, useClass: NoStoreInterceptor },
   ],
 })
 export class AppModule {}
