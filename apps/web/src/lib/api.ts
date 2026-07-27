@@ -3,6 +3,7 @@ import { SignJWT } from "jose";
 import { readWebEnvironment } from "@bizo/config/web";
 
 import { auth } from "@/auth";
+import { clientIpHeaders } from "@/lib/client-ip";
 
 interface ProblemDetails {
   detail?: string;
@@ -23,12 +24,14 @@ function environment() {
   return readWebEnvironment(process.env);
 }
 
-export function publicApiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function publicApiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const clientIp = await clientIpHeaders();
   return fetch(`${environment().API_INTERNAL_URL}${path}`, {
     ...init,
     cache: "no-store",
     headers: {
       "content-type": "application/json",
+      ...clientIp,
       ...init?.headers,
     },
   });
@@ -40,6 +43,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     throw new ApiError("Sign in to continue.", 401);
   }
   const env = environment();
+  const clientIp = await clientIpHeaders();
   const assertion = await new SignJWT({})
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer("bizo-web")
@@ -55,6 +59,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     headers: {
       authorization: `Bearer ${assertion}`,
       "content-type": "application/json",
+      ...clientIp,
       ...init?.headers,
     },
   });

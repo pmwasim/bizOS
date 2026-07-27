@@ -401,6 +401,23 @@ export class QuotationsService {
   ): Promise<{ record: QuotationRecord; snapshot: QuotationSnapshot }> {
     return this.database.withScope(access, async (transaction) => {
       const record = await this.findRecordInTransaction(transaction, access, quotationPublicId);
+      if (record.status === DocumentStatus.SENT) {
+        const version = await transaction.documentVersion.findFirst({
+          where: {
+            businessId: access.businessId,
+            documentId: record.id,
+            version: record.version,
+          },
+          select: { snapshot: true },
+        });
+        if (!version) {
+          throw new Error("The finalized quotation snapshot is missing.");
+        }
+        return {
+          record,
+          snapshot: version.snapshot as unknown as QuotationSnapshot,
+        };
+      }
       const context = await this.loadSnapshotContext(transaction, access);
       return { record, snapshot: this.buildSnapshot(record, context) };
     });

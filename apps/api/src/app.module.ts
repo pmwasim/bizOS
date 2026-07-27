@@ -1,6 +1,6 @@
 import { Module, RequestMethod } from "@nestjs/common";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 
 import { DatabaseModule } from "./database/database.module.js";
@@ -11,6 +11,7 @@ import { HealthModule } from "./health/health.module.js";
 import { IdentityModule } from "./identity/identity.module.js";
 import { MailModule } from "./mail/mail.module.js";
 import { PlatformModule } from "./platform/platform.module.js";
+import { ClientAwareThrottlerGuard } from "./security/client-aware-throttler.guard.js";
 import { InternalAuthGuard } from "./security/internal-auth.guard.js";
 import { SecurityModule } from "./security/security.module.js";
 
@@ -44,7 +45,7 @@ import { SecurityModule } from "./security/security.module.js";
     DocumentsModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: ClientAwareThrottlerGuard },
     { provide: APP_GUARD, useClass: InternalAuthGuard },
     { provide: APP_INTERCEPTOR, useClass: NoStoreInterceptor },
   ],

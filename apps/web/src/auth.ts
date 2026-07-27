@@ -4,6 +4,8 @@ import Credentials from "next-auth/providers/credentials";
 import { authenticatedUserSchema, verifyCredentialsRequestSchema } from "@bizo/contracts/auth";
 import { readWebEnvironment } from "@bizo/config/web";
 
+import { clientIpHeaders } from "@/lib/client-ip";
+
 export const { auth, handlers, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/signin",
@@ -21,11 +23,15 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         });
         if (!parsed.success) return null;
 
+        const clientIp = await clientIpHeaders();
         const response = await fetch(
           `${readWebEnvironment(process.env).API_INTERNAL_URL}/auth/verify`,
           {
             cache: "no-store",
-            headers: { "content-type": "application/json" },
+            headers: {
+              "content-type": "application/json",
+              ...clientIp,
+            },
             method: "POST",
             body: JSON.stringify(parsed.data),
           },

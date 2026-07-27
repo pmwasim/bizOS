@@ -249,4 +249,112 @@ describe("QuotationsService delivery", () => {
       expect.objectContaining({ data: expect.objectContaining({ status: "SENT" }) }),
     );
   });
+
+  it("renders sent quotation PDFs from the frozen document snapshot", async () => {
+    const now = new Date("2026-07-27T09:00:00.000Z");
+    const frozenSnapshot = {
+      business: {
+        name: "Frozen Business",
+        legalName: null,
+        email: null,
+        phone: null,
+        address: [],
+        taxName: "VAT",
+        taxRegistrationNumber: null,
+      },
+      customer: {
+        name: "Frozen Customer",
+        email: "customer@example.test",
+        phone: null,
+        address: [],
+      },
+      number: "Q-0001",
+      issueDate: "2026-07-27",
+      validUntil: "2026-08-26",
+      currencyCode: "SAR",
+      currencyScale: 2,
+      subtotalMinor: "10000",
+      taxMinor: "0",
+      totalMinor: "10000",
+      lines: [
+        {
+          description: "Service",
+          quantity: "1",
+          unitPriceMinor: "10000",
+          taxRatePpm: 0,
+          subtotalMinor: "10000",
+          taxMinor: "0",
+          totalMinor: "10000",
+        },
+      ],
+    };
+    const record = {
+      id: 10n,
+      publicId: "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+      createdAt: now,
+      updatedAt: now,
+      currencyCode: "SAR",
+      currencyScale: 2,
+      customer: {
+        publicId: "f3fb94c1-a48a-4f09-82fc-93477534b1f4",
+        name: "Changed Customer",
+        email: "changed@example.test",
+        phone: null,
+        addressLine1: null,
+        addressLine2: null,
+        city: null,
+        postalCode: null,
+        countryCode: null,
+      },
+      issueDate: now,
+      validUntil: new Date("2026-08-26T00:00:00.000Z"),
+      lines: [],
+      number: "Q-0001",
+      sentAt: now,
+      status: DocumentStatus.SENT,
+      subtotalMinor: "10000",
+      taxMinor: "0",
+      totalMinor: "10000",
+      version: 1,
+    };
+    const transaction = {
+      document: {
+        findFirst: vi.fn().mockResolvedValue(record),
+      },
+      documentVersion: {
+        findFirst: vi.fn().mockResolvedValue({ snapshot: frozenSnapshot }),
+      },
+      business: {
+        findUniqueOrThrow: vi.fn(),
+      },
+    };
+    const database = {
+      withScope: vi
+        .fn()
+        .mockImplementation(async (_scope: unknown, work: (value: never) => Promise<unknown>) =>
+          work(transaction as never),
+        ),
+    } as unknown as DatabaseService;
+    const businessAccess = {
+      resolve: vi.fn().mockResolvedValue(access),
+      assertAllowed: vi.fn().mockResolvedValue(undefined),
+    } as unknown as BusinessAccessService;
+    const renderQuotation = vi.fn().mockResolvedValue(Buffer.from("%PDF-frozen"));
+    const service = new QuotationsService(
+      database,
+      businessAccess,
+      { renderQuotation } as unknown as PdfService,
+      {} as MailService,
+    );
+
+    const result = await service.renderPdf(
+      access.userPublicId,
+      access.businessPublicId,
+      record.publicId,
+    );
+
+    expect(result.filename).toBe("Q-0001.pdf");
+    expect(renderQuotation).toHaveBeenCalledWith(frozenSnapshot);
+    expect(transaction.business.findUniqueOrThrow).not.toHaveBeenCalled();
+  });
 });
