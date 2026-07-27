@@ -11,6 +11,10 @@
     "./infrastructure": {
       "types": "./dist/infrastructure.d.ts",
       "default": "./dist/infrastructure.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "default": "./dist/web.js"
     }
   },
   "scripts": {

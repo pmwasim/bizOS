@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@bizo/config": "workspace:*",
     "@bizo/contracts": "workspace:*",
     "@bizo/ui": "workspace:*",
     "jose": "6.2.4",

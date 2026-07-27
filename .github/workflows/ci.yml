@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
+      API_INTERNAL_URL: http://localhost:3001/api/v1
+      AUTH_SECRET: ci-only-auth-secret-that-is-at-least-32-bytes
       DATABASE_URL: postgresql://bizo:ci-only@localhost:5432/bizo
       INTERNAL_AUTH_SECRET: ci-only-internal-auth-secret-at-least-32-bytes
       NEXT_TELEMETRY_DISABLED: "1"

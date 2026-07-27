@@ -176,6 +176,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@bizo/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@bizo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
