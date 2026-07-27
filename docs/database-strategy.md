@@ -14,6 +14,11 @@ Prisma owns schema and migration artifacts. Application modules access persisten
 module-owned repositories; controllers and UI code do not use Prisma directly. Raw SQL requires a
 reviewed reason, parameterization, tenant-scope tests, and a repository wrapper.
 
+The generated Prisma client remains internal to `@bizo/database`. Its public TypeScript declarations
+are emitted with `tsc`, while its Node.js runtime is bundled with external dependencies preserved.
+This makes the package directly executable by the API without exposing generated source paths or
+requiring Node.js to resolve Prisma's TypeScript-only internal modules.
+
 ## Tenant isolation
 
 - Every business table includes non-null `tenant_id` and `business_id`.
