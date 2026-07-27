@@ -4,6 +4,7 @@ import {
   HttpException,
   HttpStatus,
   type ExceptionFilter,
+  Logger,
 } from "@nestjs/common";
 import { type Request, type Response } from "express";
 
@@ -16,6 +17,8 @@ interface ExceptionBody {
 
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ProblemDetailsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
@@ -31,6 +34,12 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         ? "We could not complete that request. Try again."
         : this.readDetail(body, exceptionResponse);
     const requestId = response.getHeader("x-request-id") ?? request.headers["x-request-id"];
+    if (status >= 500) {
+      this.logger.error(
+        `Unhandled ${request.method} ${request.originalUrl}; requestId=${String(requestId ?? "unknown")}`,
+        exception instanceof Error ? exception.stack : undefined,
+      );
+    }
 
     response
       .status(status)
