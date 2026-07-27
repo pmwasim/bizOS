@@ -19,10 +19,12 @@
       "dependsOn": ["^lint"]
     },
     "test": {
-      "dependsOn": ["^build", "build"]
+      "dependsOn": ["^build", "build"],
+      "env": ["DATABASE_URL", "REDIS_URL", "RUN_DATABASE_TESTS", "RUN_REDIS_TESTS"]
     },
     "test:coverage": {
       "dependsOn": ["^build", "build"],
+      "env": ["DATABASE_URL", "REDIS_URL", "RUN_DATABASE_TESTS", "RUN_REDIS_TESTS"],
       "outputs": ["coverage/**"]
     },
     "typecheck": {
