@@ -4,8 +4,11 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "bizOS",
-  description: "A simple, workflow-first business operating system.",
+  title: {
+    default: "bizOS — Simple business quotations",
+    template: "%s · bizOS",
+  },
+  description: "Create and send professional quotations in minutes.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
