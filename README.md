@@ -33,6 +33,8 @@ docs/                 Product, UX, architecture, operations, and ADR handbook
 
 ```bash
 cp .env.example .env
+# Replace the placeholder Redis password in both REDIS_PASSWORD and REDIS_URL.
+# A suitable value can be generated with: openssl rand -hex 32
 pnpm install --frozen-lockfile
 docker compose up -d postgres redis
 pnpm db:validate

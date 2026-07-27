@@ -12,7 +12,7 @@
   "scripts": {
     "build": "turbo run build",
     "changeset": "changeset",
-    "check": "pnpm format:check && pnpm docs:check && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate && pnpm build",
+    "check": "pnpm format:check && pnpm docs:check && pnpm security:local-services && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate && pnpm build",
     "clean": "turbo run clean && rm -rf .turbo coverage",
     "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose",
     "db:format": "pnpm --filter @bizo/database prisma:format",
@@ -24,6 +24,7 @@
     "lint": "eslint .",
     "prepare": "lefthook install",
     "security:audit": "pnpm audit --audit-level=moderate",
+    "security:local-services": "node scripts/check-local-services.mjs",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",
