@@ -33,35 +33,114 @@ async function render(path, init = {}) {
   } catch {
     throw new Error(`Render API ${path} failed: non-JSON http=${response.status}`);
   }
-  if (!response.ok) {
+  return { ok: response.ok, status: response.status, body };
+}
+
+function domainName(item) {
+  return item?.name ?? item?.domain?.name ?? item?.customDomain?.name ?? null;
+}
+
+function normalizeDomainList(body) {
+  const raw = Array.isArray(body) ? body : [];
+  return raw.map((item) => item?.customDomain ?? item?.domain ?? item).filter(Boolean);
+}
+
+async function listDomains(serviceId) {
+  const result = await render(`/services/${serviceId}/custom-domains`);
+  if (!result.ok) {
     throw new Error(
-      `Render API ${path} failed: http=${response.status} body=${JSON.stringify(body)}`,
+      `Render API list custom-domains failed: http=${result.status} body=${JSON.stringify(result.body)}`,
     );
   }
-  return body;
+  return normalizeDomainList(result.body);
 }
 
 async function ensureDomain(serviceId, name) {
-  const existing = await render(`/services/${serviceId}/custom-domains`);
-  const list = Array.isArray(existing) ? existing : (existing ?? []);
-  const found = list.find(
-    (item) => (item.name ?? item.domain?.name) === name || item?.domain?.name === name,
-  );
+  const existing = await listDomains(serviceId);
+  const found = existing.find((item) => domainName(item) === name);
   if (found) {
-    console.warn(`Custom domain already present on ${serviceId}: ${name}`);
+    console.warn(
+      `Custom domain already present on service: ${name} (verification=${found.verificationStatus ?? "unknown"})`,
+    );
     return found;
   }
+
   const created = await render(`/services/${serviceId}/custom-domains`, {
     method: "POST",
     body: JSON.stringify({ name }),
   });
-  console.warn(`Added custom domain ${name} to ${serviceId}`);
-  return created;
+
+  if (created.ok) {
+    console.warn(`Added custom domain ${name}`);
+    return created.body;
+  }
+
+  // Domain may already exist on this or another service (common after partial setup).
+  if (created.status === 409) {
+    console.warn(
+      `Custom domain ${name} already exists in the Render account (http=409). Continuing.`,
+    );
+    return null;
+  }
+
+  throw new Error(
+    `Render API add custom-domain failed: http=${created.status} body=${JSON.stringify(created.body)}`,
+  );
+}
+
+async function refreshDomain(serviceId, name) {
+  const result = await render(
+    `/services/${serviceId}/custom-domains/${encodeURIComponent(name)}/verify`,
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
+  if (!result.ok && result.status !== 404) {
+    console.warn(`Domain verify skipped/failed for ${name}: http=${result.status}`);
+    return;
+  }
+  if (result.ok) {
+    console.warn(`Triggered DNS verification for ${name}`);
+  }
 }
 
 async function main() {
   await ensureDomain(webServiceId, webDomain);
   await ensureDomain(apiServiceId, apiDomain);
+
+  const webDomains = await listDomains(webServiceId);
+  const apiDomains = await listDomains(apiServiceId);
+  console.warn(
+    `Web service domains: ${
+      webDomains
+        .map((item) => domainName(item))
+        .filter(Boolean)
+        .join(", ") || "(none)"
+    }`,
+  );
+  console.warn(
+    `API service domains: ${
+      apiDomains
+        .map((item) => domainName(item))
+        .filter(Boolean)
+        .join(", ") || "(none)"
+    }`,
+  );
+
+  if (webDomains.some((item) => domainName(item) === webDomain)) {
+    await refreshDomain(webServiceId, webDomain);
+  }
+  if (apiDomains.some((item) => domainName(item) === apiDomain)) {
+    await refreshDomain(apiServiceId, apiDomain);
+  }
+
+  if (!apiDomains.some((item) => domainName(item) === apiDomain)) {
+    throw new Error(
+      `API custom domain ${apiDomain} is not attached to the API service. Remove it from any other Render service, then re-run.`,
+    );
+  }
+
   console.warn("Render custom domain configuration complete.");
 }
 
