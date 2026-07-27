@@ -184,8 +184,10 @@ async function main() {
   console.warn("Found qloudihub.com zone.");
 
   await ensureHttps(zoneId);
-  await upsertCname(zoneId, "bizos.qloudihub.com", webOrigin, true);
-  await upsertCname(zoneId, "api.bizos.qloudihub.com", apiOrigin, true);
+  // Render onrender.com origins sit on Cloudflare IPs. Orange-cloud proxying them
+  // returns "DNS points to prohibited IP". Use DNS-only; Render terminates TLS.
+  await upsertCname(zoneId, "bizos.qloudihub.com", webOrigin, false);
+  await upsertCname(zoneId, "api.bizos.qloudihub.com", apiOrigin, false);
   await ensureSecurityHeaders(zoneId);
 
   if (!webOrigin || !apiOrigin) {

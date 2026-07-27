@@ -260,7 +260,7 @@ jobs:
       || needs.migrate.result == 'skipped') && (needs.validate-r2.result == 'success' ||
       needs.validate-r2.result == 'skipped') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     environment: production
     steps:
       - name: Check out repository
@@ -284,44 +284,45 @@ jobs:
             exit 0
           fi
           echo "configured=true" >> "$GITHUB_OUTPUT"
-      - name: Deploy API image
+      - name: Deploy API (git/Docker build)
         if: ${{ steps.hosting.outputs.configured == 'true' }}
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
           DEPLOY_SHA: ${{ needs.publish-images.outputs.deploy_sha }}
-          OWNER: ${{ github.repository_owner }}
         run: |
+          # Free-tier services build from GitHub + Dockerfile paths (not private GHCR pulls).
+          # Still publish GHCR images above for immutability / future image-backed cutover.
           curl --fail-with-body --silent --show-error \
             -X POST "https://api.render.com/v1/services/${RENDER_API_SERVICE_ID}/deploys" \
             -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Content-Type: application/json" \
-            -d "{\"imageUrl\":\"ghcr.io/${OWNER}/bizo-api:${DEPLOY_SHA}\"}"
-      - name: Deploy web image
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${DEPLOY_SHA}\"}"
+      - name: Deploy web (git/Docker build)
         if: ${{ steps.hosting.outputs.configured == 'true' }}
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
           DEPLOY_SHA: ${{ needs.publish-images.outputs.deploy_sha }}
-          OWNER: ${{ github.repository_owner }}
         run: |
           curl --fail-with-body --silent --show-error \
             -X POST "https://api.render.com/v1/services/${RENDER_WEB_SERVICE_ID}/deploys" \
             -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Content-Type: application/json" \
-            -d "{\"imageUrl\":\"ghcr.io/${OWNER}/bizo-web:${DEPLOY_SHA}\"}"
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${DEPLOY_SHA}\"}"
       - name: Wait for API health
         if: ${{ steps.hosting.outputs.configured == 'true' }}
         env:
           API_HEALTH_URL: ${{ vars.API_HEALTH_URL }}
         run: |
           url="${API_HEALTH_URL:-https://api.bizos.qloudihub.com/api/v1/health}"
-          for attempt in {1..40}; do
-            if curl --fail --silent "$url" | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+          # Free-tier cold starts + monorepo Docker builds can exceed 10 minutes.
+          for attempt in {1..60}; do
+            if curl --fail --silent --max-time 30 "$url" | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'; then
               echo "API healthy"
               exit 0
             fi
-            sleep 15
+            sleep 20
           done
           echo "API health check failed"
           exit 1
@@ -331,13 +332,13 @@ jobs:
           WEB_HEALTH_URL: ${{ vars.WEB_HEALTH_URL }}
         run: |
           url="${WEB_HEALTH_URL:-https://bizos.qloudihub.com/}"
-          for attempt in {1..40}; do
-            code=$(curl --silent --output /dev/null --write-out '%{http_code}' "$url" || true)
+          for attempt in {1..60}; do
+            code=$(curl --silent --max-time 30 --output /dev/null --write-out '%{http_code}' "$url" || true)
             if [ "$code" = "200" ]; then
               echo "Web healthy"
               exit 0
             fi
-            sleep 15
+            sleep 20
           done
           echo "Web health check failed"
           exit 1
@@ -350,8 +351,9 @@ jobs:
           {
             echo "## Production deployment"
             echo "- Target SHA: \`${DEPLOY_SHA}\`"
-            echo "- API image: \`ghcr.io/${OWNER}/bizo-api:${DEPLOY_SHA}\`"
-            echo "- Web image: \`ghcr.io/${OWNER}/bizo-web:${DEPLOY_SHA}\`"
+            echo "- Deploy mode: Render git/Docker build (GHCR tags also published)"
+            echo "- API image (artifact): \`ghcr.io/${OWNER}/bizo-api:${DEPLOY_SHA}\`"
+            echo "- Web image (artifact): \`ghcr.io/${OWNER}/bizo-web:${DEPLOY_SHA}\`"
             if [ "$HOSTING_CONFIGURED" = "true" ]; then
               echo "- Hosting rollout: completed"
             else
