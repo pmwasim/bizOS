@@ -31,10 +31,11 @@ plan.
 
 ## CI layers
 
-Pull requests run formatting, lint, types, unit/contract tests, Prisma validation, production
-builds, dependency review, secret scanning, and CodeQL. Main and release pipelines additionally run
-container, migration, integration, end-to-end, and deployment verification gates as those
-environments are added.
+Pull requests run formatting, lint, types, unit/contract tests, Prisma validation, migration
+deployment against PostgreSQL, authenticated Redis integration, production builds, desktop and
+mobile end-to-end quotation journeys through Mailpit, OCI image builds, dependency review, GitHub
+secret scanning, and CodeQL. Deployment verification remains a post-merge gate owned by the
+deployment environment.
 
 ## Coverage
 

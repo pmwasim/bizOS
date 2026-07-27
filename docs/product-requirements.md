@@ -1,6 +1,6 @@
 # Product requirements
 
-Status: Accepted foundation requirements; domain feature detail remains gated
+Status: Accepted foundation and quotation MVP requirements
 
 ## Goals
 
@@ -45,6 +45,23 @@ Status: Accepted foundation requirements; domain feature detail remains gated
 | LOC-001 | Language          | Locale-aware UI and documents with bidirectional layout support                 |
 | EXT-001 | API               | Versioned, idempotent, scoped, auditable public API and webhooks                |
 | AI-001  | AI assistance     | Permission-scoped suggestions with citations and explicit confirmation          |
+
+## Quotation MVP release slice
+
+The first production slice is intentionally narrower than the long-term capability table:
+
+```text
+Sign up -> Set up business -> Add customer -> Create quotation -> Preview PDF -> Send
+```
+
+It includes authentication, organizations, memberships, default roles, business settings, one tax
+profile, exact currency values, customer management, a generic document record with a
+quotation-specific lifecycle, a professional PDF template, SMTP delivery, a small dashboard, and
+responsive settings screens.
+
+Purchase orders, invoice approvals, invoices, payments, CRM, inventory, AI, workflow building,
+plugins, and a marketplace remain excluded until the quotation journey meets the release gates in
+[Quotation MVP](mvp-quotation.md).
 
 ## Cross-cutting release gates
 

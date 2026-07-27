@@ -12,7 +12,7 @@
   "scripts": {
     "build": "turbo run build",
     "changeset": "changeset",
-    "check": "pnpm format:check && pnpm docs:check && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate && pnpm build",
+    "check": "pnpm format:check && pnpm docs:check && pnpm security:local-services && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate && pnpm build",
     "clean": "turbo run clean && rm -rf .turbo coverage",
     "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose",
     "db:format": "pnpm --filter @bizo/database prisma:format",
@@ -24,7 +24,9 @@
     "lint": "eslint .",
     "prepare": "lefthook install",
     "security:audit": "pnpm audit --audit-level=moderate",
+    "security:local-services": "node --test scripts/check-local-services.spec.mjs && node scripts/check-local-services.mjs",
     "test": "turbo run test",
+    "test:e2e": "playwright test",
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",
     "version": "changeset version"
@@ -35,6 +37,7 @@
     "@commitlint/config-conventional": "21.2.0",
     "@eslint/js": "10.0.1",
     "@next/eslint-plugin-next": "16.2.12",
+    "@playwright/test": "1.62.0",
     "@types/node": "26.1.1",
     "@vitest/coverage-v8": "4.1.10",
     "eslint": "10.8.0",

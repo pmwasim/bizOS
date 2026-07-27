@@ -8,6 +8,7 @@ WORKDIR /workspace
 FROM base AS dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web/package.json apps/web/package.json
+COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/ui/package.json packages/ui/package.json
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
@@ -17,6 +18,7 @@ FROM dependencies AS build
 COPY turbo.json tsconfig.base.json eslint.config.mjs ./
 COPY scripts/prepare-next-standalone.mjs scripts/prepare-next-standalone.mjs
 COPY apps/web apps/web
+COPY packages/config packages/config
 COPY packages/contracts packages/contracts
 COPY packages/ui packages/ui
 RUN pnpm --filter @bizo/web... build

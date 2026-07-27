@@ -20,6 +20,8 @@ overrides:
 
 allowBuilds:
   "@prisma/engines": true
+  argon2: true
+  esbuild: true
   lefthook: true
   msgpackr-extract: false
   prisma: true

@@ -18,8 +18,11 @@ through the same checks.
 ## Pull requests
 
 Pull requests require a linked issue or decision context, Conventional Commit title, scoped change,
-tests, documentation, security/tenant analysis, and rollback notes. CODEOWNERS review is required
-for owned areas. Authors do not provide the only approval for high-risk changes.
+tests, documentation, security/tenant analysis, and rollback notes. While only one maintainer
+exists, CODEOWNERS remains ownership metadata and approving reviews are not a merge gate; see
+[ADR-0014](decisions/0014-single-maintainer-branch-protection.md). Restore required approvals when a
+trusted second maintainer is added. Authors still must not treat self-review as a substitute for
+required checks and conversation resolution.
 
 ## Required checks
 
@@ -27,10 +30,11 @@ for owned areas. Authors do not provide the only approval for high-risk changes.
 - CodeQL
 - dependency review
 - secret scanning/push protection
-- future migration, integration, container, and end-to-end gates when those paths exist
+- container image builds
+- migration, integration, and end-to-end gates present in CI
 
-Use merge queue and squash merge. Delete branches after merge. Require conversation resolution,
-linear history, signed commits/tags when the team can operate them reliably, and no force pushes.
+Use squash merge. Delete branches after merge. Require conversation resolution, linear history, and
+no force pushes. Signed commits/tags are preferred when the team can operate them reliably.
 
 ## Labels
 

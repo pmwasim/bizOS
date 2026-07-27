@@ -1,6 +1,6 @@
 # Deployment strategy
 
-Status: Accepted target; provider selection remains open
+Status: Accepted target; Cloudflare handoff prepared, deployment pending
 
 ## Environments
 
@@ -47,3 +47,7 @@ premature active-active consistency.
 Cloud resources, network policy, databases, buckets, queues, secrets, DNS, alerts, and dashboards
 must be declared and reviewed. Provider and IaC tool selection requires a separate ADR because it
 affects cost, portability, and operational ownership.
+
+The quotation MVP release contract and operational checklist are captured in the
+[Cursor deployment handoff](deployment-handoff-cursor.md). That document does not record or
+authorize a deployment.

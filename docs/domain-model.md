@@ -1,6 +1,6 @@
 # Domain model
 
-Status: Conceptual baseline; no business schema is approved
+Status: Quotation MVP schema approved
 
 ## Core scopes
 
@@ -26,9 +26,10 @@ authenticated membership and cannot be selected freely by request input.
 - **Statement**: point-in-time generated view over document and payment facts.
 - **Attachment**: metadata for an object stored outside the application web root.
 
-An offer, purchase order, supplier invoice, and customer invoice are document types with shared
-primitives but distinct lifecycle rules. They must not become a single table with behavior hidden in
-conditionals unless an ADR demonstrates that the model remains understandable.
+A quotation uses the shared document facts and its own application service and lifecycle. The first
+schema deliberately contains no purchase order, invoice, payment, or workflow states. Future
+document types may reuse the shared facts only when their distinct lifecycle remains explicit, as
+recorded in ADR-0013.
 
 ## Value objects
 

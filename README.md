@@ -3,15 +3,16 @@
 bizOS is a workflow-first Business Operating System for small businesses and service companies. It
 is designed for people who run a business, not people who speak in accounting jargon.
 
-This repository is currently in **Phase 0: engineering foundation**. It intentionally contains no
-quotation, invoice, payment, or accounting feature implementation.
+The engineering foundation is frozen and the repository now delivers the first MVP slice: a new user
+can create a business, add a customer, prepare a quotation, preview its professional PDF, and send
+it by email. Invoices, payments, accounting, and the other future modules remain out of scope.
 
 ## Repository map
 
 ```text
 apps/
-  api/               NestJS modular-monolith API
-  web/               Next.js web application and BFF
+  api/               NestJS modular-monolith API and quotation delivery
+  web/               Next.js web application, Auth.js session boundary, and BFF
 packages/
   authorization/     Casbin policy model and enforcement boundary
   config/            Runtime environment validation
@@ -33,14 +34,17 @@ docs/                 Product, UX, architecture, operations, and ADR handbook
 
 ```bash
 cp .env.example .env
+# Replace the placeholder Redis password in both REDIS_PASSWORD and REDIS_URL.
+# A suitable value can be generated with: openssl rand -hex 32
 pnpm install --frozen-lockfile
-docker compose up -d postgres redis
+docker compose up -d postgres redis mailpit
 pnpm db:validate
 pnpm dev
 ```
 
 - Web: `http://localhost:3000`
 - API health: `http://localhost:3001/api/v1/health`
+- Local message inbox: `http://localhost:8025`
 
 ## Quality gate
 
@@ -51,7 +55,9 @@ pnpm check
 The gate checks formatting, linting, TypeScript, tests, the Prisma schema, and production builds.
 See [Contributing](CONTRIBUTING.md) and the [documentation index](docs/README.md).
 
+The full slice and its scope boundary are documented in [Quotation MVP](docs/mvp-quotation.md).
+
 ## Status and license
 
-The platform is pre-release and not suitable for production business records. The source is
-currently all-rights-reserved; see [LICENSE.md](LICENSE.md).
+The quotation MVP is pre-release until its remote CI and deployment acceptance gates pass. The
+source is currently all-rights-reserved; see [LICENSE.md](LICENSE.md).

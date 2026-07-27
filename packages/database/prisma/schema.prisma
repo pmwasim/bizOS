@@ -7,6 +7,342 @@ datasource db {
   provider = "postgresql"
 }
 
-// Phase 0 deliberately contains no business tables. The first migration will be accepted only
-// after tenant isolation, audit fields, public identifiers, money representation, and lifecycle
-// rules have executable database tests. See docs/database-strategy.md and ADR-0005.
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum RoleCode {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum DocumentType {
+  QUOTATION
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  email        String   @db.VarChar(320)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  displayName  String   @map("display_name") @db.VarChar(120)
+  locale       String   @default("en") @db.VarChar(35)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships Membership[]
+  auditEvents AuditEvent[]
+
+  @@index([publicId])
+  @@map("users")
+}
+
+model Tenant {
+  id        BigInt   @id @default(autoincrement())
+  publicId  String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  name      String   @db.VarChar(160)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  businesses  Business[]
+  memberships Membership[]
+  roles       Role[]
+
+  @@map("tenants")
+}
+
+model Membership {
+  id        BigInt           @id @default(autoincrement())
+  publicId  String           @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId  BigInt           @map("tenant_id")
+  userId    BigInt           @map("user_id")
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  businessAccess BusinessAccess[]
+  documents      Document[]
+
+  @@unique([tenantId, userId])
+  @@unique([tenantId, id])
+  @@index([userId, status])
+  @@map("memberships")
+}
+
+model Role {
+  id          BigInt   @id @default(autoincrement())
+  publicId    String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId    BigInt   @map("tenant_id")
+  code        RoleCode
+  name        String   @db.VarChar(80)
+  permissions String[] @default([]) @db.VarChar(80)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  businessAccess BusinessAccess[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, id])
+  @@map("roles")
+}
+
+model Business {
+  id            BigInt   @id @default(autoincrement())
+  publicId      String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId      BigInt   @map("tenant_id")
+  name          String   @db.VarChar(160)
+  legalName     String?  @map("legal_name") @db.VarChar(200)
+  countryCode   String   @map("country_code") @db.Char(2)
+  baseCurrency  String   @map("base_currency") @db.Char(3)
+  currencyScale Int      @default(2) @map("currency_scale") @db.SmallInt
+  locale        String   @default("en") @db.VarChar(35)
+  timeZone      String   @default("UTC") @map("time_zone") @db.VarChar(64)
+  email         String?  @db.VarChar(320)
+  phone         String?  @db.VarChar(40)
+  addressLine1  String?  @map("address_line_1") @db.VarChar(200)
+  addressLine2  String?  @map("address_line_2") @db.VarChar(200)
+  city          String?  @db.VarChar(120)
+  postalCode    String?  @map("postal_code") @db.VarChar(32)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  access       BusinessAccess[]
+  settings     BusinessSettings?
+  taxProfile   TaxProfile?
+  customers    Customer[]
+  documents    Document[]
+  auditEvents  AuditEvent[]
+  outboxEvents OutboxEvent[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, name])
+  @@map("businesses")
+}
+
+model BusinessAccess {
+  tenantId     BigInt   @map("tenant_id")
+  businessId   BigInt   @map("business_id")
+  membershipId BigInt   @map("membership_id")
+  roleId       BigInt   @map("role_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business   Business   @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+  membership Membership @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Cascade)
+  role       Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([tenantId, businessId, membershipId])
+  @@index([tenantId, membershipId])
+  @@index([tenantId, roleId])
+  @@map("business_access")
+}
+
+model BusinessSettings {
+  businessId            BigInt   @id @map("business_id")
+  tenantId              BigInt   @map("tenant_id")
+  quotationPrefix       String   @default("Q") @map("quotation_prefix") @db.VarChar(12)
+  nextQuotationNumber   Int      @default(1) @map("next_quotation_number")
+  quotationValidityDays Int      @default(30) @map("quotation_validity_days") @db.SmallInt
+  defaultMessage        String?  @map("default_message") @db.VarChar(1000)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, businessId])
+  @@map("business_settings")
+}
+
+model TaxProfile {
+  businessId         BigInt   @id @map("business_id")
+  tenantId           BigInt   @map("tenant_id")
+  enabled            Boolean  @default(false)
+  name               String   @default("Tax") @db.VarChar(80)
+  registrationNumber String?  @map("registration_number") @db.VarChar(80)
+  ratePpm            Int      @default(0) @map("rate_ppm")
+  priceIncludesTax   Boolean  @default(false) @map("price_includes_tax")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, businessId])
+  @@map("tax_profiles")
+}
+
+model Customer {
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId     BigInt   @map("tenant_id")
+  businessId   BigInt   @map("business_id")
+  name         String   @db.VarChar(200)
+  email        String?  @db.VarChar(320)
+  phone        String?  @db.VarChar(40)
+  addressLine1 String?  @map("address_line_1") @db.VarChar(200)
+  addressLine2 String?  @map("address_line_2") @db.VarChar(200)
+  city         String?  @db.VarChar(120)
+  postalCode   String?  @map("postal_code") @db.VarChar(32)
+  countryCode  String?  @map("country_code") @db.Char(2)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business  Business   @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  documents Document[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, name])
+  @@map("customers")
+}
+
+model Document {
+  id                    BigInt         @id @default(autoincrement())
+  publicId              String         @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId              BigInt         @map("tenant_id")
+  businessId            BigInt         @map("business_id")
+  customerId            BigInt         @map("customer_id")
+  type                  DocumentType
+  status                DocumentStatus @default(DRAFT)
+  number                String         @db.VarChar(40)
+  issueDate             DateTime       @map("issue_date") @db.Date
+  validUntil            DateTime       @map("valid_until") @db.Date
+  currencyCode          String         @map("currency_code") @db.Char(3)
+  currencyScale         Int            @map("currency_scale") @db.SmallInt
+  subtotalMinor         Decimal        @map("subtotal_minor") @db.Decimal(38, 0)
+  taxMinor              Decimal        @map("tax_minor") @db.Decimal(38, 0)
+  totalMinor            Decimal        @map("total_minor") @db.Decimal(38, 0)
+  version               Int            @default(1)
+  sentAt                DateTime?      @map("sent_at") @db.Timestamptz(3)
+  createdByMembershipId BigInt         @map("created_by_membership_id")
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer Customer          @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  lines    DocumentLine[]
+  versions DocumentVersion[]
+  creator  Membership        @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, type, number])
+  @@index([tenantId, businessId, status, createdAt])
+  @@map("documents")
+}
+
+model DocumentLine {
+  id             BigInt  @id @default(autoincrement())
+  tenantId       BigInt  @map("tenant_id")
+  businessId     BigInt  @map("business_id")
+  documentId     BigInt  @map("document_id")
+  position       Int
+  description    String  @db.VarChar(500)
+  quantity       Decimal @db.Decimal(20, 6)
+  unitPriceMinor Decimal @map("unit_price_minor") @db.Decimal(38, 0)
+  taxRatePpm     Int     @map("tax_rate_ppm")
+  subtotalMinor  Decimal @map("subtotal_minor") @db.Decimal(38, 0)
+  taxMinor       Decimal @map("tax_minor") @db.Decimal(38, 0)
+  totalMinor     Decimal @map("total_minor") @db.Decimal(38, 0)
+
+  document Document @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Cascade)
+
+  @@unique([tenantId, businessId, documentId, position])
+  @@index([tenantId, businessId, documentId])
+  @@map("document_lines")
+}
+
+model DocumentVersion {
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId     BigInt   @map("tenant_id")
+  businessId   BigInt   @map("business_id")
+  documentId   BigInt   @map("document_id")
+  version      Int
+  snapshot     Json
+  templateName String   @default("professional-v1") @map("template_name") @db.VarChar(80)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  document   Document           @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  deliveries DocumentDelivery[]
+
+  @@unique([tenantId, businessId, documentId, version])
+  @@index([tenantId, businessId, documentId])
+  @@map("document_versions")
+}
+
+model DocumentDelivery {
+  id                BigInt         @id @default(autoincrement())
+  publicId          String         @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId          BigInt         @map("tenant_id")
+  businessId        BigInt         @map("business_id")
+  documentId        BigInt         @map("document_id")
+  documentVersion   Int            @map("document_version")
+  recipientEmail    String         @map("recipient_email") @db.VarChar(320)
+  message           String?        @db.VarChar(2000)
+  status            DeliveryStatus @default(PENDING)
+  providerMessageId String?        @map("provider_message_id") @db.VarChar(255)
+  failureReason     String?        @map("failure_reason") @db.VarChar(500)
+  sentAt            DateTime?      @map("sent_at") @db.Timestamptz(3)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  versionRecord DocumentVersion @relation(fields: [tenantId, businessId, documentId, documentVersion], references: [tenantId, businessId, documentId, version], onDelete: Restrict)
+
+  @@index([tenantId, businessId, documentId, createdAt])
+  @@map("document_deliveries")
+}
+
+model AuditEvent {
+  id             BigInt   @id @default(autoincrement())
+  publicId       String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId       BigInt   @map("tenant_id")
+  businessId     BigInt   @map("business_id")
+  actorUserId    BigInt   @map("actor_user_id")
+  action         String   @db.VarChar(80)
+  targetType     String   @map("target_type") @db.VarChar(80)
+  targetPublicId String   @map("target_public_id") @db.Uuid
+  before         Json?
+  after          Json?
+  requestId      String   @map("request_id") @db.VarChar(128)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  actor    User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, businessId, targetType, targetPublicId, createdAt])
+  @@map("audit_events")
+}
+
+model OutboxEvent {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          BigInt    @map("tenant_id")
+  businessId        BigInt    @map("business_id")
+  eventType         String    @map("event_type") @db.VarChar(120)
+  aggregateType     String    @map("aggregate_type") @db.VarChar(80)
+  aggregatePublicId String    @map("aggregate_public_id") @db.Uuid
+  payload           Json
+  attempts          Int       @default(0)
+  availableAt       DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  publishedAt       DateTime? @map("published_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([publishedAt, availableAt])
+  @@index([tenantId, businessId, createdAt])
+  @@map("outbox_events")
+}
