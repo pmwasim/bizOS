@@ -37,6 +37,7 @@ in the same pull request.
 - [Coding standards](coding-standards.md)
 - [Testing strategy](testing-strategy.md)
 - [Deployment strategy](deployment-strategy.md)
+- [Cursor deployment handoff](deployment-handoff-cursor.md)
 - [Observability](observability.md)
 - [Security](security.md)
 - [GitHub governance](github-governance.md)

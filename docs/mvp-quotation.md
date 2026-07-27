@@ -101,12 +101,12 @@ schemas; this prevents structurally incompatible validator copies from entering 
 - A PostgreSQL-backed CI journey for cross-tenant denial, scoped foreign keys, numbering
   concurrency, immutable sent versions, and the complete API path.
 - API tests for unauthenticated, unauthorized, invalid, happy-path, and conflict responses.
-- Manual Playwright browser verification of the complete desktop and mobile journey, keyboard focus,
-  accessible names, responsive quotation editing, embedded PDF preview, send confirmation, and a
-  zero-error browser console.
+- Playwright CI journeys run the complete workflow on desktop and mobile against the real API,
+  PostgreSQL, PDF route, and Mailpit SMTP service. They verify responsive navigation, exact
+  displayed totals, PDF signature/content type, send confirmation, and persisted sent state.
 - The local quality gate covers formatting, documentation links, service exposure policy, lint,
   TypeScript, unit tests, Prisma validation, and production builds.
 
-The local Docker daemon was unavailable during this implementation. PostgreSQL and SMTP container
-acceptance therefore remain CI gates until equivalent local runtime evidence is available. Remote CI
-and deployment acceptance are not claimed by local verification.
+The local Docker daemon was unavailable during this implementation. PostgreSQL, authenticated Redis,
+SMTP, Playwright, and OCI image acceptance therefore remain authoritative CI gates. Deployment
+acceptance is separate and is not claimed by repository verification.

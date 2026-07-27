@@ -48,8 +48,9 @@ audit evidence. Availability matters, but a fast cross-tenant response is a secu
 - TLS in transit and managed encryption at rest.
 - Secrets from a secret manager, never source, client bundles, logs, or build arguments.
 - Local PostgreSQL and Redis bind to loopback. Redis requires a developer-generated password, and
-  its health check authenticates with that password. `pnpm security:local-services` guards those
-  executable boundaries.
+  its health check authenticates with that password. `pnpm security:local-services` evaluates the
+  normalized Compose model, rejects wildcard or host-network publication for every private service,
+  rejects PostgreSQL trust authentication, and includes policy regression tests.
 - R2 buckets private; short-lived signed operations; random keys; type, size, checksum, malware, and
   active-content controls. Uploads never enter `public/`.
 - Backups encrypted, access-controlled, retained, and restored in exercises.
