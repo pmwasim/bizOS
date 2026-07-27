@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { Reflector } from "@nestjs/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AppModule } from "./app.module.js";
 import { CustomersService } from "./customers/customers.service.js";
 import { DatabaseService } from "./database/database.service.js";
 import { PdfService } from "./documents/pdf.service.js";
@@ -54,6 +55,21 @@ describe("Nest dependency injection", () => {
     }).compile();
 
     expect(module.get(InternalAuthGuard)).toBeInstanceOf(InternalAuthGuard);
+
+    await module.close();
+  });
+
+  it("compiles the complete application dependency graph", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test:test@localhost:5432/bizo");
+    vi.stubEnv("INTERNAL_AUTH_SECRET", "test-only-internal-auth-secret-32-bytes");
+    vi.stubEnv("SMTP_FROM", "quotes@example.test");
+    vi.stubEnv("SMTP_URL", "smtp://localhost:1025");
+
+    const module = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    expect(module.get(AppModule)).toBeInstanceOf(AppModule);
 
     await module.close();
   });

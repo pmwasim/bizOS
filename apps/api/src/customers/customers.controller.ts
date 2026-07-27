@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Put } from "@nestjs/common";
 
 import {
   createCustomerRequestSchema,
@@ -10,11 +10,11 @@ import { ContractPipe } from "../common/contract.pipe.js";
 import { RequestId } from "../common/request-id.decorator.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
-import { type CustomersService } from "./customers.service.js";
+import { CustomersService } from "./customers.service.js";
 
 @Controller("businesses/:businessId/customers")
 export class CustomersController {
-  constructor(private readonly customers: CustomersService) {}
+  constructor(@Inject(CustomersService) private readonly customers: CustomersService) {}
 
   @Post()
   create(

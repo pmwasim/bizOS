@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Post } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 
 import {
@@ -12,11 +12,11 @@ import { ContractPipe } from "../common/contract.pipe.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
 import { Public } from "../security/public.decorator.js";
-import { type IdentityService } from "./identity.service.js";
+import { IdentityService } from "./identity.service.js";
 
 @Controller()
 export class IdentityController {
-  constructor(private readonly identity: IdentityService) {}
+  constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
