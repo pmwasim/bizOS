@@ -143,7 +143,7 @@ async function ensureSecurityHeaders(zoneId) {
 async function main() {
   const tokenStatus = await cf("/user/tokens/verify");
   console.warn(`Cloudflare token status: ${tokenStatus.status}`);
-  console.warn(`Using account id length: ${accountId.length}`);
+  console.warn("Cloudflare account credentials are present.");
 
   const zones = await cf("/zones?name=qloudihub.com");
   if (!zones.length) {
