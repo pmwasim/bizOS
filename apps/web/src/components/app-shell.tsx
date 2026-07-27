@@ -1,4 +1,4 @@
-import { FileText, Home, LogOut, Receipt, Settings, Users } from "lucide-react";
+import { FileText, Home, LogOut, Receipt, ScrollText, Settings, Users } from "lucide-react";
 import Link from "next/link";
 
 import { signOutAction } from "@/app/actions";
@@ -8,6 +8,7 @@ const items = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/quotations", label: "Quotations", icon: FileText },
   { href: "/purchase-orders", label: "POs", icon: Receipt },
+  { href: "/invoices", label: "Invoices", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

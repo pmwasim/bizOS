@@ -476,7 +476,7 @@ export class QuotationsService {
     return {
       id: record.publicId,
       number: record.number,
-      status: record.status,
+      status: record.status as Quotation["status"],
       issueDate: this.dateOnly(record.issueDate),
       validUntil: this.dateOnly(record.validUntil),
       currencyCode: record.currencyCode,

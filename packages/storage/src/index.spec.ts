@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectAllowedContentType,
   LocalObjectStore,
+  invoicePdfObjectKey,
   objectKey,
   purchaseOrderObjectKey,
   quotationPdfObjectKey,
@@ -30,6 +31,17 @@ describe("storage object keys", () => {
         versionId: "v1",
       }),
     ).toBe("tenants/t1/businesses/b1/quotations/q1/versions/v1/quotation.pdf");
+  });
+
+  it("builds invoice PDF keys under the invoices path", () => {
+    expect(
+      invoicePdfObjectKey({
+        tenantId: "t1",
+        businessId: "b1",
+        invoiceId: "i1",
+        versionId: "v1",
+      }),
+    ).toBe("tenants/t1/businesses/b1/invoices/i1/versions/v1/invoice.pdf");
   });
 
   it("builds purchase-order and approval-evidence keys", () => {

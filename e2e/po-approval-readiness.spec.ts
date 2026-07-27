@@ -57,6 +57,17 @@ test("records a customer PO through ready to invoice", async ({ page }, testInfo
 
   await expect(page.locator("header .status")).toHaveText("Ready to invoice");
 
+  await page.getByRole("button", { name: "Create invoice" }).click();
+  await expect(page.getByRole("heading", { name: /^INV-\d{4,}$/ })).toBeVisible();
+  await expect(page.getByText(/Customer PO/i)).toBeVisible();
+  await expect(page.getByText(`PO-${runId.slice(-6)}`)).toBeVisible();
+  await expect(page.locator("iframe")).toBeVisible();
+
+  await page.getByLabel("Email").fill(customerEmail);
+  await page.getByRole("button", { name: /Send invoice|Send again/i }).click();
+  await expect(page.getByText(/Invoice sent/i)).toBeVisible({ timeout: 120_000 });
+  await expect(page.locator("header .status")).toHaveText("Sent");
+
   if (testInfo.project.name.startsWith("mobile")) {
     await expect(page.getByRole("navigation", { name: "Workspace" })).toBeVisible();
   }

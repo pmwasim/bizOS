@@ -68,6 +68,18 @@ export function quotationPdfObjectKey(input: {
   return `tenants/${input.tenantId}/businesses/${input.businessId}/quotations/${input.quotationId}/versions/${input.versionId}/quotation.pdf`;
 }
 
+export function invoicePdfObjectKey(input: {
+  tenantId: string;
+  businessId: string;
+  invoiceId: string;
+  versionId: string;
+}): string {
+  for (const [label, value] of Object.entries(input)) {
+    assertKeySegment(value, label);
+  }
+  return `tenants/${input.tenantId}/businesses/${input.businessId}/invoices/${input.invoiceId}/versions/${input.versionId}/invoice.pdf`;
+}
+
 export function sanitizeUploadFilename(filename: string): string {
   const base = path.basename(filename).replaceAll(/\s+/g, "_");
   const cleaned = base.replaceAll(/[^a-zA-Z0-9._-]/g, "").slice(0, 180);
