@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { argon2id, hash, verify } from "argon2";
 
 import {
@@ -9,7 +9,7 @@ import {
 import { type CurrentUserWorkspace } from "@bizo/contracts/platform";
 import { MembershipStatus } from "@bizo/database";
 
-import { type DatabaseService } from "../database/database.service.js";
+import { DatabaseService } from "../database/database.service.js";
 
 interface WorkspaceMembership {
   businessAccess: Array<{
@@ -29,7 +29,7 @@ interface WorkspaceMembership {
 
 @Injectable()
 export class IdentityService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async signUp(input: SignUpRequest): Promise<AuthenticatedUser> {
     const passwordHash = await hash(input.password, { type: argon2id });

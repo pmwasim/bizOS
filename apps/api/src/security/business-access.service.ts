@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { authorize, createAuthorizationEnforcer } from "@bizo/authorization";
 import { MembershipStatus, type RoleCode } from "@bizo/database";
 
-import { type DatabaseService } from "../database/database.service.js";
+import { DatabaseService } from "../database/database.service.js";
 
 export interface BusinessAccessContext {
   businessId: bigint;
@@ -56,7 +56,7 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
 
 @Injectable()
 export class BusinessAccessService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async resolve(userPublicId: string, businessPublicId: string): Promise<BusinessAccessContext> {
     const record = await this.database.client.businessAccess.findFirst({

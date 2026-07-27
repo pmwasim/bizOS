@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import {
   type CreateCustomerRequest,
@@ -6,10 +6,10 @@ import {
   type UpdateCustomerRequest,
 } from "@bizo/contracts/customers";
 
-import { type DatabaseService } from "../database/database.service.js";
+import { DatabaseService } from "../database/database.service.js";
 import {
   type BusinessAccessContext,
-  type BusinessAccessService,
+  BusinessAccessService,
 } from "../security/business-access.service.js";
 
 interface CustomerRecord {
@@ -28,8 +28,8 @@ interface CustomerRecord {
 @Injectable()
 export class CustomersService {
   constructor(
-    private readonly database: DatabaseService,
-    private readonly businessAccess: BusinessAccessService,
+    @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
   ) {}
 
   async create(

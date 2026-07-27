@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
 import {
   type BusinessSettings,
@@ -9,10 +9,10 @@ import {
 import { parseDecimalToScaledInteger } from "@bizo/contracts/money";
 import { RoleCode, type Prisma } from "@bizo/database";
 
-import { type DatabaseService } from "../database/database.service.js";
+import { DatabaseService } from "../database/database.service.js";
 import {
   type BusinessAccessContext,
-  type BusinessAccessService,
+  BusinessAccessService,
 } from "../security/business-access.service.js";
 
 const ROLE_PERMISSIONS: Record<RoleCode, string[]> = {
@@ -24,8 +24,8 @@ const ROLE_PERMISSIONS: Record<RoleCode, string[]> = {
 @Injectable()
 export class PlatformService {
   constructor(
-    private readonly database: DatabaseService,
-    private readonly businessAccess: BusinessAccessService,
+    @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
   ) {}
 
   async createBusiness(
