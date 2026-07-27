@@ -35,6 +35,10 @@
     "./purchase-orders": {
       "types": "./dist/purchase-orders.d.ts",
       "default": "./dist/purchase-orders.js"
+    },
+    "./invoices": {
+      "types": "./dist/invoices.d.ts",
+      "default": "./dist/invoices.js"
     }
   },
   "scripts": {

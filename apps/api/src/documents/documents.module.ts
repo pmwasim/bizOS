@@ -1,11 +1,16 @@
 import { Module } from "@nestjs/common";
 
+import { ObjectStoreModule } from "../storage/object-store.module.js";
+import { InvoicesController } from "./invoices.controller.js";
+import { InvoicesService } from "./invoices.service.js";
 import { PdfService } from "./pdf.service.js";
 import { QuotationsController } from "./quotations.controller.js";
 import { QuotationsService } from "./quotations.service.js";
 
 @Module({
-  controllers: [QuotationsController],
-  providers: [PdfService, QuotationsService],
+  imports: [ObjectStoreModule],
+  controllers: [QuotationsController, InvoicesController],
+  providers: [PdfService, QuotationsService, InvoicesService],
+  exports: [InvoicesService, QuotationsService, PdfService],
 })
 export class DocumentsModule {}

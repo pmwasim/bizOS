@@ -48,4 +48,17 @@ describe("PdfService", () => {
     expect(result.subarray(0, 5).toString()).toBe("%PDF-");
     expect(result.byteLength).toBeGreaterThan(1_000);
   });
+
+  it("renders a non-empty invoice PDF with PO metadata", async () => {
+    const result = await new PdfService().renderInvoice({
+      ...snapshot,
+      number: "INV-0001",
+      dueDate: "2026-08-26",
+      poNumber: "PO-100",
+      projectReference: "Job A",
+    });
+
+    expect(result.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(result.byteLength).toBeGreaterThan(1_000);
+  });
 });

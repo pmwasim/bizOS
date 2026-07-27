@@ -3,12 +3,31 @@ import nodemailer, { type Transporter } from "nodemailer";
 
 import { readApiEnvironment } from "@bizo/config/api";
 
+export interface AttachmentEmailMessage {
+  attachment: Buffer;
+  body: string | null;
+  businessName: string;
+  filename: string;
+  documentLabel: string;
+  documentNumber: string;
+  recipient: string;
+}
+
 export interface QuotationMessage {
   attachment: Buffer;
   body: string | null;
   businessName: string;
   filename: string;
   quotationNumber: string;
+  recipient: string;
+}
+
+export interface InvoiceMessage {
+  attachment: Buffer;
+  body: string | null;
+  businessName: string;
+  filename: string;
+  invoiceNumber: string;
   recipient: string;
 }
 
@@ -62,10 +81,34 @@ export class MailService implements OnModuleDestroy {
   }
 
   async sendQuotation(message: QuotationMessage): Promise<string> {
-    const subject = `Quotation ${message.quotationNumber} from ${message.businessName}`;
+    return this.sendAttachmentEmail({
+      attachment: message.attachment,
+      body: message.body,
+      businessName: message.businessName,
+      filename: message.filename,
+      documentLabel: "quotation",
+      documentNumber: message.quotationNumber,
+      recipient: message.recipient,
+    });
+  }
+
+  async sendInvoice(message: InvoiceMessage): Promise<string> {
+    return this.sendAttachmentEmail({
+      attachment: message.attachment,
+      body: message.body,
+      businessName: message.businessName,
+      filename: message.filename,
+      documentLabel: "invoice",
+      documentNumber: message.invoiceNumber,
+      recipient: message.recipient,
+    });
+  }
+
+  private async sendAttachmentEmail(message: AttachmentEmailMessage): Promise<string> {
+    const subject = `${this.capitalize(message.documentLabel)} ${message.documentNumber} from ${message.businessName}`;
     const text =
       message.body ??
-      `${message.businessName} has sent you quotation ${message.quotationNumber}. The quotation is attached as a PDF.`;
+      `${message.businessName} has sent you ${message.documentLabel} ${message.documentNumber}. The ${message.documentLabel} is attached as a PDF.`;
 
     if (this.transport.kind === "resend-https") {
       return this.sendViaResendHttps({
@@ -94,7 +137,7 @@ export class MailService implements OnModuleDestroy {
 
   private async sendViaResendHttps(input: {
     apiKey: string;
-    message: QuotationMessage;
+    message: AttachmentEmailMessage;
     subject: string;
     text: string;
   }): Promise<string> {
@@ -134,6 +177,10 @@ export class MailService implements OnModuleDestroy {
     }
 
     return payload.id;
+  }
+
+  private capitalize(value: string): string {
+    return value.slice(0, 1).toUpperCase() + value.slice(1);
   }
 
   onModuleDestroy(): void {
