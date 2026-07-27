@@ -29,7 +29,9 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   await expect(page.getByText(/SAR\s*5,750\.00/)).toBeVisible();
   await page.getByRole("button", { name: "Preview quotation" }).click();
 
-  await expect(page).toHaveURL(/\/quotations\/[^/]+$/);
+  await expect(page).toHaveURL(
+    /\/quotations\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
   const quotationHeading = page.getByRole("heading", { name: /^Q-\d{4,}$/ });
   await expect(quotationHeading).toBeVisible();
   const quotationNumber = await quotationHeading.textContent();
