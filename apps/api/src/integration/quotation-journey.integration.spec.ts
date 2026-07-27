@@ -32,7 +32,9 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
   });
 
   afterAll(async () => {
-    await database.onModuleDestroy();
+    if (database) {
+      await database.onModuleDestroy();
+    }
   });
 
   it("creates and sends a tenant-scoped quotation while denying another tenant", async () => {

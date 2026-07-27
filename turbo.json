@@ -20,11 +20,27 @@
     },
     "test": {
       "dependsOn": ["^build", "build"],
-      "env": ["DATABASE_URL", "REDIS_URL", "RUN_DATABASE_TESTS", "RUN_REDIS_TESTS"]
+      "env": [
+        "DATABASE_URL",
+        "INTERNAL_AUTH_SECRET",
+        "REDIS_URL",
+        "RUN_DATABASE_TESTS",
+        "RUN_REDIS_TESTS",
+        "SMTP_FROM",
+        "SMTP_URL"
+      ]
     },
     "test:coverage": {
       "dependsOn": ["^build", "build"],
-      "env": ["DATABASE_URL", "REDIS_URL", "RUN_DATABASE_TESTS", "RUN_REDIS_TESTS"],
+      "env": [
+        "DATABASE_URL",
+        "INTERNAL_AUTH_SECRET",
+        "REDIS_URL",
+        "RUN_DATABASE_TESTS",
+        "RUN_REDIS_TESTS",
+        "SMTP_FROM",
+        "SMTP_URL"
+      ],
       "outputs": ["coverage/**"]
     },
     "typecheck": {
