@@ -24,6 +24,118 @@ const access: BusinessAccessContext = {
 };
 
 describe("QuotationsService delivery", () => {
+  it("lets the parent document supply scope keys for nested quotation lines", async () => {
+    const now = new Date("2026-07-27T09:00:00.000Z");
+    const documentCreate = vi.fn().mockResolvedValue({
+      id: 10n,
+      publicId: "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+      createdAt: now,
+      updatedAt: now,
+      currencyCode: "SAR",
+      currencyScale: 2,
+      customer: {
+        publicId: "f3fb94c1-a48a-4f09-82fc-93477534b1f4",
+        name: "Customer",
+        email: "customer@example.test",
+        phone: null,
+        addressLine1: null,
+        addressLine2: null,
+        city: null,
+        postalCode: null,
+        countryCode: null,
+      },
+      issueDate: new Date("2026-07-27T00:00:00.000Z"),
+      validUntil: new Date("2026-08-26T00:00:00.000Z"),
+      lines: [
+        {
+          description: "Service",
+          position: 1,
+          quantity: "1",
+          unitPriceMinor: "10000",
+          taxRatePpm: 150_000,
+          subtotalMinor: "10000",
+          taxMinor: "1500",
+          totalMinor: "11500",
+        },
+      ],
+      number: "Q-0001",
+      sentAt: null,
+      status: DocumentStatus.DRAFT,
+      subtotalMinor: "10000",
+      taxMinor: "1500",
+      totalMinor: "11500",
+      version: 1,
+    });
+    const transaction = {
+      business: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          baseCurrency: "SAR",
+          currencyScale: 2,
+          timeZone: "Asia/Riyadh",
+          settings: {},
+          taxProfile: {},
+        }),
+      },
+      businessSettings: {
+        update: vi.fn().mockResolvedValue({
+          nextQuotationNumber: 2,
+          quotationPrefix: "Q",
+          quotationValidityDays: 30,
+        }),
+      },
+      customer: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 5n,
+        }),
+      },
+      document: { create: documentCreate },
+      auditEvent: { create: vi.fn().mockResolvedValue(undefined) },
+    };
+    const database = {
+      withScope: vi
+        .fn()
+        .mockImplementation(async (_scope: unknown, work: (value: never) => Promise<unknown>) =>
+          work(transaction as never),
+        ),
+    } as unknown as DatabaseService;
+    const businessAccess = {
+      resolve: vi.fn().mockResolvedValue(access),
+      assertAllowed: vi.fn().mockResolvedValue(undefined),
+    } as unknown as BusinessAccessService;
+    const service = new QuotationsService(
+      database,
+      businessAccess,
+      {} as PdfService,
+      {} as MailService,
+    );
+
+    await service.create(
+      access.userPublicId,
+      access.businessPublicId,
+      {
+        customerId: "f3fb94c1-a48a-4f09-82fc-93477534b1f4",
+        issueDate: "2026-07-27",
+        validUntil: "2026-08-26",
+        lines: [
+          {
+            description: "Service",
+            quantity: "1",
+            unitPrice: "100",
+            taxRatePercent: "15",
+          },
+        ],
+      },
+      "request-1",
+    );
+
+    const nestedLines = documentCreate.mock.calls[0]?.[0].data.lines.create as Array<
+      Record<string, unknown>
+    >;
+    expect(nestedLines).toHaveLength(1);
+    expect(nestedLines[0]).not.toHaveProperty("tenantId");
+    expect(nestedLines[0]).not.toHaveProperty("businessId");
+  });
+
   it("records an SMTP failure without losing the finalized quotation", async () => {
     const now = new Date("2026-07-27T09:00:00.000Z");
     const record = {

@@ -168,9 +168,7 @@ export class QuotationsService {
           totalMinor: calculated.totalMinor.toString(),
           createdByMembershipId: access.membershipId,
           lines: {
-            create: calculated.lines.map((line) => ({
-              tenantId: access.tenantId,
-              businessId: access.businessId,
+            create: calculated.lines.map((line): Prisma.DocumentLineCreateWithoutDocumentInput => ({
               position: line.position,
               description: line.description,
               quantity: line.quantity,
