@@ -690,6 +690,102 @@ textarea:focus {
   color: var(--success);
 }
 
+.readiness-ready_to_invoice {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.readiness-approval_pending,
+.readiness-po_recorded,
+.readiness-missing_customer_po {
+  background: var(--muted);
+  color: #475467;
+}
+
+.readiness-approval_evidence_missing,
+.readiness-not_ready_rejected {
+  background: #fff4ed;
+  color: #b54708;
+}
+
+.panel {
+  border-top: 1px solid var(--border);
+  margin: 1.25rem 0;
+  padding: 1rem 0;
+}
+
+.panel h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.4rem;
+}
+
+.panel p {
+  color: var(--muted-foreground);
+  margin: 0 0 0.8rem;
+}
+
+.readiness-panel .section-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.stack-panels {
+  display: grid;
+  gap: 1rem;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1rem 0;
+}
+
+.detail-grid dt {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.detail-grid dd {
+  margin: 0.2rem 0 0;
+}
+
+.file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.file-list li {
+  margin: 0.5rem 0;
+}
+
+.file-list a {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+
+.danger-panel {
+  border-color: #fecdca;
+}
+
+@media (max-width: 720px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .readiness-panel .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .empty-state {
   align-items: center;
   border: 1px dashed var(--border-strong);

@@ -31,6 +31,10 @@
     "./quotations": {
       "types": "./dist/quotations.d.ts",
       "default": "./dist/quotations.js"
+    },
+    "./purchase-orders": {
+      "types": "./dist/purchase-orders.d.ts",
+      "default": "./dist/purchase-orders.js"
     }
   },
   "scripts": {

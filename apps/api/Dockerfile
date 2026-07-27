@@ -12,6 +12,7 @@ COPY packages/authorization/package.json packages/authorization/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/database/package.json packages/database/package.json
+COPY packages/storage/package.json packages/storage/package.json
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 
@@ -22,6 +23,7 @@ COPY packages/authorization packages/authorization
 COPY packages/config packages/config
 COPY packages/contracts packages/contracts
 COPY packages/database packages/database
+COPY packages/storage packages/storage
 RUN pnpm --filter @bizo/api... build
 RUN pnpm --filter @bizo/api --prod deploy /opt/bizo
 RUN cp -R apps/api/dist /opt/bizo/dist

@@ -6,9 +6,12 @@ export {
   DeliveryStatus,
   DocumentStatus,
   DocumentType,
+  InvoiceApprovalStatus,
   MembershipStatus,
   Prisma,
+  PurchaseOrderStatus,
   RoleCode,
+  StoredObjectKind,
 } from "../generated/client/client.js";
 export type * from "../generated/client/models.js";
 

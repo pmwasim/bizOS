@@ -16,6 +16,12 @@ export interface BusinessAccessContext {
   userPublicId: string;
 }
 
+export type AuthorizationObject =
+  "business" | "customers" | "quotations" | "purchase_orders" | "approvals";
+
+export type AuthorizationAction =
+  "archive" | "create" | "export" | "read" | "send" | "update" | "upload" | "upload_evidence";
+
 const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
   OWNER: [
     "business:read",
@@ -28,6 +34,14 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "purchase_orders:create",
+    "purchase_orders:read",
+    "purchase_orders:update",
+    "purchase_orders:archive",
+    "purchase_orders:upload",
+    "approvals:read",
+    "approvals:update",
+    "approvals:upload_evidence",
   ],
   ADMIN: [
     "business:read",
@@ -40,6 +54,14 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "purchase_orders:create",
+    "purchase_orders:read",
+    "purchase_orders:update",
+    "purchase_orders:archive",
+    "purchase_orders:upload",
+    "approvals:read",
+    "approvals:update",
+    "approvals:upload_evidence",
   ],
   MEMBER: [
     "business:read",
@@ -51,6 +73,11 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "purchase_orders:create",
+    "purchase_orders:read",
+    "purchase_orders:update",
+    "purchase_orders:upload",
+    "approvals:read",
   ],
 };
 
@@ -104,8 +131,8 @@ export class BusinessAccessService {
 
   async assertAllowed(
     access: BusinessAccessContext,
-    object: "business" | "customers" | "quotations",
-    action: "create" | "export" | "read" | "send" | "update",
+    object: AuthorizationObject,
+    action: AuthorizationAction,
   ): Promise<void> {
     const domain = `${access.tenantPublicId}:${access.businessPublicId}`;
     const subject = access.userPublicId;
