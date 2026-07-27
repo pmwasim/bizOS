@@ -19,6 +19,7 @@ constraints until superseded.
 | [0012](0012-governed-extensions-and-ai.md)          | Governed plugins and AI agents                | Accepted |
 | [0013](0013-quotation-document-slice.md)            | Shared document facts, explicit quote service | Accepted |
 | [0014](0014-single-maintainer-branch-protection.md) | Single-maintainer main protection policy      | Accepted |
+| [0015](0015-managed-hosting-behind-cloudflare.md)   | Managed hosting behind Cloudflare for MVP     | Accepted |
 
 ## Template
 
