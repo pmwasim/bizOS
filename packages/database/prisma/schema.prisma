@@ -33,6 +33,23 @@ enum DeliveryStatus {
   FAILED
 }
 
+enum PurchaseOrderStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum InvoiceApprovalStatus {
+  NOT_RECORDED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StoredObjectKind {
+  PURCHASE_ORDER
+  APPROVAL_EVIDENCE
+}
+
 model User {
   id           BigInt   @id @default(autoincrement())
   publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
@@ -43,8 +60,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships Membership[]
-  auditEvents AuditEvent[]
+  memberships              Membership[]
+  auditEvents              AuditEvent[]
+  approvalChanges          PurchaseOrder[] @relation("PurchaseOrderApprovalActor")
+  uploadedStoredObjects    StoredObject[]  @relation("StoredObjectUploader")
 
   @@index([publicId])
   @@map("users")
@@ -77,6 +96,7 @@ model Membership {
   user           User             @relation(fields: [userId], references: [id], onDelete: Restrict)
   businessAccess BusinessAccess[]
   documents      Document[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -126,10 +146,12 @@ model Business {
   access       BusinessAccess[]
   settings     BusinessSettings?
   taxProfile   TaxProfile?
-  customers    Customer[]
-  documents    Document[]
-  auditEvents  AuditEvent[]
-  outboxEvents OutboxEvent[]
+  customers      Customer[]
+  documents      Document[]
+  purchaseOrders PurchaseOrder[]
+  storedObjects  StoredObject[]
+  auditEvents    AuditEvent[]
+  outboxEvents   OutboxEvent[]
 
   @@unique([tenantId, id])
   @@index([tenantId, name])
@@ -202,8 +224,9 @@ model Customer {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business  Business   @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  documents Document[]
+  business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  documents      Document[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, name])
@@ -232,16 +255,79 @@ model Document {
   createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer Customer          @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
-  lines    DocumentLine[]
-  versions DocumentVersion[]
-  creator  Membership        @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  business       Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer       Customer          @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  lines          DocumentLine[]
+  versions       DocumentVersion[]
+  creator        Membership        @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, type, number])
   @@index([tenantId, businessId, status, createdAt])
   @@map("documents")
+}
+
+model PurchaseOrder {
+  id                      BigInt                 @id @default(autoincrement())
+  publicId                String                 @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId                BigInt                 @map("tenant_id")
+  businessId              BigInt                 @map("business_id")
+  customerId              BigInt                 @map("customer_id")
+  quotationId             BigInt?                @map("quotation_id")
+  poNumber                String                 @map("po_number") @db.VarChar(80)
+  poDate                  DateTime?              @map("po_date") @db.Date
+  projectReference        String?                @map("project_reference") @db.VarChar(120)
+  amountMinor             Decimal?               @map("amount_minor") @db.Decimal(38, 0)
+  currencyCode            String?                @map("currency_code") @db.Char(3)
+  currencyScale           Int?                   @map("currency_scale") @db.SmallInt
+  notes                   String?                @db.VarChar(2000)
+  status                  PurchaseOrderStatus    @default(ACTIVE)
+  approvalStatus          InvoiceApprovalStatus  @default(NOT_RECORDED) @map("approval_status")
+  approvalChangedAt       DateTime?              @map("approval_changed_at") @db.Timestamptz(3)
+  approvalChangedByUserId BigInt?                @map("approval_changed_by_user_id")
+  archivedAt              DateTime?              @map("archived_at") @db.Timestamptz(3)
+  createdByMembershipId   BigInt                 @map("created_by_membership_id")
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business              Business     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer              Customer     @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  quotation             Document?    @relation(fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  creator               Membership   @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  approvalChangedByUser User?        @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
+  storedObjects         StoredObject[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status, createdAt])
+  @@index([tenantId, businessId, customerId])
+  @@index([tenantId, businessId, quotationId])
+  @@map("purchase_orders")
+}
+
+model StoredObject {
+  id               BigInt           @id @default(autoincrement())
+  publicId         String           @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId         BigInt           @map("tenant_id")
+  businessId       BigInt           @map("business_id")
+  purchaseOrderId  BigInt           @map("purchase_order_id")
+  kind             StoredObjectKind
+  storageKey       String           @map("storage_key") @db.VarChar(512)
+  originalFilename String           @map("original_filename") @db.VarChar(255)
+  contentType      String           @map("content_type") @db.VarChar(120)
+  byteSize         Int              @map("byte_size")
+  checksumSha256   String           @map("checksum_sha256") @db.Char(64)
+  uploadedByUserId BigInt           @map("uploaded_by_user_id")
+  supersededAt     DateTime?        @map("superseded_at") @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business      Business      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  purchaseOrder PurchaseOrder @relation(fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
+  uploadedBy    User          @relation("StoredObjectUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, purchaseOrderId, kind, createdAt])
+  @@map("stored_objects")
 }
 
 model DocumentLine {

@@ -40,3 +40,29 @@ describe("MVP database migration", () => {
     expect(migration).toContain('CREATE UNIQUE INDEX "users_email_casefold_key"');
   });
 });
+
+describe("purchase order approval readiness migration", () => {
+  const poMigrationUrl = new URL(
+    "../prisma/migrations/20260727193000_purchase_orders_approval_readiness/migration.sql",
+    import.meta.url,
+  );
+
+  it("keeps purchase orders and stored objects under forced RLS", async () => {
+    const migration = await readFile(poMigrationUrl, "utf8");
+    expect(migration).toContain('"purchase_orders"');
+    expect(migration).toContain('"stored_objects"');
+    expect(migration).toContain("FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("purchase_orders_active_customer_po_number_key");
+    expect(migration).toContain("ON DELETE RESTRICT");
+  });
+
+  it("links purchase orders to same-business customers and quotations", async () => {
+    const migration = await readFile(poMigrationUrl, "utf8");
+    expect(migration).toContain(
+      'FOREIGN KEY ("tenant_id", "business_id", "customer_id") REFERENCES "customers"',
+    );
+    expect(migration).toContain(
+      'FOREIGN KEY ("tenant_id", "business_id", "quotation_id") REFERENCES "documents"',
+    );
+  });
+});
