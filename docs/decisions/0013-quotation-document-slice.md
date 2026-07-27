@@ -1,7 +1,9 @@
 # ADR-0013: Share document facts and keep the quotation lifecycle explicit
 
-Status: Accepted  
-Date: 2026-07-27  
+Status: Accepted
+
+Date: 2026-07-27
+
 Deciders: Product and engineering
 
 ## Context
