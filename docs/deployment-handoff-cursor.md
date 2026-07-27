@@ -1,13 +1,15 @@
 # Cursor deployment handoff
 
-Status: Merge-ready application contract; Cloudflare deployment not performed
+Status: Merge-ready application contract; Cloudflare/R2 infrastructure partially provisioned;
+managed app hosting and SMTP still required before production cutover
 
 Last reviewed: 2026-07-27
 
 ## Scope and target
 
-Deploy the quotation MVP only after its pull request is merged. This handoff does not authorize
-Cloudflare deployment, DNS changes, database creation, secret creation, or production migrations.
+Deploy the quotation MVP only after its pull request is merged. Cloudflare DNS, R2 provisioning, and
+GitHub environment secrets may proceed under the autonomous release mandate. Application hosting
+credentials and SMTP remain Admin-gated when absent.
 
 - Expected web domain: `bizOS.qloudihub.com` (DNS-normalized: `https://bizos.qloudihub.com`).
 - Recommended separate API hostname: `https://api.bizos.qloudihub.com`.
@@ -71,14 +73,24 @@ behavior.
 
 Redis and R2 boundaries exist for later asynchronous jobs and object storage, but the synchronous
 quotation/PDF/email path does not currently import them into either deployable application.
-Provisioning them now is optional; do not claim they are runtime dependencies of this release.
 
-When activated:
+**R2 (2026-07-27):** Standard bucket `bizos-production` is provisioned and privately accessible with
+S3-compatible credentials. Application write/read of quotation PDFs remains deferred — PDFs continue
+to render from immutable PostgreSQL snapshots. See
+[operations/r2-object-storage.md](operations/r2-object-storage.md).
+
+Provisioning Redis now is optional; do not claim Redis is a runtime dependency of this release.
+
+When R2 application activation lands:
+
+- Keep `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET` in the secret
+  store. Optional `R2_ENDPOINT` overrides the default account endpoint.
+- Use a private bucket, a bucket-scoped credential, and no public object access.
+
+When Redis is activated:
 
 - `REDIS_URL` must use a private, TLS-protected, authenticated managed Redis endpoint. Do not
   publish port 6379. BullMQ requires persistence, `noeviction`, and operational monitoring.
-- R2 requires `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`. Use a
-  private bucket, a bucket-scoped credential, and no public object access.
 
 The application currently emits structured API logs to standard output. No Sentry or OpenTelemetry
 SDK is wired into this release, so there is no application observability secret to configure.
