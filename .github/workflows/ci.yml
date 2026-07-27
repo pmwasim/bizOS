@@ -19,8 +19,24 @@ jobs:
     timeout-minutes: 20
     env:
       DATABASE_URL: postgresql://bizo:ci-only@localhost:5432/bizo
+      INTERNAL_AUTH_SECRET: ci-only-internal-auth-secret-at-least-32-bytes
       NEXT_TELEMETRY_DISABLED: "1"
+      RUN_DATABASE_TESTS: "true"
+      SMTP_FROM: quotes@example.test
+      SMTP_URL: smtp://localhost:1025
       TURBO_TELEMETRY_DISABLED: "1"
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: bizo
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_USER: bizo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bizo -d bizo" --health-interval 5s --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,5 +51,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Audit dependencies
         run: pnpm security:audit
+      - name: Apply database migrations
+        run: pnpm --filter @bizo/database prisma:migrate:deploy
       - name: Run foundation gate
         run: pnpm check

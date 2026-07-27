@@ -36,13 +36,14 @@ cp .env.example .env
 # Replace the placeholder Redis password in both REDIS_PASSWORD and REDIS_URL.
 # A suitable value can be generated with: openssl rand -hex 32
 pnpm install --frozen-lockfile
-docker compose up -d postgres redis
+docker compose up -d postgres redis mailpit
 pnpm db:validate
 pnpm dev
 ```
 
 - Web: `http://localhost:3000`
 - API health: `http://localhost:3001/api/v1/health`
+- Local message inbox: `http://localhost:8025`
 
 ## Quality gate
 

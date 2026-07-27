@@ -11,7 +11,12 @@ const percentageSchema = z
 
 export const quotationLineInputSchema = z.strictObject({
   description: z.string().trim().min(1).max(500),
-  quantity: decimalSchema,
+  quantity: decimalSchema
+    .refine((value) => !/^0(?:\.0+)?$/.test(value), "Quantity must be greater than zero.")
+    .refine(
+      (value) => !value.includes(".") || value.split(".")[1]!.length <= 6,
+      "Use no more than 6 decimal places.",
+    ),
   unitPrice: decimalSchema,
   taxRatePercent: percentageSchema,
 });

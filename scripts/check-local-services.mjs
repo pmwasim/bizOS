@@ -8,6 +8,8 @@ const requiredControls = [
   ["Redis requires authentication", '"--requirepass"'],
   ["Redis receives its local password from the environment", "REDIS_PASSWORD:"],
   ["Redis health checks authenticate", "REDISCLI_AUTH="],
+  ["Mailpit SMTP binds only to loopback", '"127.0.0.1:1025:1025"'],
+  ["Mailpit inbox binds only to loopback", '"127.0.0.1:8025:8025"'],
 ];
 
 const missing = requiredControls.filter(([, marker]) => !compose.includes(marker));

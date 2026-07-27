@@ -76,12 +76,14 @@ The current `/api/v1` foundation exposes:
 - `POST /auth/signup`, `POST /auth/verify`, and authenticated `GET /me`.
 - `POST /businesses` plus settings read and update.
 - Customer create, list, read, and update within a resolved business.
+- Quotation create, list, read, PDF preview, and send/retry.
 
 Every non-public route requires a short-lived internal assertion. Business routes independently
 resolve an active membership, apply the role policy, set database row-security context, validate
 strict request contracts, return no-store responses, and record mutation audit events. Quotation,
-PDF, and delivery endpoints are the next slice; this section must be updated when they are
-executable.
+creation allocates its business-local number atomically and persists exact minor-unit totals.
+Sending freezes an immutable `professional-v1` snapshot before SMTP is called; success and failure
+are recorded separately, and a retry always reuses the frozen snapshot.
 
 The deployable NestJS application does not emit TypeScript declarations. Public types are owned by
 the contract and shared-library packages; keeping generated ORM types out of application declaration
