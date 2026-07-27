@@ -214,19 +214,30 @@ export function createObjectStoreFromEnv(
     Boolean(env.R2_SECRET_ACCESS_KEY?.trim()) &&
     Boolean(env.R2_BUCKET?.trim());
 
-  if (mode === "local" || !hasR2) {
-    const root = String(env.OBJECT_STORE_ROOT ?? ".data/object-store").trim();
-    return new LocalObjectStore(root);
+  if (mode === "r2" || (mode !== "local" && hasR2)) {
+    if (!hasR2) {
+      throw new Error(
+        "OBJECT_STORE=r2 requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET.",
+      );
+    }
+    const configuration: R2Configuration = {
+      accountId: String(env.R2_ACCOUNT_ID),
+      accessKeyId: String(env.R2_ACCESS_KEY_ID),
+      secretAccessKey: String(env.R2_SECRET_ACCESS_KEY),
+    };
+    const endpoint = env.R2_ENDPOINT?.trim();
+    if (endpoint) {
+      configuration.endpoint = endpoint;
+    }
+    return new R2ObjectStore(createR2Client(configuration), String(env.R2_BUCKET));
   }
 
-  const configuration: R2Configuration = {
-    accountId: String(env.R2_ACCOUNT_ID),
-    accessKeyId: String(env.R2_ACCESS_KEY_ID),
-    secretAccessKey: String(env.R2_SECRET_ACCESS_KEY),
-  };
-  const endpoint = env.R2_ENDPOINT?.trim();
-  if (endpoint) {
-    configuration.endpoint = endpoint;
+  if (String(env.NODE_ENV ?? "").trim() === "production" && mode !== "local") {
+    throw new Error(
+      "Production object storage requires R2 credentials (or OBJECT_STORE=local for explicit non-prod use).",
+    );
   }
-  return new R2ObjectStore(createR2Client(configuration), String(env.R2_BUCKET));
+
+  const root = String(env.OBJECT_STORE_ROOT ?? ".data/object-store").trim();
+  return new LocalObjectStore(root);
 }
