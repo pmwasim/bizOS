@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 
-import { BIZO_CLIENT_IP_HEADER } from "./client-ip-header.js";
+import { BIZO_CLIENT_IP_HEADER } from "./client-ip-header";
 
 export async function clientIpHeaders(): Promise<Record<string, string>> {
   const incoming = await headers();
