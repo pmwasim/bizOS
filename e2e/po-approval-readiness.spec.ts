@@ -33,7 +33,7 @@ test("records a customer PO through ready to invoice", async ({ page }, testInfo
   await page.getByLabel("Purchase order number").fill(`PO-${runId.slice(-6)}`);
   await page.getByRole("button", { name: "Save purchase order" }).click();
 
-  await expect(page.getByText("Approval pending")).toBeVisible();
+  await expect(page.locator("header .status")).toHaveText("Approval pending");
 
   const dir = await mkdtemp(path.join(tmpdir(), "bizo-po-"));
   const poFile = path.join(dir, "customer-po.pdf");
@@ -44,7 +44,7 @@ test("records a customer PO through ready to invoice", async ({ page }, testInfo
 
   await page.getByLabel("Approval status").selectOption("APPROVED");
   await page.getByRole("button", { name: "Save approval status" }).click();
-  await expect(page.getByText("Approval evidence missing")).toBeVisible();
+  await expect(page.locator("header .status")).toHaveText("Approval evidence missing");
 
   const evidenceFile = path.join(dir, "approval.pdf");
   await writeFile(evidenceFile, Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"));
@@ -55,7 +55,7 @@ test("records a customer PO through ready to invoice", async ({ page }, testInfo
     .setInputFiles(evidenceFile);
   await page.getByRole("button", { name: "Upload evidence" }).click();
 
-  await expect(page.getByText("Ready to invoice").first()).toBeVisible();
+  await expect(page.locator("header .status")).toHaveText("Ready to invoice");
 
   if (testInfo.project.name.startsWith("mobile")) {
     await expect(page.getByRole("navigation", { name: "Workspace" })).toBeVisible();
