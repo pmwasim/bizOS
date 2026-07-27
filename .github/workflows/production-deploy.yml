@@ -205,12 +205,60 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: pnpm --filter @bizo/database exec prisma migrate status
 
+  validate-r2:
+    name: Validate R2 infrastructure
+    needs: [publish-images]
+    if: ${{ needs.publish-images.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.publish-images.outputs.deploy_sha }}
+      - name: Detect R2 credentials
+        id: r2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          if [ -z "$R2_ACCESS_KEY_ID" ] || [ -z "$R2_SECRET_ACCESS_KEY" ] || [ -z "$R2_BUCKET" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "R2 credentials not fully configured; skipping probe."
+            exit 0
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+      - name: Install pnpm
+        if: ${{ steps.r2.outputs.configured == 'true' }}
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+      - name: Set up Node.js
+        if: ${{ steps.r2.outputs.configured == 'true' }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install storage dependencies
+        if: ${{ steps.r2.outputs.configured == 'true' }}
+        run: pnpm install --frozen-lockfile --filter @bizo/storage...
+      - name: Put/get/delete R2 probe object
+        if: ${{ steps.r2.outputs.configured == 'true' }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: node scripts/ops/validate-r2.mjs
+
   deploy:
     name: Deploy API and web
-    needs: [publish-images, migrate]
+    needs: [publish-images, migrate, validate-r2]
     if:
       ${{ always() && needs.publish-images.result == 'success' && (needs.migrate.result == 'success'
-      || needs.migrate.result == 'skipped') }}
+      || needs.migrate.result == 'skipped') && (needs.validate-r2.result == 'success' ||
+      needs.validate-r2.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: production

@@ -8,9 +8,11 @@ Status: Active for private beta
 - Apps: managed Docker services for Next.js web and NestJS API (Render or equivalent)
 - Data: Prisma Postgres (`eu-central-1`), TLS required
 - Email: transactional SMTP provider with verified sender domain
-- Inactive seams: Redis, BullMQ, R2
+- Object storage: R2 Standard bucket `bizos-production` (private; application seam inactive)
+- Inactive seams: Redis, BullMQ, application R2 PDF persistence
 
-See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md).
+See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md) and
+[r2-object-storage.md](r2-object-storage.md).
 
 ## Deployment procedure
 
@@ -23,9 +25,11 @@ See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md).
    - publishes `ghcr.io/<owner>/bizo-api:<sha>` and `bizo-web:<sha>`
    - creates/verifies a recovery point expectation (Prisma automated backups)
    - runs exactly one migration job: `pnpm --filter @bizo/database prisma:migrate:deploy`
+   - validates R2 with a put/get/delete probe when credentials are present
    - deploys API, waits for `/api/v1/health`
    - deploys web, waits for `/`
-6. Record the deployed SHA in the workflow summary.
+6. Independently, run `Infrastructure validation` after rotating Cloudflare or R2 credentials.
+7. Record the deployed SHA in the workflow summary.
 
 Never run concurrent production migration jobs. The workflow concurrency group
 `production-migration` enforces this.

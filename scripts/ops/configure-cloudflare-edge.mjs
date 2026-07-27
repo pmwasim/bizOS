@@ -5,14 +5,22 @@
  * Never logs secret values. Only touches bizos.* / api.bizos.* records.
  */
 
-const token = process.env.CLOUDFLARE_API_TOKEN;
-const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-const webOrigin = process.env.WEB_ORIGIN_HOST;
-const apiOrigin = process.env.API_ORIGIN_HOST;
+const token = String(process.env.CLOUDFLARE_API_TOKEN ?? "").trim();
+const accountId = String(process.env.CLOUDFLARE_ACCOUNT_ID ?? "").trim();
+const webOrigin = String(process.env.WEB_ORIGIN_HOST ?? "").trim();
+const apiOrigin = String(process.env.API_ORIGIN_HOST ?? "").trim();
 
 if (!token || !accountId) {
   console.error("CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required.");
   process.exit(1);
+}
+
+function describeCredential(label, value) {
+  const hasWhitespace = /\s/.test(value);
+  const looksLikeApiToken = /^[A-Za-z0-9_-]{30,}$/.test(value);
+  console.warn(
+    `${label}: length=${value.length} whitespace=${hasWhitespace} token_shape=${looksLikeApiToken}`,
+  );
 }
 
 async function cf(path, init = {}) {
@@ -141,9 +149,11 @@ async function ensureSecurityHeaders(zoneId) {
 }
 
 async function main() {
+  describeCredential("CLOUDFLARE_API_TOKEN", token);
+  describeCredential("CLOUDFLARE_ACCOUNT_ID", accountId);
+
   const tokenStatus = await cf("/user/tokens/verify");
   console.warn(`Cloudflare token status: ${tokenStatus.status}`);
-  console.warn("Cloudflare account credentials are present.");
 
   const zones = await cf("/zones?name=qloudihub.com");
   if (!zones.length) {
@@ -156,6 +166,12 @@ async function main() {
   await upsertCname(zoneId, "bizos.qloudihub.com", webOrigin, true);
   await upsertCname(zoneId, "api.bizos.qloudihub.com", apiOrigin, true);
   await ensureSecurityHeaders(zoneId);
+
+  if (!webOrigin || !apiOrigin) {
+    console.warn(
+      "Edge security updated, but DNS origins are incomplete until WEB_ORIGIN_HOST and API_ORIGIN_HOST are set.",
+    );
+  }
 
   console.warn("Cloudflare edge bootstrap complete for bizOS hosts only.");
 }
