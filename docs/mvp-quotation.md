@@ -1,6 +1,7 @@
 # Quotation MVP
 
-Status: In delivery  
+Status: Implemented; deployment acceptance pending
+
 Last reviewed: 2026-07-27
 
 ## Outcome
@@ -39,8 +40,10 @@ jobs in this slice.
 - Ask only for fields required to send the first quotation.
 - Default locale and time zone from the request environment when they are trustworthy; keep every
   default visible and reversible.
-- Default quotation validity to 30 days, numbering to `Q-0001`, and tax to off until the user
-  explicitly enables it.
+- Default quotation validity to 30 days and numbering to `Q-0001`.
+- Suggest a visible, reversible tax default from the selected country: VAT 15% for Saudi Arabia, VAT
+  5% for the United Arab Emirates, VAT 20% for the United Kingdom, and generic tax off for the
+  United States.
 - Use “price”, “tax”, “total”, “save draft”, and “send quotation”; do not expose ledger, posting,
   debit, credit, journal, or receivable terms.
 - Preserve form values on correctable errors and state what is preserved.
@@ -80,7 +83,7 @@ The current `/api/v1` foundation exposes:
 
 Every non-public route requires a short-lived internal assertion. Business routes independently
 resolve an active membership, apply the role policy, set database row-security context, validate
-strict request contracts, return no-store responses, and record mutation audit events. Quotation,
+strict request contracts, return no-store responses, and record mutation audit events. Quotation
 creation allocates its business-local number atomically and persists exact minor-unit totals.
 Sending freezes an immutable `professional-v1` snapshot before SMTP is called; success and failure
 are recorded separately, and a retry always reuses the frozen snapshot.
@@ -91,18 +94,19 @@ output prevents build-time type expansion without changing runtime architecture.
 the workspace Zod catalog version directly because it constructs runtime pipes from contract
 schemas; this prevents structurally incompatible validator copies from entering the same type graph.
 
-## Release evidence
+## Validation evidence
 
 - Unit tests for runtime schemas, exact money, quotation totals, permissions, PDF generation, and
   delivery failure behavior.
-- Real PostgreSQL tests for cross-tenant denial, scoped foreign keys, numbering concurrency, and
-  immutable sent versions.
+- A PostgreSQL-backed CI journey for cross-tenant denial, scoped foreign keys, numbering
+  concurrency, immutable sent versions, and the complete API path.
 - API tests for unauthenticated, unauthorized, invalid, happy-path, and conflict responses.
-- Browser tests for the complete desktop and mobile journey, keyboard operation, interruption
-  recovery, and accessible names.
-- Production build, migration validation, dependency audit, document-link check, and container
-  builds remain green.
+- Manual Playwright browser verification of the complete desktop and mobile journey, keyboard focus,
+  accessible names, responsive quotation editing, embedded PDF preview, send confirmation, and a
+  zero-error browser console.
+- The local quality gate covers formatting, documentation links, service exposure policy, lint,
+  TypeScript, unit tests, Prisma validation, and production builds.
 
-The local Docker daemon is currently unavailable. PostgreSQL and SMTP container acceptance therefore
-remain CI gates until equivalent local runtime evidence is available; unit, contract, migration, and
-production-build checks still run locally.
+The local Docker daemon was unavailable during this implementation. PostgreSQL and SMTP container
+acceptance therefore remain CI gates until equivalent local runtime evidence is available. Remote CI
+and deployment acceptance are not claimed by local verification.
