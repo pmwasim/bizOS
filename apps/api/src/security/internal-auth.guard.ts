@@ -1,10 +1,11 @@
 import {
   type CanActivate,
   type ExecutionContext,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
-import { type Reflector } from "@nestjs/core";
+import { Reflector } from "@nestjs/core";
 import { type Request } from "express";
 import { jwtVerify } from "jose";
 
@@ -19,7 +20,7 @@ type PrincipalRequest = Request & { principal?: AuthenticatedPrincipal };
 export class InternalAuthGuard implements CanActivate {
   private readonly secret: Uint8Array;
 
-  constructor(private readonly reflector: Reflector) {
+  constructor(@Inject(Reflector) private readonly reflector: Reflector) {
     this.secret = new TextEncoder().encode(readApiEnvironment(process.env).INTERNAL_AUTH_SECRET);
   }
 
