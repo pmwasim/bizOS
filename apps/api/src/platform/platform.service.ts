@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 
 import {
   type BusinessSettings,
@@ -9,6 +9,7 @@ import {
 import { parseDecimalToScaledInteger } from "@bizo/contracts/money";
 import { RoleCode, type Prisma } from "@bizo/database";
 
+import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
 import {
   type BusinessAccessContext,
@@ -23,9 +24,12 @@ const ROLE_PERMISSIONS: Record<RoleCode, string[]> = {
 
 @Injectable()
 export class PlatformService {
+  private readonly logger = new Logger(PlatformService.name);
+
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
+    @Inject(ConfigurationService) private readonly configuration: ConfigurationService,
   ) {}
 
   async createBusiness(
@@ -33,99 +37,128 @@ export class PlatformService {
     input: CreateBusinessRequest,
     requestId: string,
   ): Promise<BusinessSummary> {
-    return this.database.client.$transaction(async (transaction: Prisma.TransactionClient) => {
-      const user = await transaction.user.findUniqueOrThrow({
-        where: { publicId: userPublicId },
-      });
-      const tenant = await transaction.tenant.create({ data: { name: input.name } });
-      const membership = await transaction.membership.create({
-        data: { tenantId: tenant.id, userId: user.id },
-      });
-      const roles = await Promise.all(
-        (Object.values(RoleCode) as RoleCode[]).map((code) =>
-          transaction.role.create({
-            data: {
-              tenantId: tenant.id,
-              code,
-              name: this.roleName(code),
-              permissions: ROLE_PERMISSIONS[code],
-            },
-          }),
-        ),
-      );
-      const ownerRole = (roles as Array<{ code: RoleCode; id: bigint }>).find(
-        (role) => role.code === RoleCode.OWNER,
-      );
-      if (!ownerRole) {
-        throw new Error("The owner role was not created.");
-      }
+    const summary = await this.database.client.$transaction(
+      async (transaction: Prisma.TransactionClient) => {
+        const user = await transaction.user.findUniqueOrThrow({
+          where: { publicId: userPublicId },
+        });
+        const tenant = await transaction.tenant.create({ data: { name: input.name } });
+        const membership = await transaction.membership.create({
+          data: { tenantId: tenant.id, userId: user.id },
+        });
+        const roles = await Promise.all(
+          (Object.values(RoleCode) as RoleCode[]).map((code) =>
+            transaction.role.create({
+              data: {
+                tenantId: tenant.id,
+                code,
+                name: this.roleName(code),
+                permissions: ROLE_PERMISSIONS[code],
+              },
+            }),
+          ),
+        );
+        const ownerRole = (roles as Array<{ code: RoleCode; id: bigint }>).find(
+          (role) => role.code === RoleCode.OWNER,
+        );
+        if (!ownerRole) {
+          throw new Error("The owner role was not created.");
+        }
 
-      const business = await transaction.business.create({
-        data: {
-          tenantId: tenant.id,
-          name: input.name,
-          countryCode: input.countryCode,
-          baseCurrency: input.baseCurrency,
-          currencyScale: input.currencyScale,
-          locale: input.locale,
-          timeZone: input.timeZone,
-        },
-      });
+        const business = await transaction.business.create({
+          data: {
+            tenantId: tenant.id,
+            name: input.name,
+            countryCode: input.countryCode,
+            baseCurrency: input.baseCurrency,
+            currencyScale: input.currencyScale,
+            locale: input.locale,
+            timeZone: input.timeZone,
+          },
+        });
 
-      await transaction.$executeRaw`
+        await transaction.$executeRaw`
         SELECT set_config('app.tenant_id', ${tenant.id.toString()}, true)
       `;
-      await transaction.$executeRaw`
+        await transaction.$executeRaw`
         SELECT set_config('app.business_id', ${business.id.toString()}, true)
       `;
 
-      await transaction.businessSettings.create({
-        data: {
-          tenantId: tenant.id,
-          businessId: business.id,
-        },
-      });
-      await transaction.taxProfile.create({
-        data: {
-          tenantId: tenant.id,
-          businessId: business.id,
-          enabled: input.taxEnabled,
-          name: input.taxName,
-          ratePpm: Number(parseDecimalToScaledInteger(input.taxRatePercent, 4)),
-        },
-      });
-      await transaction.businessAccess.create({
-        data: {
-          tenantId: tenant.id,
-          businessId: business.id,
-          membershipId: membership.id,
-          roleId: ownerRole.id,
-        },
-      });
-      await transaction.auditEvent.create({
-        data: {
-          tenantId: tenant.id,
-          businessId: business.id,
-          actorUserId: user.id,
-          action: "business.created",
-          targetType: "business",
-          targetPublicId: business.publicId,
-          requestId,
-        },
-      });
+        await transaction.businessSettings.create({
+          data: {
+            tenantId: tenant.id,
+            businessId: business.id,
+          },
+        });
+        await transaction.taxProfile.create({
+          data: {
+            tenantId: tenant.id,
+            businessId: business.id,
+            enabled: input.taxEnabled,
+            name: input.taxName,
+            ratePpm: Number(parseDecimalToScaledInteger(input.taxRatePercent, 4)),
+          },
+        });
+        const businessAccess = await transaction.businessAccess.create({
+          data: {
+            tenantId: tenant.id,
+            businessId: business.id,
+            membershipId: membership.id,
+            roleId: ownerRole.id,
+          },
+        });
+        await transaction.auditEvent.create({
+          data: {
+            tenantId: tenant.id,
+            businessId: business.id,
+            actorUserId: user.id,
+            action: "business.created",
+            targetType: "business",
+            targetPublicId: business.publicId,
+            requestId,
+          },
+        });
 
-      return {
-        id: business.publicId,
-        tenantId: tenant.publicId,
-        name: business.name,
-        countryCode: business.countryCode,
-        baseCurrency: business.baseCurrency,
-        currencyScale: business.currencyScale,
-        locale: business.locale,
-        timeZone: business.timeZone,
-        role: RoleCode.OWNER,
-      };
-    });
+        return {
+          summary: {
+            id: business.publicId,
+            tenantId: tenant.publicId,
+            name: business.name,
+            countryCode: business.countryCode,
+            baseCurrency: business.baseCurrency,
+            currencyScale: business.currencyScale,
+            locale: business.locale,
+            timeZone: business.timeZone,
+            role: RoleCode.OWNER,
+          },
+          membershipPublicId: membership.publicId,
+          businessAccessId: businessAccess.id,
+        };
+      },
+    );
+
+    // Assign Default ERP as the primary configuration immediately after the
+    // business transaction commits. This runs in its own transaction (via
+    // ConfigurationService.assignConfiguration) so it can write the audit
+    // event under the same RLS scope. If this fails, the business exists but
+    // has no primary assignment — the onboarding flow can retry the assignment.
+    // We log the failure and re-throw so the caller surfaces it (Phase 2
+    // audit finding #25: every new business must have a primary assignment).
+    try {
+      await this.configuration.assignDefaultErp({
+        userPublicId,
+        businessPublicId: summary.summary.id,
+        assignedByMembershipId: summary.membershipPublicId,
+        reason: "auto-assign on business creation",
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to assign Default ERP to business ${summary.summary.id}: ${this.describeError(error)}`,
+      );
+      throw error;
+    }
+
+    return summary.summary;
   }
 
   async getSettings(userPublicId: string, businessPublicId: string): Promise<BusinessSettings> {
@@ -283,5 +316,12 @@ export class PlatformService {
       default:
         throw new Error("Unsupported role code.");
     }
+  }
+
+  private describeError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return String(error);
   }
 }

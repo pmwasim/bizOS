@@ -1367,3 +1367,692 @@ textarea:focus {
     transition-duration: 0.01ms !important;
   }
 }
+
+.setup-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.setup-choice {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: auto 1fr auto;
+  padding: 1.25rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.setup-choice:hover,
+.setup-choice:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 6px 18px rgba(36, 87, 214, 0.08);
+}
+
+.setup-choice-icon {
+  align-items: center;
+  background: var(--surface-subtle);
+  border-radius: 0.65rem;
+  color: var(--primary);
+  display: flex;
+  height: 3rem;
+  justify-content: center;
+  width: 3rem;
+}
+
+.setup-choice-body h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.25rem;
+}
+
+.setup-choice-body p {
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.setup-choice-cta,
+.setup-choice button {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.setup-choice-cta {
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.setup-choice button {
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .setup-choice {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .setup-choice-icon {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+
+  .setup-choice-cta,
+  .setup-choice button {
+    justify-content: center;
+  }
+}
+
+.setup-nav {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-top: 1.75rem;
+}
+
+.setup-nav .button {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.setup-panel-wide {
+  max-width: 720px;
+}
+
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.choice-card {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.choice-card:has(input:checked) {
+  background: rgba(36, 87, 214, 0.06);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.choice-card-disabled {
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.choice-card-disabled input {
+  cursor: not-allowed;
+}
+
+fieldset.field {
+  border: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+}
+
+fieldset.field legend {
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+fieldset.field small {
+  color: var(--muted-foreground);
+  display: block;
+  margin-bottom: 0.6rem;
+}
+
+.review-summary {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.review-section h2 {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+}
+
+.review-section p {
+  margin: 0;
+}
+
+.review-template {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.review-template svg {
+  color: var(--success);
+}
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.review-list li {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.review-list svg {
+  color: var(--success);
+}
+
+.review-muted {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.review-note {
+  background: var(--surface-subtle);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.85rem;
+}
+
+.review-footnote {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  margin-top: 1rem;
+}
+
+.review-footnote code {
+  background: var(--surface-subtle);
+  border-radius: 0.3rem;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.guided-setup-card {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  color: var(--primary);
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: auto 1fr auto;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.guided-setup-card:hover,
+.guided-setup-card:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 6px 18px rgba(36, 87, 214, 0.08);
+}
+
+.guided-setup-card div {
+  display: flex;
+  flex-direction: column;
+}
+
+.guided-setup-card strong {
+  font-size: 0.95rem;
+}
+
+.guided-setup-card small {
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+}
+
+/* Phase 9 — System Admin portal.
+   Distinct visual identity: deep indigo accent on a slate-tinted frame so
+   admins can tell at a glance they are in the platform-level portal and not a
+   tenant workspace. */
+
+.admin-frame {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  min-height: 100vh;
+  background: var(--surface-subtle);
+}
+
+.admin-sidebar {
+  background: #1f2433;
+  color: #e7eaf2;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid #2c3242;
+}
+
+.admin-brand {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #ffffff;
+}
+
+.admin-brand:visited {
+  color: #ffffff;
+}
+
+.admin-principal-chip {
+  align-items: center;
+  background: #2c3242;
+  border-radius: 0.6rem;
+  color: #c7cee0;
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.admin-principal-chip span {
+  align-items: center;
+  background: #6d5cff;
+  border-radius: 0.4rem;
+  color: #ffffff;
+  display: flex;
+  font-size: 0.7rem;
+  font-weight: 700;
+  height: 1.6rem;
+  justify-content: center;
+  width: 1.6rem;
+}
+
+.admin-principal-chip strong {
+  color: #ffffff;
+  font-size: 0.85rem;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.admin-nav a {
+  border-radius: 0.55rem;
+  color: #c7cee0;
+  font-size: 0.92rem;
+  padding: 0.55rem 0.7rem;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.admin-nav a:hover,
+.admin-nav a:focus-visible {
+  background: #2c3242;
+  color: #ffffff;
+}
+
+.admin-signout {
+  margin-top: auto;
+}
+
+.admin-signout button {
+  background: transparent;
+  border: 1px solid #2c3242;
+  border-radius: 0.55rem;
+  color: #c7cee0;
+  padding: 0.55rem 0.7rem;
+  width: 100%;
+}
+
+.admin-signout button:hover,
+.admin-signout button:focus-visible {
+  background: #2c3242;
+  color: #ffffff;
+}
+
+.admin-workspace {
+  padding: 2.5rem 2.5rem 4rem;
+  max-width: 72rem;
+  width: 100%;
+}
+
+.admin-workspace .page-heading h1 {
+  color: #1f2433;
+}
+
+.side-nav-admin {
+  align-items: center;
+  border-radius: 0.55rem;
+  color: #6d5cff;
+  display: flex;
+  font-size: 0.85rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.side-nav-admin:hover,
+.side-nav-admin:focus-visible {
+  background: #ece9ff;
+  color: #5638e0;
+}
+
+.admin-tile-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  margin-bottom: 2rem;
+}
+
+.admin-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.1rem 1.25rem;
+}
+
+.admin-tile-label {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-tile-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1f2433;
+}
+
+.admin-status-ok {
+  color: var(--success);
+}
+
+.admin-status-degraded {
+  color: #b47b00;
+}
+
+.admin-status-down {
+  color: var(--danger);
+}
+
+.admin-section {
+  margin-bottom: 2rem;
+}
+
+.admin-section h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+  color: #1f2433;
+}
+
+.admin-section-action {
+  margin-top: 0.75rem;
+}
+
+.admin-section-action a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.admin-empty {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-list li a {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.9rem;
+  transition: border-color 0.15s ease;
+}
+
+.admin-list li a:hover,
+.admin-list li a:focus-visible {
+  border-color: var(--primary);
+}
+
+.admin-list strong {
+  color: #1f2433;
+  font-size: 0.95rem;
+}
+
+.admin-list small {
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+}
+
+.admin-detail-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin: 0 0 0.5rem;
+}
+
+.admin-detail-grid dt {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-detail-grid dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  color: #1f2433;
+}
+
+.admin-table {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-table th {
+  background: var(--surface-subtle);
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-table a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.admin-search {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-search label {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-search input,
+.admin-search select {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  min-width: 14rem;
+  background: var(--surface);
+}
+
+.admin-search button {
+  background: var(--primary);
+  border: 0;
+  border-radius: 0.5rem;
+  color: var(--primary-foreground);
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+}
+
+.admin-pagination {
+  color: var(--muted-foreground);
+  margin-top: 1rem;
+}
+
+.admin-breadcrumb a {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+
+.admin-breadcrumb a:hover,
+.admin-breadcrumb a:focus-visible {
+  color: var(--primary);
+}
+
+.admin-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-width: 40rem;
+  padding: 1.5rem;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.admin-field label {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.admin-field input,
+.admin-field select,
+.admin-field textarea {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font: inherit;
+  padding: 0.55rem 0.65rem;
+  background: var(--surface);
+}
+
+.admin-field textarea {
+  resize: vertical;
+}
+
+.admin-field-check label {
+  align-items: flex-start;
+  color: #1f2433;
+  display: flex;
+  font-size: 0.88rem;
+  gap: 0.5rem;
+  font-weight: 400;
+}
+
+.admin-field-check input {
+  margin-top: 0.2rem;
+}
+
+.admin-form-error {
+  background: var(--danger-bg);
+  border: 1px solid #f3c5c0;
+  border-radius: 0.5rem;
+  color: var(--danger);
+  font-size: 0.88rem;
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+}
+
+.admin-submit {
+  align-self: flex-start;
+  background: #6d5cff;
+  border: 0;
+  border-radius: 0.55rem;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.65rem 1.4rem;
+}
+
+.admin-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-submit:not(:disabled):hover,
+.admin-submit:not(:disabled):focus-visible {
+  background: #5638e0;
+}
+
+.admin-success-banner {
+  background: var(--success-bg);
+  border: 1px solid #bfe6cf;
+  border-radius: 0.6rem;
+  color: var(--success);
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+}

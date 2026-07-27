@@ -1,4 +1,5 @@
-import { CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, MessageSquarePlus, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 import { type BusinessSettings } from "@bizo/contracts/platform";
 
@@ -30,6 +31,22 @@ export default async function SettingsPage({
           </span>
         </div>
       ) : null}
+      <Link className="guided-setup-card" href={`/b/${businessId}/settings/setup`}>
+        <Sparkles aria-hidden="true" size={20} />
+        <div>
+          <strong>Guided setup</strong>
+          <small>Answer a few questions and we&apos;ll reconfigure your workspace.</small>
+        </div>
+        <ArrowRight aria-hidden="true" size={18} />
+      </Link>
+      <Link className="guided-setup-card" href={`/b/${businessId}/settings/customization`}>
+        <MessageSquarePlus aria-hidden="true" size={20} />
+        <div>
+          <strong>Request customization</strong>
+          <small>Describe process changes for our team to review.</small>
+        </div>
+        <ArrowRight aria-hidden="true" size={18} />
+      </Link>
       <SettingsForm businessId={businessId} settings={settings} />
     </div>
   );

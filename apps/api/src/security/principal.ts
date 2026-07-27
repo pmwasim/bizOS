@@ -3,6 +3,11 @@ import { type Request } from "express";
 
 export interface AuthenticatedPrincipal {
   userId: string;
+  // Phase 9 — populated by SystemAdminGuard when the authenticated user has
+  // an ACTIVE PlatformSystemAdmin row. Endpoints decorated with @SystemAdmin
+  // require this to be set; endpoints that don't use the guard see `undefined`.
+  systemAdminId?: string;
+  isSystemAdmin?: boolean;
 }
 
 type PrincipalRequest = Request & { principal?: AuthenticatedPrincipal };
