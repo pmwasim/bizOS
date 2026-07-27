@@ -48,6 +48,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Start authenticated Redis and SMTP test services
         run: |
+          for attempt in 1 2 3 4 5; do
+            if docker pull redis:8-alpine && docker pull axllent/mailpit:v1.30.0; then
+              break
+            fi
+            echo "Docker Hub pull failed (attempt ${attempt}); retrying..."
+            sleep $((attempt * 5))
+          done
           docker run --detach --name bizo-ci-redis \
             --publish 127.0.0.1:6379:6379 \
             redis:8-alpine redis-server --requirepass "$REDIS_PASSWORD"
