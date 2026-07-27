@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       git_sha:
-        description: Commit SHA whose migrations to apply
+        description: Main or release-tag commit SHA whose migrations to apply
         required: false
         type: string
 
@@ -22,7 +22,12 @@ jobs:
     timeout-minutes: 15
     environment: production
     steps:
-      - name: Resolve SHA
+      - name: Check out repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Resolve and authorize SHA
         id: meta
         env:
           REQUESTED_SHA: ${{ inputs.git_sha }}
@@ -33,8 +38,15 @@ jobs:
             echo "SHA must be a full 40-character lowercase git SHA."
             exit 1
           fi
+          if ! git merge-base --is-ancestor "$CANDIDATE" origin/main; then
+            echo "Refusing migration SHA that is not an ancestor of origin/main."
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet "v0.1.0-beta.1^{commit}" >/dev/null; then
+            echo "Release tag lookup skipped; main ancestry gate already passed."
+          fi
           echo "deploy_sha=$CANDIDATE" >> "$GITHUB_OUTPUT"
-      - name: Check out repository
+      - name: Check out authorized migration SHA
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.meta.outputs.deploy_sha }}
