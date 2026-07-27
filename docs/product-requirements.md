@@ -6,19 +6,23 @@
 **Product owner:** Mohammed Wasim Perinkadakkat  
 **Repository:** `pmwasim/bizOS`  
 **Production:** `https://bizos.qloudihub.com`  
-**Budget constraint:** $0 unless the product owner explicitly approves otherwise  
+**Budget constraint:** $0 unless the product owner explicitly approves otherwise
 
 ## 1. Purpose
 
-This document defines the product model, default ERP experience, optional onboarding customization, System Admin responsibilities, release priorities, and product requirements for bizOS.
+This document defines the product model, default ERP experience, optional onboarding customization,
+System Admin responsibilities, release priorities, and product requirements for bizOS.
 
-It is the product source of truth. Architecture, implementation, release plans, and AI-agent instructions must remain consistent with it.
+It is the product source of truth. Architecture, implementation, release plans, and AI-agent
+instructions must remain consistent with it.
 
 ## 2. Product vision
 
-bizOS is a simple, configurable Business Operating System for small businesses, service companies, freelancers, and growing organizations.
+bizOS is a simple, configurable Business Operating System for small businesses, service companies,
+freelancers, and growing organizations.
 
-Its purpose is to provide a proper ERP by default while hiding unnecessary complexity from users who do not have accounting or ERP experience.
+Its purpose is to provide a proper ERP by default while hiding unnecessary complexity from users who
+do not have accounting or ERP experience.
 
 A business must be able to:
 
@@ -29,7 +33,8 @@ A business must be able to:
 
 ### Product promise
 
-A new user can create a business and begin working immediately. Customization is optional, reversible where safe, and never required to access the default ERP.
+A new user can create a business and begin working immediately. Customization is optional,
+reversible where safe, and never required to access the default ERP.
 
 ## 3. Core product model
 
@@ -51,7 +56,8 @@ Exceptional custom development only when configuration is insufficient
 
 All businesses share one maintained platform and coherent data model.
 
-Customization changes configuration, modules, workflows, fields, terminology, permissions, templates, and rules. It must not normally create a separate application or fork for each customer.
+Customization changes configuration, modules, workflows, fields, terminology, permissions,
+templates, and rules. It must not normally create a separate application or fork for each customer.
 
 ## 4. Default-versus-customized onboarding
 
@@ -152,7 +158,8 @@ The user can later:
 
 ## 5. Default bizOS ERP
 
-The Default bizOS ERP is the platform-owned, versioned, standard configuration assigned when customization is skipped.
+The Default bizOS ERP is the platform-owned, versioned, standard configuration assigned when
+customization is skipped.
 
 It must represent conventional ERP processes rather than the workflow of one specific business.
 
@@ -174,7 +181,8 @@ Rules:
 - invoice approval is optional unless configured;
 - physical-goods and service businesses may use different fulfilment records;
 - users should see only relevant next actions;
-- later stages must not be presented as mandatory when the assigned configuration marks them optional.
+- later stages must not be presented as mandatory when the assigned configuration marks them
+  optional.
 
 ### 5.2 Default procurement process
 
@@ -223,7 +231,8 @@ The completed Default bizOS ERP target includes:
 - roles and permissions;
 - audit history.
 
-These capabilities may be delivered incrementally. The product must never claim an unavailable module is operational.
+These capabilities may be delivered incrementally. The product must never claim an unavailable
+module is operational.
 
 ### 5.4 Default ERP user experience
 
@@ -298,11 +307,13 @@ Customer or Walk-in
 → Payment
 ```
 
-Repeated business-specific customizations should be promoted into reusable industry templates rather than maintained as isolated one-off variants.
+Repeated business-specific customizations should be promoted into reusable industry templates rather
+than maintained as isolated one-off variants.
 
 ## 7. Current specialized workflow
 
-The workflow originally used to define early bizOS functionality represents the combined processes of two specific businesses:
+The workflow originally used to define early bizOS functionality represents the combined processes
+of two specific businesses:
 
 ```text
 Quotation
@@ -313,9 +324,11 @@ Quotation
 → Payment
 ```
 
-It must be preserved as a specialized versioned configuration, not treated as the universal bizOS workflow.
+It must be preserved as a specialized versioned configuration, not treated as the universal bizOS
+workflow.
 
-Existing businesses using this process must retain compatible behavior. They must not be silently migrated to the Default bizOS ERP workflow.
+Existing businesses using this process must retain compatible behavior. They must not be silently
+migrated to the Default bizOS ERP workflow.
 
 ## 8. Customization levels
 
@@ -519,7 +532,8 @@ Every consequential System Admin action must record:
 - reason;
 - correlation or request reference.
 
-System Admin support impersonation, if implemented, must be explicit, time-limited, visible, and fully audited.
+System Admin support impersonation, if implemented, must be explicit, time-limited, visible, and
+fully audited.
 
 ## 10. Configuration architecture requirements
 
@@ -734,7 +748,8 @@ If answers do not map safely to a published template:
 
 ## 14. Open-source-first implementation policy
 
-bizOS should use open-source code, products, and frameworks when they accelerate delivery without weakening coherence, security, upgradeability, or licensing safety.
+bizOS should use open-source code, products, and frameworks when they accelerate delivery without
+weakening coherence, security, upgradeability, or licensing safety.
 
 ### 14.1 Reuse rules
 
@@ -753,7 +768,8 @@ A candidate must pass:
 
 ### 14.2 Current implementation baseline
 
-The current platform already uses a coherent open-source application stack and should not be discarded without evidence that migration is decisively better.
+The current platform already uses a coherent open-source application stack and should not be
+discarded without evidence that migration is decisively better.
 
 Existing foundations include:
 
@@ -905,7 +921,8 @@ Required controls include:
 - audited configuration changes;
 - tested cross-tenant denial.
 
-bizOS must not claim legal, tax, privacy, accounting, or regulatory compliance that has not been verified.
+bizOS must not claim legal, tax, privacy, accounting, or regulatory compliance that has not been
+verified.
 
 ## 20. Success metrics
 
@@ -1103,4 +1120,6 @@ Merged code alone is not product completion.
 
 ## 25. One-sentence product test
 
-> A change belongs in bizOS when it helps a business use a proper ERP more simply, or safely adapts that ERP to the business through versioned configuration, without breaking the shared platform, historical records, security, or the $0 budget.
+> A change belongs in bizOS when it helps a business use a proper ERP more simply, or safely adapts
+> that ERP to the business through versioned configuration, without breaking the shared platform,
+> historical records, security, or the $0 budget.
