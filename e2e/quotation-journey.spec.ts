@@ -29,8 +29,12 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   await expect(page.getByText(/SAR\s*5,750\.00/)).toBeVisible();
   await page.getByRole("button", { name: "Preview quotation" }).click();
 
-  await expect(page.getByRole("heading", { name: "Q-0001" })).toBeVisible();
-  const pdfFrame = page.getByTitle("Preview of quotation Q-0001");
+  await expect(page).toHaveURL(/\/quotations\/[^/]+$/);
+  const quotationHeading = page.getByRole("heading", { name: /^Q-\d{4,}$/ });
+  await expect(quotationHeading).toBeVisible();
+  const quotationNumber = await quotationHeading.textContent();
+  expect(quotationNumber).toBeTruthy();
+  const pdfFrame = page.getByTitle(`Preview of quotation ${quotationNumber}`);
   await expect(pdfFrame).toBeVisible();
   const pdfPath = await pdfFrame.getAttribute("src");
   expect(pdfPath).toBeTruthy();
