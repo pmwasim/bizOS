@@ -35,9 +35,24 @@ DNS TXT record creation for SPF/DKIM on the existing Cloudflare zone.
 ## Already provisioned at $0
 
 - Prisma Postgres primary database in `eu-central-1`
+- MVP migration `20260727090000_mvp_core` applied (via `prisma+postgres` Accelerate path)
 - GitHub `preview` and `production` environments
 - Generated `AUTH_SECRET` / `INTERNAL_AUTH_SECRET` (production)
-- `DATABASE_URL` production secret
+- Production `DATABASE_URL` (Accelerate `prisma+postgres` form required because GitHub Actions
+  cannot open TCP to `db.prisma.io:5432`)
 - Production non-secret variables (`NODE_ENV`, `AUTH_URL`, `API_INTERNAL_URL`, `SMTP_FROM`)
-- Cloudflare account secrets already present at repository level
-- Production deploy and Cloudflare edge bootstrap workflows (pending merge)
+- Cloudflare account secrets present at repository level (token currently invalid — must rotate)
+- Production deploy, migrate, and Cloudflare edge bootstrap workflows on `main`
+- Immutable GHCR images published for MVP SHA `aa8de955455ad085709a768db921acc76dbbbd62`
+
+## Additional Admin actions required to go live
+
+1. Rotate `CLOUDFLARE_API_TOKEN` — current repository secret returns `Invalid API Token`.
+2. Provide Render free/starter auth (`RENDER_API_KEY`, service IDs) or approve paid always-on
+   hosting.
+3. Create transactional SMTP credentials and set `SMTP_URL` production secret; verify sender DNS.
+4. Confirm Nest runtime can use Accelerate/`prisma+postgres` (or a reachable pooled TCP URL).
+   Current API env validation requires `postgresql://`, so a small runtime adapter follow-up may be
+   required before app boot against Prisma Postgres from restricted networks.
+5. Set `WEB_ORIGIN_HOST` / `API_ORIGIN_HOST` production variables once Render hostnames exist, then
+   re-run Cloudflare edge bootstrap.
