@@ -53,15 +53,19 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     .setExpirationTime("2m")
     .sign(new TextEncoder().encode(env.INTERNAL_AUTH_SECRET));
 
+  const headers = new Headers(init?.headers);
+  headers.set("authorization", `Bearer ${assertion}`);
+  for (const [key, value] of Object.entries(clientIp)) {
+    headers.set(key, value);
+  }
+  if (!(init?.body instanceof FormData) && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+
   return fetch(`${env.API_INTERNAL_URL}${path}`, {
     ...init,
     cache: "no-store",
-    headers: {
-      authorization: `Bearer ${assertion}`,
-      "content-type": "application/json",
-      ...clientIp,
-      ...init?.headers,
-    },
+    headers,
   });
 }
 

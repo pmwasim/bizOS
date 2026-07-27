@@ -27,6 +27,17 @@ authorization and audit.
 
 ## Default roles
 
+Runtime MVP roles (`OWNER`, `ADMIN`, `MEMBER`) map through `BusinessAccessService`:
+
+| Object            | Actions                      | OWNER/ADMIN | MEMBER |
+| ----------------- | ---------------------------- | ----------- | ------ |
+| `purchase_orders` | create, read, update, upload | yes         | yes    |
+| `purchase_orders` | archive                      | yes         | no     |
+| `approvals`       | read                         | yes         | yes    |
+| `approvals`       | update, upload_evidence      | yes         | no     |
+
+Future templates (Approver, Finance, Viewer) remain documented for later role expansion.
+
 - Owner: business administration and high-impact decisions.
 - Admin: team and operational configuration, excluding ownership transfer.
 - Operator: create and progress ordinary work.
