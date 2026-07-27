@@ -1,6 +1,8 @@
 # Release notes draft — Purchase order and approval readiness
 
-Target tag: `v0.2.0-beta.1` (subject to repository versioning on merge)
+Released tags: `v0.2.0-beta.1` (feature `c85c8e9`), `v0.2.0-beta.2` (R2 live / ops `ac6f23f`).
+
+See `docs/operations/po-approval-readiness-production-evidence.md`.
 
 ## User outcome
 
@@ -30,3 +32,9 @@ npm libraries (AWS SDK already present). CI uses local object store.
 
 - Feature is additive (new tables/routes). Rollback: redeploy previous release; leave unused tables
   in place (forward-safe). Do not drop evidence tables without an explicit data decision.
+
+## Production
+
+- API live with R2: `34576d9`
+- Evidence: `docs/operations/po-approval-readiness-production-evidence.md`
+- Feedback checklist: `docs/operations/po-approval-readiness-beta-feedback.md`
