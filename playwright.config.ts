@@ -25,12 +25,16 @@ export default defineConfig({
     {
       command: "pnpm --filter @bizo/api start",
       reuseExistingServer: !process.env.CI,
+      stderr: "pipe",
+      stdout: "pipe",
       timeout: 30_000,
       url: "http://127.0.0.1:3001/api/v1/health",
     },
     {
       command: "pnpm --filter @bizo/web start",
       reuseExistingServer: !process.env.CI,
+      stderr: "pipe",
+      stdout: "pipe",
       timeout: 30_000,
       url: "http://127.0.0.1:3000",
     },
