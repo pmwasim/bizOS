@@ -17,12 +17,14 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:seed": "node scripts/build-seed.mjs && prisma db seed",
     "prisma:validate": "prisma validate",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@bizo/contracts": "workspace:*",
     "@prisma/adapter-pg": "7.9.0",
     "@prisma/client": "7.9.0",
     "pg": "8.22.0"

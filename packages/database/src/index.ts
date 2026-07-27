@@ -3,15 +3,19 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/client/client.js";
 
 export {
+  ConfigurationVersionStatus,
   DeliveryStatus,
   DocumentStatus,
   DocumentType,
   InvoiceApprovalStatus,
   MembershipStatus,
+  ModuleStatus,
+  PlatformSystemAdminStatus,
   Prisma,
   PurchaseOrderStatus,
   RoleCode,
   StoredObjectKind,
+  WorkflowVersionStatus,
 } from "../generated/client/client.js";
 export type * from "../generated/client/models.js";
 
