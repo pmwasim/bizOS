@@ -139,5 +139,16 @@ merge-commit image digests after an image vulnerability scan.
   customer message bodies.
 - Confirm PostgreSQL, Redis, SMTP administration, and R2 are not publicly reachable.
 
-Record the deployed image digests, migration result, smoke-test evidence, and rollback target. Do
-not configure DNS or deploy from this handoff until explicitly authorized.
+Record the deployed image digests, migration result, smoke-test evidence, and rollback target.
+
+## Known private-beta limitations
+
+- Extremely large quotation quantities or unit prices that exceed Prisma `Decimal` column precision
+  can still fail at the database boundary with a generic error; tighten request bounds in a
+  follow-up.
+- If SMTP accepts a message and the subsequent delivery-status write fails, a retry may produce a
+  duplicate customer email until provider idempotency or delivery reconciliation is added.
+- Redis, BullMQ, and R2 remain inactive production seams for this release and are not provisioned.
+
+This handoff authorizes the release engineer named in the autonomous deployment mandate to proceed
+with production configuration after PR merge and green post-merge CI.
