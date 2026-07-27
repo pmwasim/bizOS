@@ -685,9 +685,24 @@ textarea:focus {
   color: #475467;
 }
 
+.status-ready_to_send {
+  background: #eef4ff;
+  color: #3538cd;
+}
+
 .status-sent {
   background: var(--success-bg);
   color: var(--success);
+}
+
+.status-send_failed {
+  background: #fff4ed;
+  color: #b54708;
+}
+
+.status-archived {
+  background: var(--muted);
+  color: #667085;
 }
 
 .readiness-ready_to_invoice {
@@ -1170,7 +1185,7 @@ textarea:focus {
     border-top: 1px solid var(--border);
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     left: 0;
     padding-bottom: env(safe-area-inset-bottom);
     position: fixed;

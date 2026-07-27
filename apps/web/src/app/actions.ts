@@ -6,6 +6,12 @@ import { redirect } from "next/navigation";
 import { signUpRequestSchema } from "@bizo/contracts/auth";
 import { createCustomerRequestSchema, type Customer } from "@bizo/contracts/customers";
 import {
+  createInvoiceFromQuotationRequestSchema,
+  type Invoice,
+  sendInvoiceRequestSchema,
+  updateInvoiceRequestSchema,
+} from "@bizo/contracts/invoices";
+import {
   createPurchaseOrderRequestSchema,
   type PurchaseOrder,
   updateApprovalStatusRequestSchema,
@@ -179,6 +185,114 @@ export async function sendQuotationAction(
       body: JSON.stringify(parsed.data),
     });
     redirect(`/b/${businessId}/quotations/${quotationId}?sent=1`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createInvoiceFromQuotationAction(
+  businessId: string,
+  quotationId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  const parsed = createInvoiceFromQuotationRequestSchema.safeParse({ quotationId });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    const invoice = await apiJson<Invoice>(`/businesses/${businessId}/invoices`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/invoices/${invoice.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateInvoiceAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let lines: unknown;
+  try {
+    lines = JSON.parse(String(formData.get("lines") ?? "[]"));
+  } catch {
+    return { error: "Check the invoice lines and try again." };
+  }
+  const parsed = updateInvoiceRequestSchema.safeParse({
+    issueDate: String(formData.get("issueDate") ?? "").trim() || undefined,
+    dueDate: String(formData.get("dueDate") ?? "").trim() || undefined,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+    lines,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/invoices/${invoiceId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function markInvoiceReadyAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}/mark-ready`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/invoices/${invoiceId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function sendInvoiceAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = sendInvoiceRequestSchema.safeParse({
+    recipientEmail: formData.get("recipientEmail"),
+    message: String(formData.get("message") ?? "").trim() || null,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}/send`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/invoices/${invoiceId}?sent=1`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function archiveInvoiceAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}/archive`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/invoices`);
   } catch (error) {
     return actionError(error);
   }

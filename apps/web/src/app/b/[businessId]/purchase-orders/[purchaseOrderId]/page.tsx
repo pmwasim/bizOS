@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { type PurchaseOrder } from "@bizo/contracts/purchase-orders";
 
+import { CreateInvoiceFromQuotationButton } from "@/components/invoice-actions";
 import { PurchaseOrderActions } from "@/components/purchase-order-actions";
 import { apiJson } from "@/lib/api";
 
@@ -15,6 +16,8 @@ export default async function PurchaseOrderDetailPage({
   const purchaseOrder = await apiJson<PurchaseOrder>(
     `/businesses/${businessId}/purchase-orders/${purchaseOrderId}`,
   );
+  const readyToInvoice =
+    purchaseOrder.readiness.code === "READY_TO_INVOICE" && Boolean(purchaseOrder.quotation);
 
   return (
     <div className="page">
@@ -35,7 +38,15 @@ export default async function PurchaseOrderDetailPage({
       </header>
 
       <section className="panel readiness-panel">
-        <h2>Ready to invoice?</h2>
+        <div className="section-heading">
+          <h2>Ready to invoice?</h2>
+          {readyToInvoice && purchaseOrder.quotation ? (
+            <CreateInvoiceFromQuotationButton
+              businessId={businessId}
+              quotationId={purchaseOrder.quotation.id}
+            />
+          ) : null}
+        </div>
         <p>{purchaseOrder.readiness.explanation}</p>
       </section>
 
