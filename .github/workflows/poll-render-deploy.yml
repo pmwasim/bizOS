@@ -1,0 +1,64 @@
+name: Poll Render deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_id:
+        description: Render deploy id (e.g. dep-...)
+        required: true
+        type: string
+      service:
+        description: api or web
+        required: true
+        default: api
+        type: choice
+        options:
+          - api
+          - web
+
+permissions:
+  contents: read
+
+jobs:
+  poll:
+    name: Wait for Render deploy live
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - name: Poll deploy status
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
+          DEPLOY_ID: ${{ inputs.deploy_id }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          if [ "$SERVICE" = "web" ]; then
+            SID="$RENDER_WEB_SERVICE_ID"
+          else
+            SID="$RENDER_API_SERVICE_ID"
+          fi
+          if [ -z "${RENDER_API_KEY:-}" ] || [ -z "${SID:-}" ] || [ -z "${DEPLOY_ID:-}" ]; then
+            echo "Missing RENDER_API_KEY, service id, or deploy_id"
+            exit 1
+          fi
+          for attempt in $(seq 1 60); do
+            status=$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${SID}/deploys/${DEPLOY_ID}" \
+              | jq -r '.status')
+            commit=$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${SID}/deploys/${DEPLOY_ID}" \
+              | jq -r '.commit.id // empty')
+            echo "attempt=$attempt status=$status commit=${commit:-unknown}"
+            case "$status" in
+              live) echo "Deploy live"; exit 0 ;;
+              build_failed|update_failed|canceled|deactivated) echo "Deploy failed: $status"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "Timed out waiting for deploy"
+          exit 1

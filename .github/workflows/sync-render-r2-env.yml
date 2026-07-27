@@ -69,6 +69,7 @@ jobs:
           # Ensure production never silently uses ephemeral local disk.
           upsert OBJECT_STORE r2
       - name: Redeploy API so env takes effect
+        id: redeploy
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
@@ -79,4 +80,26 @@ jobs:
             -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Content-Type: application/json" \
             -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${DEPLOY_SHA}\"}" \
-            | jq '{id,status,commit:(.commit.id)}'
+            | tee /tmp/redeploy.json | jq '{id,status,commit:(.commit.id)}'
+          echo "deploy_id=$(jq -r .id /tmp/redeploy.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for API deploy live
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          DEPLOY_ID: ${{ steps.redeploy.outputs.deploy_id }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            status=$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${RENDER_API_SERVICE_ID}/deploys/${DEPLOY_ID}" \
+              | jq -r '.status')
+            echo "attempt=$attempt status=$status"
+            case "$status" in
+              live) echo "API deploy live"; exit 0 ;;
+              build_failed|update_failed|canceled|deactivated) echo "Deploy failed: $status"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "Timed out waiting for deploy"; exit 1
