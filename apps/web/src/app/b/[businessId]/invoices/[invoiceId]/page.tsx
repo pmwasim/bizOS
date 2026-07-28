@@ -79,10 +79,7 @@ export default async function InvoiceDetailPage({
             {invoiceStatusLabel(invoice.status)}
           </span>
           {paymentSummary ? (
-            <span
-              className={`status readiness-${paymentSummary.balanceStatus.toLowerCase()}`}
-              style={{ marginLeft: "0.5rem" }}
-            >
+            <span className={`balance-badge balance-${paymentSummary.balanceStatus.toLowerCase()}`}>
               {invoiceBalanceStatusLabel(paymentSummary.balanceStatus)}
             </span>
           ) : null}

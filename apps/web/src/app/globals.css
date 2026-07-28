@@ -705,6 +705,40 @@ textarea:focus {
   color: #667085;
 }
 
+.status-recorded {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.status-voided {
+  background: var(--muted);
+  color: #667085;
+}
+
+.balance-badge {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-left: 0.5rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.balance-unpaid {
+  background: var(--muted);
+  color: #475467;
+}
+
+.balance-partially_paid {
+  background: #eef4ff;
+  color: #3538cd;
+}
+
+.balance-paid {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
 .readiness-ready_to_invoice {
   background: var(--success-bg);
   color: var(--success);
