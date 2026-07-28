@@ -104,9 +104,16 @@ All bizOS ↔ n8n integrations must satisfy:
 
 ## Current activation status
 
-| Integration                  | bizOS code                                   | Env vars                                                         | n8n workflow                                                      | Status                                                 |
-| ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |
-| Customization-request notify | `apps/api/src/customization/n8n-notifier.ts` | `N8N_CUSTOMIZATION_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (optional) | `docs/operations/n8n-workflows/customization-request-notify.json` | **Deferred** — stub only; webhook URL unset by default |
+| Integration                  | bizOS code                                   | Env vars                                                         | n8n workflow                                                      | Status                                                       |
+| ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------ |
+| Customization-request notify | `apps/api/src/customization/n8n-notifier.ts` | `N8N_CUSTOMIZATION_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (optional) | `docs/operations/n8n-workflows/customization-request-notify.json` | **Deferred** — stub only; webhook URL unset by default       |
+| CI / deploy failure notify   | `scripts/ops/n8n-notify.mjs`                 | `N8N_CI_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (optional)            | `docs/operations/n8n-workflows/ci-failure-notify.json`            | **Deferred** — GitHub secret optional; job no-ops when unset |
+| GitHub Actions poll          | — (n8n cron only)                            | `GITHUB_TOKEN` in n8n env                                        | `docs/operations/n8n-workflows/github-actions-poll.json`          | **Deferred** — localhost-friendly CI/CD path                 |
+| Production health monitor    | — (n8n cron only)                            | Optional URL overrides in n8n env                                | `docs/operations/n8n-workflows/health-monitor.json`               | **Deferred** — read-only HTTP checks                         |
+
+**Setup runbook:** [n8n-setup-runbook.md](./n8n-setup-runbook.md)
+
+**Import command:** `pnpm ops:n8n:import` (imports all templates inactive into local `qh-n8n`).
 
 **Production n8n workflow:** Not activated. Template exported for import; `"active": false`.
 Activate only after:
@@ -153,5 +160,8 @@ Headers:
 ## Related artifacts
 
 - Phase 11 notifier: `apps/api/src/customization/n8n-notifier.ts`
-- Workflow template: `docs/operations/n8n-workflows/customization-request-notify.json`
+- CI/deploy notifier: `scripts/ops/n8n-notify.mjs`
+- Import script: `scripts/ops/import-n8n-workflows.sh`
+- Setup runbook: `docs/operations/n8n-setup-runbook.md`
+- Workflow templates: `docs/operations/n8n-workflows/`
 - qloudihub stack reference: `/home/wasim/Projects/qloudihub/ops/stack/docker-compose.yml`

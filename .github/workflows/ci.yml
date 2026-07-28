@@ -101,3 +101,25 @@ jobs:
           path: test-results
           if-no-files-found: warn
           retention-days: 7
+
+  notify-n8n:
+    name: Notify n8n (optional)
+    runs-on: ubuntu-24.04
+    needs: quality
+    if: failure()
+    timeout-minutes: 2
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Notify n8n of CI failure
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
+          N8N_WEBHOOK_SECRET: ${{ secrets.N8N_WEBHOOK_SECRET }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: node scripts/ops/n8n-notify.mjs ci-failure --job "Quality gate"
+        continue-on-error: true

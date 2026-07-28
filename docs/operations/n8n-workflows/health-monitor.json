@@ -1,0 +1,196 @@
+{
+  "name": "bizOS Health Monitor",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## bizOS production health checks\n\nPolls API and web endpoints every 5 minutes. No secrets required for public health URLs.\n\nDefaults:\n- API: https://api.bizos.qloudihub.com/api/v1/health\n- Web: https://bizos.qloudihub.com/\n\nOverride with `BIZOS_API_HEALTH_URL` and `BIZOS_WEB_HEALTH_URL` in n8n env.\n\nReplace **Log Route** with Slack/email/PagerDuty before activation.",
+        "height": 200,
+        "width": 460
+      },
+      "id": "sticky-note-bizos-health",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [80, -120]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-bizos-health",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.BIZOS_API_HEALTH_URL || 'https://api.bizos.qloudihub.com/api/v1/health' }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-api-health",
+      "name": "Check API Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, -80]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.BIZOS_WEB_HEALTH_URL || 'https://bizos.qloudihub.com/' }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "http-web-health",
+      "name": "Check Web Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const api = $('Check API Health').first().json;\nconst web = $('Check Web Health').first().json;\n\nconst apiOk = api?.status === 'ok';\nconst webStatusCode = web?.statusCode ?? web?.status;\nconst webOk = webStatusCode === 200;\n\nconst issues = [];\nif (!apiOk) {\n  issues.push('API health not ok');\n}\nif (!webOk) {\n  issues.push(`Web returned ${webStatusCode ?? 'unknown'}`);\n}\n\nreturn [{\n  json: {\n    event: issues.length ? 'health.degraded' : 'health.ok',\n    workflow: 'bizos-health-monitor',\n    apiStatus: api?.status ?? 'unknown',\n    webStatusCode: webStatusCode ?? 'unknown',\n    healthy: issues.length === 0,\n    issues: issues.join('; ') || 'none',\n    checkedAt: new Date().toISOString(),\n  },\n}];"
+      },
+      "id": "code-evaluate-health",
+      "name": "Evaluate Health",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.healthy }}",
+              "value2": false
+            }
+          ]
+        }
+      },
+      "id": "if-unhealthy",
+      "name": "Unhealthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "channel",
+              "value": "ops-alerts"
+            },
+            {
+              "name": "title",
+              "value": "=[bizOS] Health degraded"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.issues }} · API={{ $json.apiStatus }} · Web={{ $json.webStatusCode }}"
+            },
+            {
+              "name": "severity",
+              "value": "critical"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-health-alert",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1300, -80]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "healthy"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-health-ok",
+      "name": "Healthy (no alert)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1300, 80]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "routed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-health-log",
+      "name": "Log Route",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1560, -80]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          { "node": "Check API Health", "type": "main", "index": 0 },
+          { "node": "Check Web Health", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check API Health": {
+      "main": [[{ "node": "Evaluate Health", "type": "main", "index": 0 }]]
+    },
+    "Check Web Health": {
+      "main": [[{ "node": "Evaluate Health", "type": "main", "index": 0 }]]
+    },
+    "Evaluate Health": {
+      "main": [[{ "node": "Unhealthy?", "type": "main", "index": 0 }]]
+    },
+    "Unhealthy?": {
+      "main": [
+        [{ "node": "Build Alert", "type": "main", "index": 0 }],
+        [{ "node": "Healthy (no alert)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Alert": {
+      "main": [[{ "node": "Log Route", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Monitors bizOS production API and web health endpoints."
+  }
+}
