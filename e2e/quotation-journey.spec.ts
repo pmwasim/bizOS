@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { completeDefaultSetup } from "./helpers";
+
 test("creates and sends a professional quotation", async ({ page }, testInfo) => {
   const runId = `${testInfo.project.name}-${Date.now()}`.toLowerCase();
   const email = `owner-${runId}@example.test`;
@@ -15,9 +17,7 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   await page.getByLabel(/Business name/).fill(`Release Services ${runId}`);
   await page.getByRole("button", { name: "Create business" }).click();
 
-  await expect(
-    page.getByRole("heading", { name: "Let’s send your first quotation" }),
-  ).toBeVisible();
+  await completeDefaultSetup(page);
   await page.getByRole("link", { name: "Add your first customer" }).click();
   await page.getByLabel("Customer or company name").fill("Northstar Studio");
   await page.locator('input[name="email"]').fill(customerEmail);

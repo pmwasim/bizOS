@@ -46,6 +46,11 @@ try {
 
   await desktop.getByLabel(/Business name/).fill(`Invoice Co ${runId}`);
   await desktop.getByRole("button", { name: "Create business" }).click();
+  await desktop.waitForURL(/\/b\/[^/]+\/setup$/, { timeout: 120_000 });
+  await desktop.getByRole("button", { name: "Use default" }).click();
+  await desktop
+    .getByRole("heading", { name: "Let’s send your first quotation" })
+    .waitFor({ timeout: 120_000 });
   await desktop.getByRole("link", { name: "Add your first customer" }).click();
   await desktop.getByLabel("Customer or company name").fill("Invoice Customer");
   await desktop.locator('input[name="email"]').fill(customerEmail);
