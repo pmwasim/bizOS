@@ -150,6 +150,7 @@ model Tenant {
   memberships              Membership[]
   roles                    Role[]
   configurationAuditEvents ConfigurationAuditEvent[]
+  customizationRequests    CustomizationRequest[]
 
   @@map("tenants")
 }
@@ -766,6 +767,7 @@ model CustomizationRequest {
   createdAt                             DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                             DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  tenant                              Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   business                            Business                      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
   requesterMembership                 Membership                    @relation(fields: [requesterMembershipId], references: [id], onDelete: Restrict)
   currentConfigurationTemplateVersion ConfigurationTemplateVersion? @relation(fields: [currentConfigurationTemplateVersionId], references: [id], onDelete: Restrict)
