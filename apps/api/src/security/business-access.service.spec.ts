@@ -32,6 +32,31 @@ describe("BusinessAccessService", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it("allows members to create purchase orders but not change approval", async () => {
+    const service = new BusinessAccessService({} as DatabaseService);
+    const member = { ...ownerAccess, role: RoleCode.MEMBER };
+
+    await expect(
+      service.assertAllowed(member, "purchase_orders", "create"),
+    ).resolves.toBeUndefined();
+    await expect(service.assertAllowed(member, "approvals", "update")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it("allows members to send invoices but not archive them", async () => {
+    const service = new BusinessAccessService({} as DatabaseService);
+    const member = { ...ownerAccess, role: RoleCode.MEMBER };
+
+    await expect(service.assertAllowed(member, "invoices", "send")).resolves.toBeUndefined();
+    await expect(service.assertAllowed(member, "invoices", "archive")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(
+      service.assertAllowed(ownerAccess, "invoices", "archive"),
+    ).resolves.toBeUndefined();
+  });
+
   it("resolves access only through an active membership and the requested business", async () => {
     const findFirst = vi.fn().mockResolvedValue({
       business: {

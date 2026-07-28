@@ -20,17 +20,38 @@ enum RoleCode {
 
 enum DocumentType {
   QUOTATION
+  INVOICE
 }
 
 enum DocumentStatus {
   DRAFT
+  READY_TO_SEND
   SENT
+  SEND_FAILED
+  ARCHIVED
 }
 
 enum DeliveryStatus {
   PENDING
   SENT
   FAILED
+}
+
+enum PurchaseOrderStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum InvoiceApprovalStatus {
+  NOT_RECORDED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StoredObjectKind {
+  PURCHASE_ORDER
+  APPROVAL_EVIDENCE
 }
 
 model User {
@@ -43,8 +64,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships Membership[]
-  auditEvents AuditEvent[]
+  memberships              Membership[]
+  auditEvents              AuditEvent[]
+  approvalChanges          PurchaseOrder[] @relation("PurchaseOrderApprovalActor")
+  uploadedStoredObjects    StoredObject[]  @relation("StoredObjectUploader")
 
   @@index([publicId])
   @@map("users")
@@ -77,6 +100,7 @@ model Membership {
   user           User             @relation(fields: [userId], references: [id], onDelete: Restrict)
   businessAccess BusinessAccess[]
   documents      Document[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -126,10 +150,12 @@ model Business {
   access       BusinessAccess[]
   settings     BusinessSettings?
   taxProfile   TaxProfile?
-  customers    Customer[]
-  documents    Document[]
-  auditEvents  AuditEvent[]
-  outboxEvents OutboxEvent[]
+  customers      Customer[]
+  documents      Document[]
+  purchaseOrders PurchaseOrder[]
+  storedObjects  StoredObject[]
+  auditEvents    AuditEvent[]
+  outboxEvents   OutboxEvent[]
 
   @@unique([tenantId, id])
   @@index([tenantId, name])
@@ -159,6 +185,9 @@ model BusinessSettings {
   quotationPrefix       String   @default("Q") @map("quotation_prefix") @db.VarChar(12)
   nextQuotationNumber   Int      @default(1) @map("next_quotation_number")
   quotationValidityDays Int      @default(30) @map("quotation_validity_days") @db.SmallInt
+  invoicePrefix         String   @default("INV") @map("invoice_prefix") @db.VarChar(12)
+  nextInvoiceNumber     Int      @default(1) @map("next_invoice_number")
+  invoiceDueDays        Int      @default(30) @map("invoice_due_days") @db.SmallInt
   defaultMessage        String?  @map("default_message") @db.VarChar(1000)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -202,8 +231,9 @@ model Customer {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business  Business   @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  documents Document[]
+  business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  documents      Document[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, name])
@@ -221,6 +251,12 @@ model Document {
   number                String         @db.VarChar(40)
   issueDate             DateTime       @map("issue_date") @db.Date
   validUntil            DateTime       @map("valid_until") @db.Date
+  dueDate               DateTime?      @map("due_date") @db.Date
+  sourceQuotationId     BigInt?        @map("source_quotation_id")
+  purchaseOrderId       BigInt?        @map("purchase_order_id")
+  projectReference      String?        @map("project_reference") @db.VarChar(120)
+  poNumberSnapshot      String?        @map("po_number_snapshot") @db.VarChar(80)
+  notes                 String?        @db.VarChar(2000)
   currencyCode          String         @map("currency_code") @db.Char(3)
   currencyScale         Int            @map("currency_scale") @db.SmallInt
   subtotalMinor         Decimal        @map("subtotal_minor") @db.Decimal(38, 0)
@@ -228,20 +264,90 @@ model Document {
   totalMinor            Decimal        @map("total_minor") @db.Decimal(38, 0)
   version               Int            @default(1)
   sentAt                DateTime?      @map("sent_at") @db.Timestamptz(3)
+  archivedAt            DateTime?      @map("archived_at") @db.Timestamptz(3)
   createdByMembershipId BigInt         @map("created_by_membership_id")
   createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer Customer          @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
-  lines    DocumentLine[]
-  versions DocumentVersion[]
-  creator  Membership        @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  business         Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer         Customer          @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  sourceQuotation  Document?         @relation("DocumentSourceQuotation", fields: [tenantId, businessId, sourceQuotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  derivedInvoices  Document[]        @relation("DocumentSourceQuotation")
+  linkedPurchaseOrder PurchaseOrder? @relation("DocumentLinkedPurchaseOrder", fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
+  lines            DocumentLine[]
+  versions         DocumentVersion[]
+  creator          Membership        @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  purchaseOrders   PurchaseOrder[]   @relation("PurchaseOrderQuotation")
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, type, number])
-  @@index([tenantId, businessId, status, createdAt])
+  @@index([tenantId, businessId, type, status, createdAt])
+  @@index([tenantId, businessId, sourceQuotationId])
+  @@index([tenantId, businessId, purchaseOrderId])
   @@map("documents")
+}
+
+model PurchaseOrder {
+  id                      BigInt                 @id @default(autoincrement())
+  publicId                String                 @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId                BigInt                 @map("tenant_id")
+  businessId              BigInt                 @map("business_id")
+  customerId              BigInt                 @map("customer_id")
+  quotationId             BigInt?                @map("quotation_id")
+  poNumber                String                 @map("po_number") @db.VarChar(80)
+  poDate                  DateTime?              @map("po_date") @db.Date
+  projectReference        String?                @map("project_reference") @db.VarChar(120)
+  amountMinor             Decimal?               @map("amount_minor") @db.Decimal(38, 0)
+  currencyCode            String?                @map("currency_code") @db.Char(3)
+  currencyScale           Int?                   @map("currency_scale") @db.SmallInt
+  notes                   String?                @db.VarChar(2000)
+  status                  PurchaseOrderStatus    @default(ACTIVE)
+  approvalStatus          InvoiceApprovalStatus  @default(NOT_RECORDED) @map("approval_status")
+  approvalChangedAt       DateTime?              @map("approval_changed_at") @db.Timestamptz(3)
+  approvalChangedByUserId BigInt?                @map("approval_changed_by_user_id")
+  archivedAt              DateTime?              @map("archived_at") @db.Timestamptz(3)
+  createdByMembershipId   BigInt                 @map("created_by_membership_id")
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business              Business     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer              Customer     @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  quotation             Document?    @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  creator               Membership   @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  approvalChangedByUser User?        @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
+  storedObjects         StoredObject[]
+  linkedInvoices        Document[]   @relation("DocumentLinkedPurchaseOrder")
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status, createdAt])
+  @@index([tenantId, businessId, customerId])
+  @@index([tenantId, businessId, quotationId])
+  @@map("purchase_orders")
+}
+
+model StoredObject {
+  id               BigInt           @id @default(autoincrement())
+  publicId         String           @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId         BigInt           @map("tenant_id")
+  businessId       BigInt           @map("business_id")
+  purchaseOrderId  BigInt           @map("purchase_order_id")
+  kind             StoredObjectKind
+  storageKey       String           @map("storage_key") @db.VarChar(512)
+  originalFilename String           @map("original_filename") @db.VarChar(255)
+  contentType      String           @map("content_type") @db.VarChar(120)
+  byteSize         Int              @map("byte_size")
+  checksumSha256   String           @map("checksum_sha256") @db.Char(64)
+  uploadedByUserId BigInt           @map("uploaded_by_user_id")
+  supersededAt     DateTime?        @map("superseded_at") @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business      Business      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  purchaseOrder PurchaseOrder @relation(fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
+  uploadedBy    User          @relation("StoredObjectUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, purchaseOrderId, kind, createdAt])
+  @@map("stored_objects")
 }
 
 model DocumentLine {
@@ -266,15 +372,19 @@ model DocumentLine {
 }
 
 model DocumentVersion {
-  id           BigInt   @id @default(autoincrement())
-  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId     BigInt   @map("tenant_id")
-  businessId   BigInt   @map("business_id")
-  documentId   BigInt   @map("document_id")
-  version      Int
-  snapshot     Json
-  templateName String   @default("professional-v1") @map("template_name") @db.VarChar(80)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id                 BigInt   @id @default(autoincrement())
+  publicId           String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId           BigInt   @map("tenant_id")
+  businessId         BigInt   @map("business_id")
+  documentId         BigInt   @map("document_id")
+  version            Int
+  snapshot           Json
+  templateName       String   @default("professional-v1") @map("template_name") @db.VarChar(80)
+  pdfStorageKey      String?  @map("pdf_storage_key") @db.VarChar(512)
+  pdfContentType     String?  @map("pdf_content_type") @db.VarChar(120)
+  pdfByteSize        Int?     @map("pdf_byte_size")
+  pdfChecksumSha256  String?  @map("pdf_checksum_sha256") @db.Char(64)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   document   Document           @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Restrict)
   deliveries DocumentDelivery[]

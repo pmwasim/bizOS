@@ -1,8 +1,10 @@
-import { CheckCircle2, ChevronLeft, Download } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Download, Plus } from "lucide-react";
 import Link from "next/link";
 
+import { type PurchaseOrder, type Readiness } from "@bizo/contracts/purchase-orders";
 import { type Quotation } from "@bizo/contracts/quotations";
 
+import { CreateInvoiceFromQuotationButton } from "@/components/invoice-actions";
 import { SendQuotationForm } from "@/components/send-quotation-form";
 import { apiJson } from "@/lib/api";
 
@@ -15,9 +17,15 @@ export default async function QuotationPreviewPage({
 }) {
   const { businessId, quotationId } = await params;
   const query = await searchParams;
-  const quotation = await apiJson<Quotation>(`/businesses/${businessId}/quotations/${quotationId}`);
+  const [quotation, linked] = await Promise.all([
+    apiJson<Quotation>(`/businesses/${businessId}/quotations/${quotationId}`),
+    apiJson<{ purchaseOrders: PurchaseOrder[]; readiness: Readiness }>(
+      `/businesses/${businessId}/quotations/${quotationId}/purchase-orders`,
+    ),
+  ]);
   const justSent = query.sent === "1";
   const pdfPath = `/api/businesses/${businessId}/quotations/${quotationId}/pdf`;
+  const readyToInvoice = linked.readiness.code === "READY_TO_INVOICE";
 
   return (
     <div className="page preview-page">
@@ -47,6 +55,49 @@ export default async function QuotationPreviewPage({
           <p>For {quotation.customer.name}</p>
         </div>
       </header>
+
+      <section className="panel readiness-panel">
+        <div className="section-heading">
+          <h2>Invoice readiness</h2>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            {readyToInvoice ? (
+              <CreateInvoiceFromQuotationButton
+                businessId={businessId}
+                quotationId={quotation.id}
+              />
+            ) : null}
+            <Link
+              className="button button-secondary"
+              href={`/b/${businessId}/purchase-orders/new?customer=${quotation.customer.id}&quotation=${quotation.id}`}
+            >
+              <Plus aria-hidden="true" size={16} /> Add customer PO
+            </Link>
+          </div>
+        </div>
+        <p>
+          <span className={`status readiness-${linked.readiness.code.toLowerCase()}`}>
+            {linked.readiness.label}
+          </span>
+        </p>
+        <p>{linked.readiness.explanation}</p>
+        {linked.purchaseOrders.length ? (
+          <div className="data-list">
+            {linked.purchaseOrders.map((purchaseOrder) => (
+              <Link
+                className="data-row"
+                href={`/b/${businessId}/purchase-orders/${purchaseOrder.id}`}
+                key={purchaseOrder.id}
+              >
+                <span className="grow">
+                  <strong>{purchaseOrder.poNumber}</strong>
+                  <small>{purchaseOrder.readiness.label}</small>
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
       <div className="preview-grid">
         <div className="pdf-frame">
           <iframe src={pdfPath} title={`Preview of quotation ${quotation.number}`} />

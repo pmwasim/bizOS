@@ -16,6 +16,12 @@ export interface BusinessAccessContext {
   userPublicId: string;
 }
 
+export type AuthorizationObject =
+  "business" | "customers" | "quotations" | "purchase_orders" | "approvals" | "invoices";
+
+export type AuthorizationAction =
+  "archive" | "create" | "export" | "read" | "send" | "update" | "upload" | "upload_evidence";
+
 const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
   OWNER: [
     "business:read",
@@ -28,6 +34,20 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "purchase_orders:create",
+    "purchase_orders:read",
+    "purchase_orders:update",
+    "purchase_orders:archive",
+    "purchase_orders:upload",
+    "approvals:read",
+    "approvals:update",
+    "approvals:upload_evidence",
+    "invoices:create",
+    "invoices:read",
+    "invoices:update",
+    "invoices:export",
+    "invoices:send",
+    "invoices:archive",
   ],
   ADMIN: [
     "business:read",
@@ -40,6 +60,20 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "purchase_orders:create",
+    "purchase_orders:read",
+    "purchase_orders:update",
+    "purchase_orders:archive",
+    "purchase_orders:upload",
+    "approvals:read",
+    "approvals:update",
+    "approvals:upload_evidence",
+    "invoices:create",
+    "invoices:read",
+    "invoices:update",
+    "invoices:export",
+    "invoices:send",
+    "invoices:archive",
   ],
   MEMBER: [
     "business:read",
@@ -51,6 +85,16 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "purchase_orders:create",
+    "purchase_orders:read",
+    "purchase_orders:update",
+    "purchase_orders:upload",
+    "approvals:read",
+    "invoices:create",
+    "invoices:read",
+    "invoices:update",
+    "invoices:export",
+    "invoices:send",
   ],
 };
 
@@ -104,8 +148,8 @@ export class BusinessAccessService {
 
   async assertAllowed(
     access: BusinessAccessContext,
-    object: "business" | "customers" | "quotations",
-    action: "create" | "export" | "read" | "send" | "update",
+    object: AuthorizationObject,
+    action: AuthorizationAction,
   ): Promise<void> {
     const domain = `${access.tenantPublicId}:${access.businessPublicId}`;
     const subject = access.userPublicId;

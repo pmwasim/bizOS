@@ -24,12 +24,13 @@ authenticated membership and cannot be selected freely by request input.
 - **Payment**: observed movement of money.
 - **Allocation**: amount of a payment applied to a document or balance.
 - **Statement**: point-in-time generated view over document and payment facts.
-- **Attachment**: metadata for an object stored outside the application web root.
+- **Attachment / stored object**: metadata for a private object outside the application web root.
+- **Purchase order**: inbound customer PO linked to at most one quotation, with approval status and
+  evidence files (ADR-0016). Not a `DocumentType`.
 
-A quotation uses the shared document facts and its own application service and lifecycle. The first
-schema deliberately contains no purchase order, invoice, payment, or workflow states. Future
-document types may reuse the shared facts only when their distinct lifecycle remains explicit, as
-recorded in ADR-0013.
+A quotation uses the shared document facts and its own application service and lifecycle. Purchase
+orders are a separate aggregate with derived invoice readiness. Invoice, payment, and workflow
+engine states remain out of the live schema until their ADRs are accepted.
 
 ## Value objects
 

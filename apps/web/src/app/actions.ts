@@ -6,6 +6,17 @@ import { redirect } from "next/navigation";
 import { signUpRequestSchema } from "@bizo/contracts/auth";
 import { createCustomerRequestSchema, type Customer } from "@bizo/contracts/customers";
 import {
+  createInvoiceFromQuotationRequestSchema,
+  type Invoice,
+  sendInvoiceRequestSchema,
+  updateInvoiceRequestSchema,
+} from "@bizo/contracts/invoices";
+import {
+  createPurchaseOrderRequestSchema,
+  type PurchaseOrder,
+  updateApprovalStatusRequestSchema,
+} from "@bizo/contracts/purchase-orders";
+import {
   createBusinessRequestSchema,
   type BusinessSummary,
   updateBusinessSettingsRequestSchema,
@@ -17,7 +28,7 @@ import {
 } from "@bizo/contracts/quotations";
 
 import { signIn, signOut } from "@/auth";
-import { ApiError, apiJson, publicApiFetch } from "@/lib/api";
+import { ApiError, apiFetch, apiJson, publicApiFetch } from "@/lib/api";
 
 export interface ActionState {
   error?: string;
@@ -179,6 +190,114 @@ export async function sendQuotationAction(
   }
 }
 
+export async function createInvoiceFromQuotationAction(
+  businessId: string,
+  quotationId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  const parsed = createInvoiceFromQuotationRequestSchema.safeParse({ quotationId });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    const invoice = await apiJson<Invoice>(`/businesses/${businessId}/invoices`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/invoices/${invoice.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateInvoiceAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let lines: unknown;
+  try {
+    lines = JSON.parse(String(formData.get("lines") ?? "[]"));
+  } catch {
+    return { error: "Check the invoice lines and try again." };
+  }
+  const parsed = updateInvoiceRequestSchema.safeParse({
+    issueDate: String(formData.get("issueDate") ?? "").trim() || undefined,
+    dueDate: String(formData.get("dueDate") ?? "").trim() || undefined,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+    lines,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/invoices/${invoiceId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function markInvoiceReadyAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}/mark-ready`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/invoices/${invoiceId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function sendInvoiceAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = sendInvoiceRequestSchema.safeParse({
+    recipientEmail: formData.get("recipientEmail"),
+    message: String(formData.get("message") ?? "").trim() || null,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}/send`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/invoices/${invoiceId}?sent=1`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function archiveInvoiceAction(
+  businessId: string,
+  invoiceId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/invoices/${invoiceId}/archive`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/invoices`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function updateSettingsAction(
   businessId: string,
   _state: ActionState,
@@ -215,6 +334,145 @@ export async function updateSettingsAction(
       body: JSON.stringify(parsed.data),
     });
     redirect(`/b/${businessId}/settings?saved=1`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createPurchaseOrderAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const optional = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value || null;
+  };
+  const amountText = optional("amount");
+  const currencyCode = optional("currencyCode")?.toUpperCase() ?? null;
+  let amountMinor: string | null = null;
+  let currencyScale: number | null = null;
+  if (amountText) {
+    if (!currencyCode) {
+      return { error: "Enter a currency with the amount." };
+    }
+    currencyScale = 2;
+    const parsedAmount = Number(amountText);
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+      return { error: "Enter a valid amount." };
+    }
+    amountMinor = String(Math.round(parsedAmount * 100));
+  }
+
+  const parsed = createPurchaseOrderRequestSchema.safeParse({
+    customerId: formData.get("customerId"),
+    quotationId: optional("quotationId"),
+    poNumber: formData.get("poNumber"),
+    poDate: optional("poDate"),
+    projectReference: optional("projectReference"),
+    amountMinor,
+    currencyCode: amountMinor ? currencyCode : null,
+    currencyScale: amountMinor ? currencyScale : null,
+    notes: optional("notes"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    const purchaseOrder = await apiJson<PurchaseOrder>(
+      `/businesses/${businessId}/purchase-orders`,
+      {
+        method: "POST",
+        body: JSON.stringify(parsed.data),
+      },
+    );
+    redirect(`/b/${businessId}/purchase-orders/${purchaseOrder.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateApprovalStatusAction(
+  businessId: string,
+  purchaseOrderId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = updateApprovalStatusRequestSchema.safeParse({
+    approvalStatus: formData.get("approvalStatus"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/purchase-orders/${purchaseOrderId}/approval`, {
+      method: "PATCH",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/purchase-orders/${purchaseOrderId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function uploadPurchaseOrderFileAction(
+  businessId: string,
+  purchaseOrderId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return uploadPurchaseOrderBinary(businessId, purchaseOrderId, "purchase-order", formData);
+}
+
+export async function uploadApprovalEvidenceAction(
+  businessId: string,
+  purchaseOrderId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return uploadPurchaseOrderBinary(businessId, purchaseOrderId, "approval-evidence", formData);
+}
+
+export async function archivePurchaseOrderAction(
+  businessId: string,
+  purchaseOrderId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/purchase-orders/${purchaseOrderId}/archive`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/purchase-orders`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+async function uploadPurchaseOrderBinary(
+  businessId: string,
+  purchaseOrderId: string,
+  kind: "purchase-order" | "approval-evidence",
+  formData: FormData,
+): Promise<ActionState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a file to upload." };
+  }
+  const body = new FormData();
+  body.set("file", file);
+  try {
+    const response = await apiFetch(
+      `/businesses/${businessId}/purchase-orders/${purchaseOrderId}/files/${kind}`,
+      {
+        method: "POST",
+        body,
+      },
+    );
+    if (!response.ok) {
+      const problem = (await response.json().catch(() => ({}))) as { detail?: string };
+      return { error: problem.detail ?? "We could not upload that file." };
+    }
+    redirect(`/b/${businessId}/purchase-orders/${purchaseOrderId}`);
   } catch (error) {
     return actionError(error);
   }
