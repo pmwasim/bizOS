@@ -7,6 +7,8 @@
 
 import { Controller, Get, Inject, Param } from "@nestjs/common";
 
+import { type InvoiceConversionPolicy } from "@bizo/contracts/configuration";
+
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
 import {
@@ -20,6 +22,7 @@ import {
 export interface ConfigurationResponse {
   assignment: ActiveAssignmentSummary;
   enabledModules: EnabledModuleSummary[];
+  invoiceConversion: InvoiceConversionPolicy;
 }
 
 export interface WorkflowResponse {
@@ -41,11 +44,12 @@ export class ConfigurationController {
     @Principal() principal: AuthenticatedPrincipal,
     @Param("businessId") businessId: string,
   ): Promise<ConfigurationResponse> {
-    const [assignment, enabledModules] = await Promise.all([
+    const [assignment, enabledModules, invoiceConversion] = await Promise.all([
       this.configuration.getActiveAssignment(principal.userId, businessId),
       this.configuration.getEnabledModules(principal.userId, businessId),
+      this.configuration.getInvoiceConversionPolicy(principal.userId, businessId),
     ]);
-    return { assignment, enabledModules };
+    return { assignment, enabledModules, invoiceConversion };
   }
 
   @Get("modules")

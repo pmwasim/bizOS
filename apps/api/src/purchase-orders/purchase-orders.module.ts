@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { ConfigurationModule } from "../configuration/configuration.module.js";
 import { ObjectStoreModule } from "../storage/object-store.module.js";
 import {
   PurchaseOrdersController,
@@ -8,7 +9,7 @@ import {
 import { PurchaseOrdersService } from "./purchase-orders.service.js";
 
 @Module({
-  imports: [ObjectStoreModule],
+  imports: [ObjectStoreModule, ConfigurationModule],
   controllers: [PurchaseOrdersController, QuotationPurchaseOrdersController],
   providers: [PurchaseOrdersService],
   exports: [PurchaseOrdersService],

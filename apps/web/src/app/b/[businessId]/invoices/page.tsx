@@ -22,7 +22,7 @@ export default async function InvoicesPage({
       <header className="page-header">
         <div>
           <h1>Invoices</h1>
-          <p>Created from ready quotations and sent to customers.</p>
+          <p>Created from quotations and sent to customers.</p>
         </div>
       </header>
       {invoices.length ? (
@@ -52,7 +52,7 @@ export default async function InvoicesPage({
         <div className="empty-state">
           <ScrollText aria-hidden="true" size={30} />
           <h2>No invoices yet</h2>
-          <p>When a quotation is ready to invoice, create the invoice from that quotation.</p>
+          <p>Open a sent quotation and create an invoice from it.</p>
         </div>
       )}
     </div>

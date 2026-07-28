@@ -126,6 +126,13 @@ export const enabledModuleSummarySchema = z.strictObject({
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
+export const invoiceConversionPolicySchema = z.strictObject({
+  customerPoRequired: z.boolean(),
+  approvalEvidenceRequired: z.boolean(),
+  templateCode: z.string().trim().min(1).max(40),
+  templateVersion: z.string().trim().min(1).max(20),
+});
+
 export type ConfigurationTemplateKind = z.infer<typeof configurationTemplateKindSchema>;
 export type ConfigurationVersionStatus = z.infer<typeof configurationVersionStatusSchema>;
 export type ConfigurationSnapshot = z.infer<typeof configurationSnapshotSchema>;
@@ -133,3 +140,4 @@ export type ConfigurationTemplate = z.infer<typeof configurationTemplateSchema>;
 export type ConfigurationTemplateVersion = z.infer<typeof configurationTemplateVersionSchema>;
 export type BusinessConfigurationAssignment = z.infer<typeof businessConfigurationAssignmentSchema>;
 export type EnabledModuleSummary = z.infer<typeof enabledModuleSummarySchema>;
+export type InvoiceConversionPolicy = z.infer<typeof invoiceConversionPolicySchema>;

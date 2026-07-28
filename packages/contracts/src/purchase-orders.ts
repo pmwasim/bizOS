@@ -16,6 +16,7 @@ export const readinessCodeSchema = z.enum([
   "APPROVAL_EVIDENCE_MISSING",
   "READY_TO_INVOICE",
   "NOT_READY_REJECTED",
+  "CUSTOMER_PO_OPTIONAL",
 ]);
 
 export const readinessLabelByCode = {
@@ -25,6 +26,7 @@ export const readinessLabelByCode = {
   APPROVAL_EVIDENCE_MISSING: "Approval evidence missing",
   READY_TO_INVOICE: "Ready to invoice",
   NOT_READY_REJECTED: "Not ready (approval declined)",
+  CUSTOMER_PO_OPTIONAL: "Customer PO optional",
 } as const satisfies Record<z.infer<typeof readinessCodeSchema>, string>;
 
 export const readinessSchema = z.strictObject({
@@ -48,12 +50,29 @@ export interface ReadinessInput {
 
 const readinessRank: Record<ReadinessCode, number> = {
   READY_TO_INVOICE: 50,
+  CUSTOMER_PO_OPTIONAL: 45,
   APPROVAL_EVIDENCE_MISSING: 40,
   APPROVAL_PENDING: 30,
   NOT_READY_REJECTED: 30,
   PO_RECORDED: 20,
   MISSING_CUSTOMER_PO: 10,
 };
+
+export interface QuotationInvoiceReadinessInput {
+  customerPoRequired: boolean;
+  purchaseOrderReadiness: Readiness;
+  quotationStatus: string;
+}
+
+export function canCreateInvoiceFromQuotation(input: QuotationInvoiceReadinessInput): boolean {
+  if (input.customerPoRequired) {
+    return input.purchaseOrderReadiness.code === "READY_TO_INVOICE";
+  }
+  if (input.purchaseOrderReadiness.code === "READY_TO_INVOICE") {
+    return true;
+  }
+  return input.quotationStatus === "SENT";
+}
 
 export function derivePurchaseOrderReadiness(input: ReadinessInput): Readiness {
   if (input.status === "ARCHIVED") {
@@ -112,8 +131,19 @@ export function derivePurchaseOrderReadiness(input: ReadinessInput): Readiness {
   };
 }
 
-export function bestReadiness(items: Readiness[]): Readiness {
+export function bestReadiness(
+  items: Readiness[],
+  options?: { customerPoRequired?: boolean },
+): Readiness {
   if (items.length === 0) {
+    if (options?.customerPoRequired === false) {
+      return {
+        code: "CUSTOMER_PO_OPTIONAL",
+        label: readinessLabelByCode.CUSTOMER_PO_OPTIONAL,
+        explanation:
+          "A customer purchase order is optional for this configuration. You can create an invoice from a sent quotation.",
+      };
+    }
     return {
       code: "MISSING_CUSTOMER_PO",
       label: readinessLabelByCode.MISSING_CUSTOMER_PO,

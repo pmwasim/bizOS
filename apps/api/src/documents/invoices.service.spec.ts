@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DocumentStatus, RoleCode } from "@bizo/database";
 import { type ObjectStore } from "@bizo/storage";
 
+import { type ConfigurationService } from "../configuration/configuration.service.js";
 import { type DatabaseService } from "../database/database.service.js";
 import { type MailService } from "../mail/mail.service.js";
 import {
@@ -12,6 +13,26 @@ import {
 } from "../security/business-access.service.js";
 import { type PdfService } from "./pdf.service.js";
 import { InvoicesService } from "./invoices.service.js";
+
+const configuration = {
+  getInvoiceConversionPolicy: vi.fn().mockResolvedValue({
+    customerPoRequired: true,
+    approvalEvidenceRequired: true,
+    templateCode: "service-po-approval",
+    templateVersion: "1.0.0",
+  }),
+  createDocumentWorkflowContext: vi.fn().mockResolvedValue({
+    id: "ctx",
+    documentId: "doc",
+    documentType: "INVOICE",
+    configurationTemplateVersionId: "ver",
+    workflowTemplateVersionId: null,
+    workflowState: null,
+    capturedSnapshot: {},
+    createdAt: "2026-07-28T00:00:00.000Z",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+  }),
+} as unknown as ConfigurationService;
 
 const access: BusinessAccessContext = {
   businessId: 2n,
@@ -144,7 +165,14 @@ describe("InvoicesService", () => {
       put: vi.fn(),
       get: vi.fn(),
     } as unknown as ObjectStore;
-    const service = new InvoicesService(database, businessAccess, pdf, mail, objectStore);
+    const service = new InvoicesService(
+      database,
+      businessAccess,
+      pdf,
+      mail,
+      objectStore,
+      configuration,
+    );
 
     await expect(
       service.send(
@@ -200,6 +228,7 @@ describe("InvoicesService", () => {
       {} as PdfService,
       {} as MailService,
       { put: vi.fn(), get: vi.fn() } as unknown as ObjectStore,
+      configuration,
     );
 
     await expect(
@@ -231,6 +260,7 @@ describe("InvoicesService", () => {
           customerId: 5n,
           currencyCode: "SAR",
           currencyScale: 2,
+          status: DocumentStatus.SENT,
           subtotalMinor: "10000",
           taxMinor: "0",
           totalMinor: "10000",
@@ -257,6 +287,7 @@ describe("InvoicesService", () => {
       {} as PdfService,
       {} as MailService,
       { put: vi.fn(), get: vi.fn() } as unknown as ObjectStore,
+      configuration,
     );
 
     await expect(
@@ -267,5 +298,104 @@ describe("InvoicesService", () => {
         "request-1",
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("creates an invoice without a customer PO when Default ERP does not require one", async () => {
+    const defaultErpConfiguration = {
+      getInvoiceConversionPolicy: vi.fn().mockResolvedValue({
+        customerPoRequired: false,
+        approvalEvidenceRequired: false,
+        templateCode: "default-erp",
+        templateVersion: "1.0.0",
+      }),
+      createDocumentWorkflowContext: vi.fn().mockResolvedValue({
+        id: "ctx",
+        documentId: "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+        documentType: "INVOICE",
+        configurationTemplateVersionId: "ver",
+        workflowTemplateVersionId: null,
+        workflowState: null,
+        capturedSnapshot: {},
+        createdAt: "2026-07-28T00:00:00.000Z",
+        updatedAt: "2026-07-28T00:00:00.000Z",
+      }),
+    } as unknown as ConfigurationService;
+
+    const created = baseInvoiceRecord({
+      purchaseOrderId: null,
+      poNumberSnapshot: null,
+      linkedPurchaseOrder: null,
+    });
+    const transaction = {
+      document: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 7n,
+          publicId: "11111111-1111-4111-8111-111111111111",
+          customerId: 5n,
+          currencyCode: "SAR",
+          currencyScale: 2,
+          status: DocumentStatus.SENT,
+          subtotalMinor: "10000",
+          taxMinor: "0",
+          totalMinor: "10000",
+          customer: created.customer,
+          lines: created.lines,
+        }),
+        create: vi.fn().mockResolvedValue(created),
+      },
+      purchaseOrder: { findMany: vi.fn().mockResolvedValue([]) },
+      business: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          timeZone: "Asia/Riyadh",
+          settings: {},
+          taxProfile: {},
+        }),
+      },
+      businessSettings: {
+        update: vi.fn().mockResolvedValue({
+          invoiceDueDays: 30,
+          invoicePrefix: "INV",
+          nextInvoiceNumber: 2,
+        }),
+      },
+      auditEvent: { create: vi.fn() },
+    };
+    const database = {
+      withScope: vi
+        .fn()
+        .mockImplementation(async (_scope: unknown, work: (value: never) => Promise<unknown>) =>
+          work(transaction as never),
+        ),
+    } as unknown as DatabaseService;
+    const businessAccess = {
+      resolve: vi.fn().mockResolvedValue(access),
+      assertAllowed: vi.fn().mockResolvedValue(undefined),
+    } as unknown as BusinessAccessService;
+    const service = new InvoicesService(
+      database,
+      businessAccess,
+      {} as PdfService,
+      {} as MailService,
+      { put: vi.fn(), get: vi.fn() } as unknown as ObjectStore,
+      defaultErpConfiguration,
+    );
+
+    const invoice = await service.createFromQuotation(
+      access.userPublicId,
+      access.businessPublicId,
+      { quotationId: "11111111-1111-4111-8111-111111111111" },
+      "request-1",
+    );
+
+    expect(invoice.purchaseOrder).toBeNull();
+    expect(transaction.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          purchaseOrderId: null,
+          poNumberSnapshot: null,
+        }),
+      }),
+    );
+    expect(defaultErpConfiguration.createDocumentWorkflowContext).toHaveBeenCalled();
   });
 });

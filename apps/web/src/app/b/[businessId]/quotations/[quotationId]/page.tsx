@@ -19,13 +19,17 @@ export default async function QuotationPreviewPage({
   const query = await searchParams;
   const [quotation, linked] = await Promise.all([
     apiJson<Quotation>(`/businesses/${businessId}/quotations/${quotationId}`),
-    apiJson<{ purchaseOrders: PurchaseOrder[]; readiness: Readiness }>(
-      `/businesses/${businessId}/quotations/${quotationId}/purchase-orders`,
-    ),
+    apiJson<{
+      purchaseOrders: PurchaseOrder[];
+      readiness: Readiness;
+      customerPoRequired: boolean;
+      canCreateInvoice: boolean;
+    }>(`/businesses/${businessId}/quotations/${quotationId}/purchase-orders`),
   ]);
   const justSent = query.sent === "1";
   const pdfPath = `/api/businesses/${businessId}/quotations/${quotationId}/pdf`;
-  const readyToInvoice = linked.readiness.code === "READY_TO_INVOICE";
+  const customerPoRequired = linked.customerPoRequired;
+  const canCreateInvoice = linked.canCreateInvoice;
 
   return (
     <div className="page preview-page">
@@ -58,9 +62,9 @@ export default async function QuotationPreviewPage({
 
       <section className="panel readiness-panel">
         <div className="section-heading">
-          <h2>Invoice readiness</h2>
+          <h2>{customerPoRequired ? "Invoice readiness" : "Next step"}</h2>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-            {readyToInvoice ? (
+            {canCreateInvoice ? (
               <CreateInvoiceFromQuotationButton
                 businessId={businessId}
                 quotationId={quotation.id}
@@ -70,7 +74,8 @@ export default async function QuotationPreviewPage({
               className="button button-secondary"
               href={`/b/${businessId}/purchase-orders/new?customer=${quotation.customer.id}&quotation=${quotation.id}`}
             >
-              <Plus aria-hidden="true" size={16} /> Add customer PO
+              <Plus aria-hidden="true" size={16} />{" "}
+              {customerPoRequired ? "Add customer PO" : "Add customer PO (optional)"}
             </Link>
           </div>
         </div>
@@ -80,6 +85,9 @@ export default async function QuotationPreviewPage({
           </span>
         </p>
         <p>{linked.readiness.explanation}</p>
+        {!customerPoRequired && quotation.status === "DRAFT" && !canCreateInvoice ? (
+          <p>Send this quotation first, then you can create an invoice.</p>
+        ) : null}
         {linked.purchaseOrders.length ? (
           <div className="data-list">
             {linked.purchaseOrders.map((purchaseOrder) => (

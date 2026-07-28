@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DocumentStatus, RoleCode } from "@bizo/database";
 
+import { type ConfigurationService } from "../configuration/configuration.service.js";
 import { type DatabaseService } from "../database/database.service.js";
 import { type MailService } from "../mail/mail.service.js";
 import {
@@ -22,6 +23,20 @@ const access: BusinessAccessContext = {
   userId: 4n,
   userPublicId: "e847ab9b-700e-4640-a3c7-75af19426954",
 };
+
+const configuration = {
+  createDocumentWorkflowContext: vi.fn().mockResolvedValue({
+    id: "ctx",
+    documentId: "doc",
+    documentType: "QUOTATION",
+    configurationTemplateVersionId: "ver",
+    workflowTemplateVersionId: null,
+    workflowState: null,
+    capturedSnapshot: {},
+    createdAt: "2026-07-28T00:00:00.000Z",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+  }),
+} as unknown as ConfigurationService;
 
 describe("QuotationsService delivery", () => {
   it("lets the parent document supply scope keys for nested quotation lines", async () => {
@@ -107,6 +122,7 @@ describe("QuotationsService delivery", () => {
       businessAccess,
       {} as PdfService,
       {} as MailService,
+      configuration,
     );
 
     await service.create(
@@ -225,7 +241,7 @@ describe("QuotationsService delivery", () => {
     const mail = {
       sendQuotation: vi.fn().mockRejectedValue({ code: "ECONNREFUSED" }),
     } as unknown as MailService;
-    const service = new QuotationsService(database, businessAccess, pdf, mail);
+    const service = new QuotationsService(database, businessAccess, pdf, mail, configuration);
 
     await expect(
       service.send(
@@ -345,6 +361,7 @@ describe("QuotationsService delivery", () => {
       businessAccess,
       { renderQuotation } as unknown as PdfService,
       {} as MailService,
+      configuration,
     );
 
     const result = await service.renderPdf(

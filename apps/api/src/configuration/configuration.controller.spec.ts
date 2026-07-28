@@ -54,10 +54,18 @@ const enabledModules: EnabledModuleSummary[] = [
   },
 ];
 
+const invoiceConversion = {
+  customerPoRequired: false,
+  approvalEvidenceRequired: false,
+  templateCode: "default-erp",
+  templateVersion: "1.0.0",
+};
+
 function createServiceMock(overrides: Partial<ConfigurationService> = {}): ConfigurationService {
   const mock = {
     getActiveAssignment: vi.fn().mockResolvedValue(assignment),
     getEnabledModules: vi.fn().mockResolvedValue(enabledModules),
+    getInvoiceConversionPolicy: vi.fn().mockResolvedValue(invoiceConversion),
     getDocumentWorkflowContextSummary: vi.fn().mockResolvedValue(null),
     listAvailableTransitions: vi.fn().mockResolvedValue([]),
   };
@@ -74,9 +82,13 @@ describe("ConfigurationController", () => {
       BUSINESS_PUBLIC_ID,
     );
 
-    expect(result).toEqual({ assignment, enabledModules });
+    expect(result).toEqual({ assignment, enabledModules, invoiceConversion });
     expect(service.getActiveAssignment).toHaveBeenCalledWith(USER_PUBLIC_ID, BUSINESS_PUBLIC_ID);
     expect(service.getEnabledModules).toHaveBeenCalledWith(USER_PUBLIC_ID, BUSINESS_PUBLIC_ID);
+    expect(service.getInvoiceConversionPolicy).toHaveBeenCalledWith(
+      USER_PUBLIC_ID,
+      BUSINESS_PUBLIC_ID,
+    );
   });
 
   it("returns enabled modules for GET /modules", async () => {
@@ -153,6 +165,7 @@ describe("ConfigurationController", () => {
         .fn()
         .mockRejectedValue(new NotFoundException("We could not find that business.")),
       getEnabledModules: vi.fn().mockResolvedValue(enabledModules),
+      getInvoiceConversionPolicy: vi.fn().mockResolvedValue(invoiceConversion),
     });
     const controller = new ConfigurationController(service);
 
