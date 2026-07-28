@@ -146,9 +146,10 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  businesses  Business[]
-  memberships Membership[]
-  roles       Role[]
+  businesses               Business[]
+  memberships              Membership[]
+  roles                    Role[]
+  configurationAuditEvents ConfigurationAuditEvent[]
 
   @@map("tenants")
 }
@@ -162,13 +163,14 @@ model Membership {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                  User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  businessAccess        BusinessAccess[]
-  documents             Document[]
-  purchaseOrders        PurchaseOrder[]
-  auditEvents           ConfigurationAuditEvent[]
-  customizationRequests CustomizationRequest[]
+  tenant                   Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                     User                              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  businessAccess           BusinessAccess[]
+  documents                Document[]
+  purchaseOrders           PurchaseOrder[]
+  auditEvents              ConfigurationAuditEvent[]
+  configurationAssignments BusinessConfigurationAssignment[]
+  customizationRequests    CustomizationRequest[]
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -638,9 +640,11 @@ model BusinessConfigurationAssignment {
 
   business                     Business                     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
   configurationTemplateVersion ConfigurationTemplateVersion @relation(fields: [configurationTemplateVersionId], references: [id], onDelete: Restrict)
+  assignedByMembership         Membership?                  @relation(fields: [assignedByMembershipId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, businessId])
   @@index([configurationTemplateVersionId])
+  @@index([assignedByMembershipId])
   @@map("business_configuration_assignments")
 }
 
@@ -737,6 +741,7 @@ model ConfigurationAuditEvent {
   reason             String?                  @db.VarChar(500)
   createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  tenant           Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   actorMembership  Membership?          @relation(fields: [actorMembershipId], references: [id], onDelete: Restrict)
   actorSystemAdmin PlatformSystemAdmin? @relation(fields: [actorSystemAdminId], references: [id], onDelete: Restrict)
 
