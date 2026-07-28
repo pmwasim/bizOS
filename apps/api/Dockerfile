@@ -30,6 +30,12 @@ RUN cp -R apps/api/dist /opt/bizo/dist
 
 FROM node:22.23.1-bookworm-slim AS runtime
 ENV NODE_ENV=production
+# Build metadata for the release manifest / version endpoint (BIZ-011).
+# Both the CI image build and Render can supply these; they default to unset.
+ARG GIT_SHA
+ARG BUILD_TIME
+ENV GIT_SHA=${GIT_SHA} \
+    BUILD_TIME=${BUILD_TIME}
 WORKDIR /app
 RUN groupadd --system --gid 1001 bizo \
     && useradd --system --uid 1001 --gid bizo --home-dir /app bizo
