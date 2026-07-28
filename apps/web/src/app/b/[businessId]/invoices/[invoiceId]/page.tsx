@@ -1,7 +1,12 @@
-import { CheckCircle2, ChevronLeft, Download } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Download, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { invoiceStatusLabel, type Invoice } from "@bizo/contracts/invoices";
+import {
+  invoiceBalanceStatusLabel,
+  paymentMethodLabel,
+  type InvoicePaymentSummary,
+} from "@bizo/contracts/payments";
 
 import { ArchiveInvoiceButton, MarkInvoiceReadyButton } from "@/components/invoice-actions";
 import { SendInvoiceForm } from "@/components/send-invoice-form";
@@ -18,6 +23,16 @@ export default async function InvoiceDetailPage({
   const { businessId, invoiceId } = await params;
   const query = await searchParams;
   const invoice = await apiJson<Invoice>(`/businesses/${businessId}/invoices/${invoiceId}`);
+  let paymentSummary: InvoicePaymentSummary | null = null;
+  if (invoice.status === "SENT" || invoice.status === "ARCHIVED") {
+    try {
+      paymentSummary = await apiJson<InvoicePaymentSummary>(
+        `/businesses/${businessId}/invoices/${invoiceId}/payments`,
+      );
+    } catch {
+      paymentSummary = null;
+    }
+  }
   const justSent = query.sent === "1";
   const pdfPath = `/api/businesses/${businessId}/invoices/${invoiceId}/pdf`;
   const canSend =
@@ -27,6 +42,8 @@ export default async function InvoiceDetailPage({
   const canMarkReady = invoice.status === "DRAFT";
   const canEdit = invoice.status === "DRAFT" || invoice.status === "READY_TO_SEND";
   const canArchive = invoice.status !== "ARCHIVED";
+  const canRecordPayment =
+    invoice.status === "SENT" && paymentSummary !== null && paymentSummary.balanceStatus !== "PAID";
 
   return (
     <div className="page preview-page">
@@ -61,6 +78,14 @@ export default async function InvoiceDetailPage({
           <span className={`status status-${invoice.status.toLowerCase()}`}>
             {invoiceStatusLabel(invoice.status)}
           </span>
+          {paymentSummary ? (
+            <span
+              className={`status readiness-${paymentSummary.balanceStatus.toLowerCase()}`}
+              style={{ marginLeft: "0.5rem" }}
+            >
+              {invoiceBalanceStatusLabel(paymentSummary.balanceStatus)}
+            </span>
+          ) : null}
           <h1>{invoice.number}</h1>
           <p>For {invoice.customer.name}</p>
         </div>
@@ -110,6 +135,61 @@ export default async function InvoiceDetailPage({
           ) : null}
         </div>
       </section>
+
+      {paymentSummary ? (
+        <section className="panel readiness-panel">
+          <div className="section-heading">
+            <h2>Payments</h2>
+            {canRecordPayment ? (
+              <Link
+                className="button button-primary"
+                href={`/b/${businessId}/payments/new?invoiceId=${invoice.id}`}
+              >
+                <Plus aria-hidden="true" size={16} /> Record payment
+              </Link>
+            ) : null}
+          </div>
+          <p>
+            Outstanding{" "}
+            <strong>
+              {formatMoney(
+                paymentSummary.outstandingMinor,
+                invoice.currencyCode,
+                invoice.currencyScale,
+              )}
+            </strong>{" "}
+            of {formatMoney(paymentSummary.totalMinor, invoice.currencyCode, invoice.currencyScale)}
+          </p>
+          {paymentSummary.payments.length ? (
+            <div className="data-list">
+              {paymentSummary.payments.map((payment) => (
+                <Link
+                  key={payment.id}
+                  className="data-row"
+                  href={`/b/${businessId}/payments/${payment.id}`}
+                >
+                  <span className="grow">
+                    <strong>{payment.number}</strong>
+                    <small>
+                      {paymentMethodLabel(payment.method)} · {payment.receivedOn}
+                      {payment.status === "VOIDED" ? " · Voided" : ""}
+                    </small>
+                  </span>
+                  <strong>
+                    {formatMoney(
+                      payment.allocationAmountMinor,
+                      invoice.currencyCode,
+                      invoice.currencyScale,
+                    )}
+                  </strong>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p>No payments recorded yet.</p>
+          )}
+        </section>
+      ) : null}
 
       <div className="preview-grid">
         <div className="pdf-frame">

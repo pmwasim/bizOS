@@ -17,10 +17,24 @@ export interface BusinessAccessContext {
 }
 
 export type AuthorizationObject =
-  "business" | "customers" | "quotations" | "purchase_orders" | "approvals" | "invoices";
+  | "business"
+  | "customers"
+  | "quotations"
+  | "purchase_orders"
+  | "approvals"
+  | "invoices"
+  | "payments";
 
 export type AuthorizationAction =
-  "archive" | "create" | "export" | "read" | "send" | "update" | "upload" | "upload_evidence";
+  | "archive"
+  | "create"
+  | "export"
+  | "read"
+  | "send"
+  | "update"
+  | "upload"
+  | "upload_evidence"
+  | "void";
 
 const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
   OWNER: [
@@ -48,6 +62,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "invoices:export",
     "invoices:send",
     "invoices:archive",
+    "payments:create",
+    "payments:read",
+    "payments:void",
   ],
   ADMIN: [
     "business:read",
@@ -74,6 +91,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "invoices:export",
     "invoices:send",
     "invoices:archive",
+    "payments:create",
+    "payments:read",
+    "payments:void",
   ],
   MEMBER: [
     "business:read",
@@ -95,6 +115,8 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "invoices:update",
     "invoices:export",
     "invoices:send",
+    "payments:create",
+    "payments:read",
   ],
 };
 

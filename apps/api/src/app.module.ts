@@ -9,6 +9,7 @@ import { DatabaseModule } from "./database/database.module.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { CustomersModule } from "./customers/customers.module.js";
 import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module.js";
+import { PaymentsModule } from "./payments/payments.module.js";
 import { NoStoreInterceptor } from "./common/no-store.interceptor.js";
 import { HealthModule } from "./health/health.module.js";
 import { IdentityModule } from "./identity/identity.module.js";
@@ -53,6 +54,7 @@ import { SystemAdminModule } from "./system-admin/system-admin.module.js";
     CustomersModule,
     DocumentsModule,
     PurchaseOrdersModule,
+    PaymentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ClientAwareThrottlerGuard },

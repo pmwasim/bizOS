@@ -24,6 +24,7 @@ constraints until superseded.
 | [0017](0017-po-object-storage.md)                           | Local/R2 private object store for PO files      | Accepted |
 | [0018](0018-invoice-document-slice.md)                      | Invoice on shared document facts                | Accepted |
 | [0019](0019-open-source-leverage-default-erp-foundation.md) | Open-source leverage for Default ERP foundation | Accepted |
+| [0021](0021-customer-payment-allocation-slice.md)           | Customer payment and invoice allocation         | Accepted |
 
 ## Template
 

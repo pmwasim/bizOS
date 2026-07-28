@@ -710,6 +710,31 @@ textarea:focus {
   color: var(--success);
 }
 
+.readiness-paid {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.readiness-partially_paid {
+  background: #fff4ed;
+  color: #b54708;
+}
+
+.readiness-unpaid {
+  background: var(--muted);
+  color: #475467;
+}
+
+.status-recorded {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.status-voided {
+  background: var(--muted);
+  color: #667085;
+}
+
 .readiness-approval_pending,
 .readiness-po_recorded,
 .readiness-missing_customer_po {

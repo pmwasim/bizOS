@@ -4,12 +4,14 @@ import { PrismaClient } from "../generated/client/client.js";
 
 export {
   ConfigurationVersionStatus,
+  CustomerPaymentStatus,
   DeliveryStatus,
   DocumentStatus,
   DocumentType,
   InvoiceApprovalStatus,
   MembershipStatus,
   ModuleStatus,
+  PaymentMethod,
   PlatformSystemAdminStatus,
   Prisma,
   PurchaseOrderStatus,
