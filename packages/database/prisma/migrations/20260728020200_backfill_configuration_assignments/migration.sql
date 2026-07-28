@@ -237,7 +237,7 @@ FROM documents_without_context dwc_doc
 JOIN workflow_version_ids wvi
   ON wvi.business_id = dwc_doc.business_id
  AND wvi.tenant_id = dwc_doc.tenant_id
- AND wvi.document_type = dwc_doc.document_type
+ AND wvi.document_type = dwc_doc.document_type::text
 LEFT JOIN workflow_state_mapping wsm
   ON wsm.document_status = dwc_doc.document_status::text
 ON CONFLICT (document_id) DO NOTHING;
