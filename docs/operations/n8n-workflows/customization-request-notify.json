@@ -1,0 +1,242 @@
+{
+  "name": "bizOS Customization Request Notify",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## bizOS customization-request webhook\n\nImport only. Set credential **bizOS Webhook Secret** to match `N8N_WEBHOOK_SECRET` in bizOS API env.\n\nActivate after manual test POST with signed payload.",
+        "height": 200,
+        "width": 420
+      },
+      "id": "sticky-note-bizos-customization",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [80, -120]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bizos/customization-request",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-bizos-customization",
+      "name": "Customization Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 0],
+      "webhookId": "bizos-customization-request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nconst secret = $env.BIZOS_WEBHOOK_SECRET;\nif (!secret) {\n  throw new Error('BIZOS_WEBHOOK_SECRET is not configured in n8n');\n}\n\nconst headers = $input.first().json.headers ?? {};\nconst signature = headers['x-signature'] ?? headers['X-Signature'];\nif (!signature) {\n  throw new Error('Missing X-Signature header');\n}\n\nconst idempotencyKey = headers['x-idempotency-key'] ?? headers['X-Idempotency-Key'];\nconst body = $input.first().json.body;\nconst rawBody = typeof body === 'string' ? body : JSON.stringify(body);\n\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\nif (expected.length !== signature.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {\n  throw new Error('Invalid webhook signature');\n}\n\nconst payload = typeof body === 'string' ? JSON.parse(body) : body;\nif (idempotencyKey && payload.id && idempotencyKey !== payload.id) {\n  throw new Error('Idempotency key does not match request id');\n}\n\nreturn [{ json: { ...payload, idempotencyKey: idempotencyKey ?? payload.id, verified: true } }];"
+      },
+      "id": "code-verify-signature",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.urgency }}",
+              "operation": "equals",
+              "value2": "HIGH"
+            }
+          ]
+        }
+      },
+      "id": "if-high-urgency",
+      "name": "High Urgency?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "channel",
+              "value": "ops-urgent"
+            },
+            {
+              "name": "title",
+              "value": "=[bizOS] HIGH customization request"
+            },
+            {
+              "name": "message",
+              "value": "=Request {{ $json.id }} for business {{ $json.businessId }} (tenant {{ $json.tenantId }}). Status: {{ $json.status }}."
+            },
+            {
+              "name": "idempotencyKey",
+              "value": "={{ $json.idempotencyKey }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-urgent-notification",
+      "name": "Build Urgent Notification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1040, -120]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "channel",
+              "value": "ops-standard"
+            },
+            {
+              "name": "title",
+              "value": "=[bizOS] Customization request"
+            },
+            {
+              "name": "message",
+              "value": "=Request {{ $json.id }} for business {{ $json.businessId }} (tenant {{ $json.tenantId }}). Urgency: {{ $json.urgency }}."
+            },
+            {
+              "name": "idempotencyKey",
+              "value": "={{ $json.idempotencyKey }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-standard-notification",
+      "name": "Build Standard Notification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1040, 120]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "merge-notification-branches",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1300, 0]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "workflow",
+              "value": "bizos-customization-request-notify"
+            },
+            {
+              "name": "routedAt",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "name": "status",
+              "value": "routed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-execution-log",
+      "name": "Log Route",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1560, 0]
+    }
+  ],
+  "connections": {
+    "Customization Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Signature": {
+      "main": [
+        [
+          {
+            "node": "High Urgency?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Urgency?": {
+      "main": [
+        [
+          {
+            "node": "Build Urgent Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Standard Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Urgent Notification": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Standard Notification": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Log Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Sanitized template — no secrets. Configure BIZOS_WEBHOOK_SECRET in n8n environment. Replace Log Route with Slack/email node before activation."
+  }
+}

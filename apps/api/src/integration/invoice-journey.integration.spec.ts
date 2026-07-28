@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { InvoiceApprovalStatus, PurchaseOrderStatus, StoredObjectKind } from "@bizo/database";
 
+import { ConfigurationService } from "../configuration/configuration.service.js";
 import { CustomersService } from "../customers/customers.service.js";
 import { DatabaseService } from "../database/database.service.js";
 import { InvoicesService } from "../documents/invoices.service.js";
@@ -30,8 +31,9 @@ describe.runIf(databaseEnabled)("invoice journey with PostgreSQL boundaries", ()
     database = new DatabaseService();
     await database.onModuleInit();
     const access = new BusinessAccessService(database);
+    const configuration = new ConfigurationService(database, access);
     identity = new IdentityService(database);
-    platform = new PlatformService(database, access);
+    platform = new PlatformService(database, access, configuration);
     customers = new CustomersService(database, access);
     mail = {
       sendQuotation: vi.fn().mockResolvedValue("integration-quotation-1"),

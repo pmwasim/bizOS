@@ -8,6 +8,7 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
+    seed: "node dist/seed.js",
   },
   datasource: {
     // Generate/validate do not connect. Runtime and migration environments still validate their

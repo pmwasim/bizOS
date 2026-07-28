@@ -8,5 +8,5 @@
     "rootDir": "."
   },
   "include": ["src/**/*.ts", "generated/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts"]
+  "exclude": ["src/**/*.spec.ts", "prisma/**/*.spec.ts"]
 }

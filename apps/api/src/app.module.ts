@@ -3,6 +3,8 @@ import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 
+import { ConfigurationModule } from "./configuration/configuration.module.js";
+import { CustomizationModule } from "./customization/customization.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { CustomersModule } from "./customers/customers.module.js";
@@ -11,10 +13,12 @@ import { NoStoreInterceptor } from "./common/no-store.interceptor.js";
 import { HealthModule } from "./health/health.module.js";
 import { IdentityModule } from "./identity/identity.module.js";
 import { MailModule } from "./mail/mail.module.js";
+import { OnboardingModule } from "./onboarding/onboarding.module.js";
 import { PlatformModule } from "./platform/platform.module.js";
 import { ClientAwareThrottlerGuard } from "./security/client-aware-throttler.guard.js";
 import { InternalAuthGuard } from "./security/internal-auth.guard.js";
 import { SecurityModule } from "./security/security.module.js";
+import { SystemAdminModule } from "./system-admin/system-admin.module.js";
 
 @Module({
   imports: [
@@ -42,6 +46,10 @@ import { SecurityModule } from "./security/security.module.js";
     HealthModule,
     IdentityModule,
     PlatformModule,
+    ConfigurationModule,
+    OnboardingModule,
+    CustomizationModule,
+    SystemAdminModule,
     CustomersModule,
     DocumentsModule,
     PurchaseOrdersModule,

@@ -3,6 +3,8 @@ import path from "node:path";
 import { writeFile, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
+import { completeDefaultSetup } from "./helpers";
+
 test("records a customer PO through ready to invoice", async ({ page }, testInfo) => {
   const runId = `${testInfo.project.name}-${Date.now()}`.toLowerCase();
   const email = `po-owner-${runId}@example.test`;
@@ -18,6 +20,7 @@ test("records a customer PO through ready to invoice", async ({ page }, testInfo
   await page.getByLabel(/Business name/).fill(`PO Services ${runId}`);
   await page.getByRole("button", { name: "Create business" }).click();
 
+  await completeDefaultSetup(page);
   await page.getByRole("link", { name: "Add your first customer" }).click();
   await page.getByLabel("Customer or company name").fill("Harbor Works");
   await page.locator('input[name="email"]').fill(customerEmail);

@@ -6,6 +6,10 @@ import { redirect } from "next/navigation";
 import { signUpRequestSchema } from "@bizo/contracts/auth";
 import { createCustomerRequestSchema, type Customer } from "@bizo/contracts/customers";
 import {
+  createCustomizationRequestSchema,
+  type BusinessCustomizationRequestSummary,
+} from "@bizo/contracts/customization";
+import {
   createInvoiceFromQuotationRequestSchema,
   type Invoice,
   sendInvoiceRequestSchema,
@@ -26,6 +30,12 @@ import {
   saveQuotationRequestSchema,
   sendQuotationRequestSchema,
 } from "@bizo/contracts/quotations";
+import {
+  type OnboardingAnswers,
+  type OnboardingRecommendation,
+  type ApplyOnboardingRequest,
+  type RecommendOnboardingRequest,
+} from "@bizo/contracts/onboarding";
 
 import { signIn, signOut } from "@/auth";
 import { ApiError, apiFetch, apiJson, publicApiFetch } from "@/lib/api";
@@ -101,7 +111,7 @@ export async function createBusinessAction(
       method: "POST",
       body: JSON.stringify(parsed.data),
     });
-    redirect(`/b/${business.id}`);
+    redirect(`/b/${business.id}/setup`);
   } catch (error) {
     return actionError(error);
   }
@@ -485,4 +495,166 @@ function actionError(error: unknown): ActionState {
 
 function validationMessage(error: { issues: Array<{ message: string }> }): string {
   return error.issues[0]?.message ?? "Check the information and try again.";
+}
+
+export interface OnboardingActionState extends ActionState {
+  recommendation?: OnboardingRecommendation;
+}
+
+export async function fetchRecommendation(
+  businessId: string,
+  answers: OnboardingAnswers,
+): Promise<OnboardingRecommendation> {
+  return apiJson<OnboardingRecommendation>("/onboarding/recommend", {
+    method: "POST",
+    body: JSON.stringify({ answers } satisfies RecommendOnboardingRequest),
+  });
+}
+
+export async function applyDefaultConfigurationAction(
+  businessId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    // Recommend with empty answers — the engine falls back to default-erp.
+    const recommendation = await fetchRecommendation(businessId, {});
+    await apiJson(`/businesses/${businessId}/onboarding/apply`, {
+      method: "POST",
+      body: JSON.stringify({
+        recommendation,
+        consentToReview: true,
+      } satisfies ApplyOnboardingRequest),
+    });
+    redirect(`/b/${businessId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function applyRecommendationAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const recommendationJson = String(formData.get("recommendation") ?? "");
+  let recommendation: OnboardingRecommendation;
+  try {
+    recommendation = JSON.parse(recommendationJson) as OnboardingRecommendation;
+  } catch {
+    return { error: "We could not read your recommendation. Please try again." };
+  }
+
+  try {
+    await apiJson(`/businesses/${businessId}/onboarding/apply`, {
+      method: "POST",
+      body: JSON.stringify({
+        recommendation,
+        consentToReview: true,
+      } satisfies ApplyOnboardingRequest),
+    });
+    redirect(`/b/${businessId}?setup=applied`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createCustomizationRequestAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const notes = String(formData.get("notes") ?? "").trim();
+  const parsed = createCustomizationRequestSchema.safeParse({
+    statedProcess: formData.get("statedProcess"),
+    requestedChanges: formData.get("requestedChanges"),
+    urgency: formData.get("urgency"),
+    notes: notes || undefined,
+    consentToReview: formData.get("consentToReview") === "on" ? true : undefined,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<BusinessCustomizationRequestSummary>(
+      `/businesses/${businessId}/customization-requests`,
+      {
+        method: "POST",
+        body: JSON.stringify(parsed.data),
+      },
+    );
+    redirect(`/b/${businessId}/settings/customization?submitted=1`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+// Phase 9 — System Admin server actions.
+//
+// These actions target /system-admin/* endpoints, which are guarded by
+// SystemAdminGuard. The guard rejects non-admins with 403; we surface that as
+// a plain error string. Both writes require a non-empty reason and the
+// `confirm` checkbox so the form enforces the high-risk confirmation step
+// before the request is sent.
+
+export interface SystemAdminActionState extends ActionState {
+  confirmRequired?: boolean;
+}
+
+export async function assignConfigurationAction(
+  businessId: string,
+  _state: SystemAdminActionState,
+  formData: FormData,
+): Promise<SystemAdminActionState> {
+  const configurationTemplateVersionId = String(
+    formData.get("configurationTemplateVersionId") ?? "",
+  );
+  const reason = String(formData.get("reason") ?? "").trim();
+  const confirm = formData.get("confirm") === "on";
+
+  if (!configurationTemplateVersionId) return { error: "Choose a configuration version." };
+  if (!reason) return { error: "Provide a reason for this assignment change." };
+  if (!confirm)
+    return {
+      error: "Confirm you understand this change before applying it.",
+      confirmRequired: true,
+    };
+
+  try {
+    await apiJson(`/system-admin/organizations/${businessId}/assignment`, {
+      method: "POST",
+      body: JSON.stringify({ configurationTemplateVersionId, reason, confirm }),
+    });
+    redirect(`/admin/organizations/${businessId}?assigned=1`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function setDefaultErpVersionAction(
+  _state: SystemAdminActionState,
+  formData: FormData,
+): Promise<SystemAdminActionState> {
+  const configurationTemplateVersionId = String(
+    formData.get("configurationTemplateVersionId") ?? "",
+  );
+  const reason = String(formData.get("reason") ?? "").trim();
+  const confirm = formData.get("confirm") === "on";
+
+  if (!configurationTemplateVersionId) return { error: "Choose a default-erp version." };
+  if (!reason) return { error: "Provide a reason for this default change." };
+  if (!confirm)
+    return {
+      error: "Confirm you understand this change before applying it.",
+      confirmRequired: true,
+    };
+
+  try {
+    await apiJson("/system-admin/configuration/default-erp-version", {
+      method: "POST",
+      body: JSON.stringify({ configurationTemplateVersionId, reason, confirm }),
+    });
+    redirect("/admin/default-erp?set=1");
+  } catch (error) {
+    return actionError(error);
+  }
 }

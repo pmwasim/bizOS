@@ -282,6 +282,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@bizo/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@prisma/adapter-pg':
         specifier: 7.9.0
         version: 7.9.0

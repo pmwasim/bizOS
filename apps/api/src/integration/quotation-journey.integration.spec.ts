@@ -2,6 +2,7 @@ import { NotFoundException } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { CustomersService } from "../customers/customers.service.js";
+import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
 import { PdfService } from "../documents/pdf.service.js";
 import { QuotationsService } from "../documents/quotations.service.js";
@@ -23,8 +24,9 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
     database = new DatabaseService();
     await database.onModuleInit();
     const access = new BusinessAccessService(database);
+    const configuration = new ConfigurationService(database, access);
     identity = new IdentityService(database);
-    platform = new PlatformService(database, access);
+    platform = new PlatformService(database, access, configuration);
     customers = new CustomersService(database, access);
     quotations = new QuotationsService(database, access, new PdfService(), {
       sendQuotation: vi.fn().mockResolvedValue("integration-message-1"),

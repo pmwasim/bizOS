@@ -39,6 +39,26 @@
     "./invoices": {
       "types": "./dist/invoices.d.ts",
       "default": "./dist/invoices.js"
+    },
+    "./configuration": {
+      "types": "./dist/configuration.d.ts",
+      "default": "./dist/configuration.js"
+    },
+    "./workflows": {
+      "types": "./dist/workflows.d.ts",
+      "default": "./dist/workflows.js"
+    },
+    "./customization": {
+      "types": "./dist/customization.d.ts",
+      "default": "./dist/customization.js"
+    },
+    "./onboarding": {
+      "types": "./dist/onboarding.d.ts",
+      "default": "./dist/onboarding.js"
+    },
+    "./system-admin": {
+      "types": "./dist/system-admin.d.ts",
+      "default": "./dist/system-admin.js"
     }
   },
   "scripts": {

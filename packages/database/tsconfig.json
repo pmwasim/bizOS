@@ -5,5 +5,5 @@
     "moduleResolution": "Bundler",
     "types": ["node"]
   },
-  "include": ["prisma.config.ts", "src/**/*.ts", "generated/**/*.ts"]
+  "include": ["prisma.config.ts", "prisma/**/*.ts", "src/**/*.ts", "generated/**/*.ts"]
 }

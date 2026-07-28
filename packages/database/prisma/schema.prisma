@@ -54,6 +54,71 @@ enum StoredObjectKind {
   APPROVAL_EVIDENCE
 }
 
+enum ModuleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ConfigurationTemplateKind {
+  DEFAULT
+  SPECIALIZED
+  INDUSTRY
+}
+
+enum ConfigurationVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum WorkflowVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  BOOLEAN
+  MULTILINE
+}
+
+enum IndustryPackStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum ConfigurationAuditAction {
+  CREATE
+  UPDATE
+  PUBLISH
+  RETIRE
+  ASSIGN
+  UNASSIGN
+}
+
+enum CustomizationRequestUrgency {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CustomizationRequestStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum PlatformSystemAdminStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model User {
   id           BigInt   @id @default(autoincrement())
   publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
@@ -64,10 +129,11 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships              Membership[]
-  auditEvents              AuditEvent[]
-  approvalChanges          PurchaseOrder[] @relation("PurchaseOrderApprovalActor")
-  uploadedStoredObjects    StoredObject[]  @relation("StoredObjectUploader")
+  memberships           Membership[]
+  auditEvents           AuditEvent[]
+  approvalChanges       PurchaseOrder[]      @relation("PurchaseOrderApprovalActor")
+  uploadedStoredObjects StoredObject[]       @relation("StoredObjectUploader")
+  systemAdmin           PlatformSystemAdmin?
 
   @@index([publicId])
   @@map("users")
@@ -80,9 +146,11 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  businesses  Business[]
-  memberships Membership[]
-  roles       Role[]
+  businesses               Business[]
+  memberships              Membership[]
+  roles                    Role[]
+  configurationAuditEvents ConfigurationAuditEvent[]
+  customizationRequests    CustomizationRequest[]
 
   @@map("tenants")
 }
@@ -96,11 +164,14 @@ model Membership {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user           User             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  businessAccess BusinessAccess[]
-  documents      Document[]
-  purchaseOrders PurchaseOrder[]
+  tenant                   Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                     User                              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  businessAccess           BusinessAccess[]
+  documents                Document[]
+  purchaseOrders           PurchaseOrder[]
+  auditEvents              ConfigurationAuditEvent[]
+  configurationAssignments BusinessConfigurationAssignment[]
+  customizationRequests    CustomizationRequest[]
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -146,16 +217,21 @@ model Business {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  access       BusinessAccess[]
-  settings     BusinessSettings?
-  taxProfile   TaxProfile?
-  customers      Customer[]
-  documents      Document[]
-  purchaseOrders PurchaseOrder[]
-  storedObjects  StoredObject[]
-  auditEvents    AuditEvent[]
-  outboxEvents   OutboxEvent[]
+  tenant                   Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  access                   BusinessAccess[]
+  settings                 BusinessSettings?
+  taxProfile               TaxProfile?
+  customers                Customer[]
+  documents                Document[]
+  purchaseOrders           PurchaseOrder[]
+  storedObjects            StoredObject[]
+  auditEvents              AuditEvent[]
+  outboxEvents             OutboxEvent[]
+  assignments              BusinessConfigurationAssignment[]
+  documentWorkflowContexts DocumentWorkflowContext[]
+  customFieldDefinitions   CustomFieldDefinition[]
+  featureFlags             FeatureFlag[]
+  customizationRequests    CustomizationRequest[]
 
   @@unique([tenantId, id])
   @@index([tenantId, name])
@@ -269,15 +345,16 @@ model Document {
   createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business         Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer         Customer          @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
-  sourceQuotation  Document?         @relation("DocumentSourceQuotation", fields: [tenantId, businessId, sourceQuotationId], references: [tenantId, businessId, id], onDelete: Restrict)
-  derivedInvoices  Document[]        @relation("DocumentSourceQuotation")
-  linkedPurchaseOrder PurchaseOrder? @relation("DocumentLinkedPurchaseOrder", fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
-  lines            DocumentLine[]
-  versions         DocumentVersion[]
-  creator          Membership        @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
-  purchaseOrders   PurchaseOrder[]   @relation("PurchaseOrderQuotation")
+  business            Business                 @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer            Customer                 @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  sourceQuotation     Document?                @relation("DocumentSourceQuotation", fields: [tenantId, businessId, sourceQuotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  derivedInvoices     Document[]               @relation("DocumentSourceQuotation")
+  linkedPurchaseOrder PurchaseOrder?           @relation("DocumentLinkedPurchaseOrder", fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
+  lines               DocumentLine[]
+  versions            DocumentVersion[]
+  creator             Membership               @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  purchaseOrders      PurchaseOrder[]          @relation("PurchaseOrderQuotation")
+  workflowContext     DocumentWorkflowContext?
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, type, number])
@@ -288,35 +365,35 @@ model Document {
 }
 
 model PurchaseOrder {
-  id                      BigInt                 @id @default(autoincrement())
-  publicId                String                 @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId                BigInt                 @map("tenant_id")
-  businessId              BigInt                 @map("business_id")
-  customerId              BigInt                 @map("customer_id")
-  quotationId             BigInt?                @map("quotation_id")
-  poNumber                String                 @map("po_number") @db.VarChar(80)
-  poDate                  DateTime?              @map("po_date") @db.Date
-  projectReference        String?                @map("project_reference") @db.VarChar(120)
-  amountMinor             Decimal?               @map("amount_minor") @db.Decimal(38, 0)
-  currencyCode            String?                @map("currency_code") @db.Char(3)
-  currencyScale           Int?                   @map("currency_scale") @db.SmallInt
-  notes                   String?                @db.VarChar(2000)
-  status                  PurchaseOrderStatus    @default(ACTIVE)
-  approvalStatus          InvoiceApprovalStatus  @default(NOT_RECORDED) @map("approval_status")
-  approvalChangedAt       DateTime?              @map("approval_changed_at") @db.Timestamptz(3)
-  approvalChangedByUserId BigInt?                @map("approval_changed_by_user_id")
-  archivedAt              DateTime?              @map("archived_at") @db.Timestamptz(3)
-  createdByMembershipId   BigInt                 @map("created_by_membership_id")
-  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt               DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                      BigInt                @id @default(autoincrement())
+  publicId                String                @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId                BigInt                @map("tenant_id")
+  businessId              BigInt                @map("business_id")
+  customerId              BigInt                @map("customer_id")
+  quotationId             BigInt?               @map("quotation_id")
+  poNumber                String                @map("po_number") @db.VarChar(80)
+  poDate                  DateTime?             @map("po_date") @db.Date
+  projectReference        String?               @map("project_reference") @db.VarChar(120)
+  amountMinor             Decimal?              @map("amount_minor") @db.Decimal(38, 0)
+  currencyCode            String?               @map("currency_code") @db.Char(3)
+  currencyScale           Int?                  @map("currency_scale") @db.SmallInt
+  notes                   String?               @db.VarChar(2000)
+  status                  PurchaseOrderStatus   @default(ACTIVE)
+  approvalStatus          InvoiceApprovalStatus @default(NOT_RECORDED) @map("approval_status")
+  approvalChangedAt       DateTime?             @map("approval_changed_at") @db.Timestamptz(3)
+  approvalChangedByUserId BigInt?               @map("approval_changed_by_user_id")
+  archivedAt              DateTime?             @map("archived_at") @db.Timestamptz(3)
+  createdByMembershipId   BigInt                @map("created_by_membership_id")
+  createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business              Business     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer              Customer     @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
-  quotation             Document?    @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
-  creator               Membership   @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
-  approvalChangedByUser User?        @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
+  business              Business       @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer              Customer       @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  quotation             Document?      @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  creator               Membership     @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  approvalChangedByUser User?          @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
   storedObjects         StoredObject[]
-  linkedInvoices        Document[]   @relation("DocumentLinkedPurchaseOrder")
+  linkedInvoices        Document[]     @relation("DocumentLinkedPurchaseOrder")
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status, createdAt])
@@ -372,19 +449,19 @@ model DocumentLine {
 }
 
 model DocumentVersion {
-  id                 BigInt   @id @default(autoincrement())
-  publicId           String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId           BigInt   @map("tenant_id")
-  businessId         BigInt   @map("business_id")
-  documentId         BigInt   @map("document_id")
-  version            Int
-  snapshot           Json
-  templateName       String   @default("professional-v1") @map("template_name") @db.VarChar(80)
-  pdfStorageKey      String?  @map("pdf_storage_key") @db.VarChar(512)
-  pdfContentType     String?  @map("pdf_content_type") @db.VarChar(120)
-  pdfByteSize        Int?     @map("pdf_byte_size")
-  pdfChecksumSha256  String?  @map("pdf_checksum_sha256") @db.Char(64)
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id                BigInt   @id @default(autoincrement())
+  publicId          String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId          BigInt   @map("tenant_id")
+  businessId        BigInt   @map("business_id")
+  documentId        BigInt   @map("document_id")
+  version           Int
+  snapshot          Json
+  templateName      String   @default("professional-v1") @map("template_name") @db.VarChar(80)
+  pdfStorageKey     String?  @map("pdf_storage_key") @db.VarChar(512)
+  pdfContentType    String?  @map("pdf_content_type") @db.VarChar(120)
+  pdfByteSize       Int?     @map("pdf_byte_size")
+  pdfChecksumSha256 String?  @map("pdf_checksum_sha256") @db.Char(64)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   document   Document           @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Restrict)
   deliveries DocumentDelivery[]
@@ -455,4 +532,264 @@ model OutboxEvent {
   @@index([publishedAt, availableAt])
   @@index([tenantId, businessId, createdAt])
   @@map("outbox_events")
+}
+
+// Phase 4 — Configuration architecture. Platform-level catalog of ERP modules, versioned
+// configuration/workflow templates, tenant+business assignments, per-document workflow context,
+// custom fields, industry packs, feature flags, configuration audit, customization requests,
+// and platform System Admin principals. See docs/operations/phase4-configuration-architecture-design.md.
+
+model ModuleDefinition {
+  id          BigInt       @id @default(autoincrement())
+  publicId    String       @unique @default(uuid()) @map("public_id") @db.Uuid
+  code        String       @unique @db.VarChar(40)
+  name        String       @db.VarChar(80)
+  description String?      @db.VarChar(500)
+  status      ModuleStatus @default(ACTIVE)
+  implemented Boolean      @default(false)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("module_definitions")
+}
+
+model ConfigurationTemplate {
+  id          BigInt                    @id @default(autoincrement())
+  publicId    String                    @unique @default(uuid()) @map("public_id") @db.Uuid
+  code        String                    @unique @db.VarChar(40)
+  name        String                    @db.VarChar(120)
+  description String?                   @db.VarChar(500)
+  kind        ConfigurationTemplateKind
+  createdAt   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  versions      ConfigurationTemplateVersion[]
+  industryPacks IndustryPack[]
+
+  @@map("configuration_templates")
+}
+
+model ConfigurationTemplateVersion {
+  id                      BigInt                     @id @default(autoincrement())
+  publicId                String                     @unique @default(uuid()) @map("public_id") @db.Uuid
+  templateId              BigInt                     @map("template_id")
+  version                 String                     @db.VarChar(20)
+  status                  ConfigurationVersionStatus @default(DRAFT)
+  snapshotJson            Json                       @map("snapshot_json")
+  publishedAt             DateTime?                  @map("published_at") @db.Timestamptz(3)
+  retiredAt               DateTime?                  @map("retired_at") @db.Timestamptz(3)
+  publishedByMembershipId BigInt?                    @map("published_by_membership_id")
+  createdAt               DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  template              ConfigurationTemplate             @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  assignments           BusinessConfigurationAssignment[]
+  documentContexts      DocumentWorkflowContext[]
+  customizationRequests CustomizationRequest[]
+
+  @@unique([templateId, version])
+  @@index([status])
+  @@map("configuration_template_versions")
+}
+
+model WorkflowTemplate {
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  code         String   @unique @db.VarChar(40)
+  name         String   @db.VarChar(120)
+  description  String?  @db.VarChar(500)
+  documentType String   @map("document_type") @db.VarChar(40)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  versions WorkflowTemplateVersion[]
+
+  @@map("workflow_templates")
+}
+
+model WorkflowTemplateVersion {
+  id                      BigInt                @id @default(autoincrement())
+  publicId                String                @unique @default(uuid()) @map("public_id") @db.Uuid
+  workflowTemplateId      BigInt                @map("workflow_template_id")
+  version                 String                @db.VarChar(20)
+  status                  WorkflowVersionStatus @default(DRAFT)
+  definitionJson          Json                  @map("definition_json")
+  publishedAt             DateTime?             @map("published_at") @db.Timestamptz(3)
+  retiredAt               DateTime?             @map("retired_at") @db.Timestamptz(3)
+  publishedByMembershipId BigInt?               @map("published_by_membership_id")
+  createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workflowTemplate WorkflowTemplate          @relation(fields: [workflowTemplateId], references: [id], onDelete: Restrict)
+  documentContexts DocumentWorkflowContext[]
+
+  @@unique([workflowTemplateId, version])
+  @@index([status])
+  @@map("workflow_template_versions")
+}
+
+model BusinessConfigurationAssignment {
+  id                             BigInt   @id @default(autoincrement())
+  publicId                       String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId                       BigInt   @map("tenant_id")
+  businessId                     BigInt   @map("business_id")
+  configurationTemplateVersionId BigInt   @map("configuration_template_version_id")
+  isPrimary                      Boolean  @default(false) @map("is_primary")
+  assignedByMembershipId         BigInt?  @map("assigned_by_membership_id")
+  reason                         String?  @db.VarChar(500)
+  assignedAt                     DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  business                     Business                     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+  configurationTemplateVersion ConfigurationTemplateVersion @relation(fields: [configurationTemplateVersionId], references: [id], onDelete: Restrict)
+  assignedByMembership         Membership?                  @relation(fields: [assignedByMembershipId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, businessId])
+  @@index([configurationTemplateVersionId])
+  @@index([assignedByMembershipId])
+  @@map("business_configuration_assignments")
+}
+
+model DocumentWorkflowContext {
+  id                             BigInt   @id @default(autoincrement())
+  publicId                       String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId                       BigInt   @map("tenant_id")
+  businessId                     BigInt   @map("business_id")
+  documentId                     BigInt   @unique @map("document_id")
+  configurationTemplateVersionId BigInt   @map("configuration_template_version_id")
+  workflowTemplateVersionId      BigInt?  @map("workflow_template_version_id")
+  documentType                   String   @map("document_type") @db.VarChar(40)
+  workflowState                  String?  @map("workflow_state") @db.VarChar(40)
+  capturedSnapshotJson           Json     @map("captured_snapshot_json")
+  createdAt                      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business                     Business                     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+  document                     Document                     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  configurationTemplateVersion ConfigurationTemplateVersion @relation(fields: [configurationTemplateVersionId], references: [id], onDelete: Restrict)
+  workflowTemplateVersion      WorkflowTemplateVersion?     @relation(fields: [workflowTemplateVersionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, businessId])
+  @@index([configurationTemplateVersionId])
+  @@map("document_workflow_contexts")
+}
+
+model CustomFieldDefinition {
+  id           BigInt          @id @default(autoincrement())
+  publicId     String          @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId     BigInt          @map("tenant_id")
+  businessId   BigInt          @map("business_id")
+  documentType String          @map("document_type") @db.VarChar(40)
+  fieldKey     String          @map("field_key") @db.VarChar(60)
+  label        String          @db.VarChar(120)
+  fieldType    CustomFieldType @map("field_type")
+  configJson   Json            @map("config_json")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, businessId, documentType, fieldKey])
+  @@map("custom_field_definitions")
+}
+
+model IndustryPack {
+  id                      BigInt             @id @default(autoincrement())
+  publicId                String             @unique @default(uuid()) @map("public_id") @db.Uuid
+  code                    String             @unique @db.VarChar(40)
+  name                    String             @db.VarChar(120)
+  description             String?            @db.VarChar(500)
+  configurationTemplateId BigInt?            @map("configuration_template_id")
+  version                 String             @db.VarChar(20)
+  status                  IndustryPackStatus @default(DRAFT)
+  packJson                Json               @map("pack_json")
+  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  configurationTemplate ConfigurationTemplate? @relation(fields: [configurationTemplateId], references: [id], onDelete: Restrict)
+
+  @@map("industry_packs")
+}
+
+model FeatureFlag {
+  id         BigInt   @id @default(autoincrement())
+  publicId   String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId   BigInt   @map("tenant_id")
+  businessId BigInt   @map("business_id")
+  flagKey    String   @map("flag_key") @db.VarChar(60)
+  enabled    Boolean  @default(false)
+  configJson Json?    @map("config_json")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, businessId, flagKey])
+  @@map("feature_flags")
+}
+
+model ConfigurationAuditEvent {
+  id                 BigInt                   @id @default(autoincrement())
+  publicId           String                   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId           BigInt?                  @map("tenant_id")
+  actorMembershipId  BigInt?                  @map("actor_membership_id")
+  actorSystemAdminId BigInt?                  @map("actor_system_admin_id")
+  action             ConfigurationAuditAction
+  entityType         String                   @map("entity_type") @db.VarChar(40)
+  entityId           BigInt                   @map("entity_id")
+  beforeJson         Json?                    @map("before_json")
+  afterJson          Json?                    @map("after_json")
+  diffJson           Json?                    @map("diff_json")
+  reason             String?                  @db.VarChar(500)
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant           Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actorMembership  Membership?          @relation(fields: [actorMembershipId], references: [id], onDelete: Restrict)
+  actorSystemAdmin PlatformSystemAdmin? @relation(fields: [actorSystemAdminId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, entityType, entityId])
+  @@index([actorSystemAdminId])
+  @@map("configuration_audit_events")
+}
+
+model CustomizationRequest {
+  id                                    BigInt                      @id @default(autoincrement())
+  publicId                              String                      @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId                              BigInt                      @map("tenant_id")
+  businessId                            BigInt                      @map("business_id")
+  requesterMembershipId                 BigInt                      @map("requester_membership_id")
+  currentConfigurationTemplateVersionId BigInt?                     @map("current_configuration_template_version_id")
+  statedProcessJson                     Json                        @map("stated_process_json")
+  requestedChangesJson                  Json                        @map("requested_changes_json")
+  urgency                               CustomizationRequestUrgency
+  notesJson                             Json?                       @map("notes_json")
+  consentToReview                       Boolean                     @default(false) @map("consent_to_review")
+  status                                CustomizationRequestStatus  @default(OPEN)
+  createdAt                             DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                             DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant                              Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  business                            Business                      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+  requesterMembership                 Membership                    @relation(fields: [requesterMembershipId], references: [id], onDelete: Restrict)
+  currentConfigurationTemplateVersion ConfigurationTemplateVersion? @relation(fields: [currentConfigurationTemplateVersionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, businessId])
+  @@index([status])
+  @@map("customization_requests")
+}
+
+model PlatformSystemAdmin {
+  id              BigInt                    @id @default(autoincrement())
+  publicId        String                    @unique @default(uuid()) @map("public_id") @db.Uuid
+  userId          BigInt                    @unique @map("user_id")
+  status          PlatformSystemAdminStatus @default(ACTIVE)
+  grantedByUserId BigInt?                   @map("granted_by_user_id")
+  reason          String?                   @db.VarChar(500)
+  grantedAt       DateTime                  @default(now()) @map("granted_at") @db.Timestamptz(3)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user        User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  auditEvents ConfigurationAuditEvent[]
+
+  @@map("platform_system_admins")
 }

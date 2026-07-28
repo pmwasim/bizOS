@@ -3,6 +3,7 @@ import { Reflector } from "@nestjs/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "./app.module.js";
+import { ConfigurationService } from "./configuration/configuration.service.js";
 import { CustomersService } from "./customers/customers.service.js";
 import { DatabaseService } from "./database/database.service.js";
 import { PdfService } from "./documents/pdf.service.js";
@@ -23,6 +24,14 @@ describe("Nest dependency injection", () => {
     const access = { resolve: () => undefined, assertAllowed: () => undefined };
     const pdf = { renderQuotation: () => undefined };
     const mail = { sendQuotation: () => undefined };
+    const configuration = {
+      assignDefaultErp: () => undefined,
+      assignConfiguration: () => undefined,
+      getActiveAssignment: () => undefined,
+      getEnabledModules: () => undefined,
+      getDefaultErpPublishedVersion: () => undefined,
+      getPublishedVersion: () => undefined,
+    };
     const module = await Test.createTestingModule({
       providers: [
         IdentityService,
@@ -31,6 +40,7 @@ describe("Nest dependency injection", () => {
         QuotationsService,
         { provide: DatabaseService, useValue: database },
         { provide: BusinessAccessService, useValue: access },
+        { provide: ConfigurationService, useValue: configuration },
         { provide: PdfService, useValue: pdf },
         { provide: MailService, useValue: mail },
       ],

@@ -1,0 +1,143 @@
+{
+  "name": "bizOS GitHub Actions Poll",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Poll GitHub Actions for bizOS failures\n\nRuns every 15 minutes. Requires `GITHUB_TOKEN` in n8n env (fine-grained PAT or classic token with `actions:read` on pmwasim/bizOS).\n\nWorks with **localhost n8n** — no inbound webhook from GitHub required.\n\nDedupes by workflow run id in workflow static data. Replace **Log Route** with Slack/email before activation.",
+        "height": 200,
+        "width": 480
+      },
+      "id": "sticky-note-bizos-gh-poll",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [80, -120]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-bizos-gh-poll",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const token = $env.GITHUB_TOKEN;\nif (!token) {\n  throw new Error('GITHUB_TOKEN is not configured in n8n environment');\n}\n\nconst url = new URL('https://api.github.com/repos/pmwasim/bizOS/actions/runs');\nurl.searchParams.set('status', 'completed');\nurl.searchParams.set('per_page', '10');\n\nconst response = await fetch(url, {\n  headers: {\n    Accept: 'application/vnd.github+json',\n    Authorization: `Bearer ${token}`,\n    'X-GitHub-Api-Version': '2022-11-28',\n  },\n});\n\nif (!response.ok) {\n  throw new Error(`GitHub API ${response.status}: ${await response.text()}`);\n}\n\nreturn [{ json: await response.json() }];"
+      },
+      "id": "code-fetch-github-runs",
+      "name": "Fetch Recent Runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const runs = $input.first().json.workflow_runs ?? [];\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.notifiedRunIds) {\n  staticData.notifiedRunIds = {};\n}\n\nconst failures = runs.filter((run) => {\n  if (run.conclusion !== 'failure' && run.conclusion !== 'cancelled') {\n    return false;\n  }\n  if (staticData.notifiedRunIds[String(run.id)]) {\n    return false;\n  }\n  return true;\n});\n\nreturn failures.map((run) => ({\n  json: {\n    event: 'ci.failure',\n    source: 'github-actions-poll',\n    idempotencyKey: `gh-run-${run.id}`,\n    repo: 'pmwasim/bizOS',\n    workflow: run.name,\n    runId: run.id,\n    runUrl: run.html_url,\n    branch: run.head_branch,\n    sha: run.head_sha?.slice(0, 7),\n    conclusion: run.conclusion,\n    actor: run.actor?.login ?? 'unknown',\n    createdAt: run.created_at,\n  },\n}));"
+      },
+      "id": "code-filter-failures",
+      "name": "Filter New Failures",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "workflow",
+              "value": "bizos-github-actions-poll"
+            },
+            {
+              "name": "channel",
+              "value": "ops-ci"
+            },
+            {
+              "name": "title",
+              "value": "=[bizOS] GitHub failure: {{ $json.workflow }}"
+            },
+            {
+              "name": "message",
+              "value": "=Branch {{ $json.branch }} · {{ $json.conclusion }} · {{ $json.runUrl }}"
+            },
+            {
+              "name": "routedAt",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-gh-poll-notification",
+      "name": "Build Notification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (!staticData.notifiedRunIds) {\n  staticData.notifiedRunIds = {};\n}\nstaticData.notifiedRunIds[String($json.runId)] = $now.toISO();\n\n// Keep map bounded\nconst keys = Object.keys(staticData.notifiedRunIds);\nif (keys.length > 200) {\n  for (const key of keys.slice(0, keys.length - 200)) {\n    delete staticData.notifiedRunIds[key];\n  }\n}\n\nreturn [{ json: { ...$json, status: 'routed' } }];"
+      },
+      "id": "code-mark-notified",
+      "name": "Mark Notified",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 0]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "routed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-gh-poll-log",
+      "name": "Log Route",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1560, 0]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [[{ "node": "Fetch Recent Runs", "type": "main", "index": 0 }]]
+    },
+    "Fetch Recent Runs": {
+      "main": [[{ "node": "Filter New Failures", "type": "main", "index": 0 }]]
+    },
+    "Filter New Failures": {
+      "main": [[{ "node": "Build Notification", "type": "main", "index": 0 }]]
+    },
+    "Build Notification": {
+      "main": [[{ "node": "Mark Notified", "type": "main", "index": 0 }]]
+    },
+    "Mark Notified": {
+      "main": [[{ "node": "Log Route", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Polls GitHub Actions for new bizOS failures. Configure GitHub API Token credential before activation."
+  }
+}
