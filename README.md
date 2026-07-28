@@ -3,9 +3,12 @@
 bizOS is a workflow-first Business Operating System for small businesses and service companies. It
 is designed for people who run a business, not people who speak in accounting jargon.
 
-The engineering foundation is frozen and the repository now delivers the first MVP slice: a new user
-can create a business, add a customer, prepare a quotation, preview its professional PDF, and send
-it by email. Invoices, payments, accounting, and the other future modules remain out of scope.
+The repository delivers a private-beta sales-document workflow: a new user can create a business,
+add a customer, prepare and send a quotation, record customer purchase-order and approval evidence,
+convert a ready quotation into an invoice, and send the invoice PDF by email. A Default ERP
+foundation (configuration templates, guided onboarding, and a platform System Admin boundary) is
+merged on `main` and rolling out. Payments, statements, credit notes, suppliers, inventory, and
+accounting remain on the roadmap.
 
 ## Repository map
 
@@ -55,9 +58,14 @@ pnpm check
 The gate checks formatting, linting, TypeScript, tests, the Prisma schema, and production builds.
 See [Contributing](CONTRIBUTING.md) and the [documentation index](docs/README.md).
 
-The full slice and its scope boundary are documented in [Quotation MVP](docs/mvp-quotation.md).
-
 ## Status and license
 
-The quotation MVP is pre-release until its remote CI and deployment acceptance gates pass. The
-source is currently all-rights-reserved; see [LICENSE.md](LICENSE.md).
+**Private beta.** The deployed sales-document workflow has production evidence, but the platform is
+not yet generally available: do not store irreplaceable or sensitive customer data until backup and
+restore are verified, and do not market bizOS as a complete ERP. Current production capabilities and
+their verification status are tracked in
+[docs/operations/invoice-vertical-slice-production-evidence.md](docs/operations/invoice-vertical-slice-production-evidence.md)
+and the [documentation index](docs/README.md). The full slice and its scope boundary are documented
+in [Quotation MVP](docs/mvp-quotation.md).
+
+The source is currently all-rights-reserved; see [LICENSE.md](LICENSE.md).
