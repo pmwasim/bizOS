@@ -52,6 +52,26 @@ export function mergeSeedResult(base: SeedResult, add: SeedResult): SeedResult {
   };
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
+function recordPublishedSkip(
+  skipped: string[],
+  key: string,
+  kind: "workflow" | "configuration",
+  version: string,
+): void {
+  skipped.push(key);
+  // eslint-disable-next-line no-console
+  console.log(`[seed] Skipped immutable PUBLISHED ${kind} version ${version} (already published).`);
+}
+
 // Upsert a PUBLISHED workflow template version. If a PUBLISHED version already exists,
 // it is immutable: we do NOT overwrite definitionJson. We log and record the skip so the
 // caller can report it. DRAFT versions are updated to PUBLISHED with the new definition.
@@ -64,50 +84,69 @@ export async function upsertPublishedWorkflowVersion(
     skipped: string[];
   },
 ): Promise<void> {
-  const existing = await prisma.workflowTemplateVersion.findUnique({
-    where: {
-      workflowTemplateId_version: {
-        workflowTemplateId: args.workflowTemplateId,
-        version: args.version,
-      },
+  const where = {
+    workflowTemplateId_version: {
+      workflowTemplateId: args.workflowTemplateId,
+      version: args.version,
     },
+  } as const;
+  const skipKey = `workflow:${args.workflowTemplateId}:${args.version}`;
+
+  const existing = await prisma.workflowTemplateVersion.findUnique({
+    where,
     select: { id: true, status: true },
   });
 
   if (existing?.status === "PUBLISHED") {
-    const key = `workflow:${args.workflowTemplateId}:${args.version}`;
-    args.skipped.push(key);
-    // eslint-disable-next-line no-console
-    console.log(
-      `[seed] Skipped immutable PUBLISHED workflow version ${args.version} (already published).`,
-    );
+    recordPublishedSkip(args.skipped, skipKey, "workflow", args.version);
     return;
   }
 
   const now = new Date();
+  const publishedData = {
+    status: "PUBLISHED" as const,
+    definitionJson: args.definition as object,
+    publishedAt: now,
+    retiredAt: null,
+  };
+
   if (existing) {
     await prisma.workflowTemplateVersion.update({
       where: { id: existing.id },
-      data: {
-        status: "PUBLISHED",
-        definitionJson: args.definition as object,
-        publishedAt: now,
-        retiredAt: null,
-      },
+      data: publishedData,
     });
     return;
   }
 
-  await prisma.workflowTemplateVersion.create({
-    data: {
-      workflowTemplateId: args.workflowTemplateId,
-      version: args.version,
-      status: "PUBLISHED",
-      definitionJson: args.definition as object,
-      publishedAt: now,
-      retiredAt: null,
-    },
-  });
+  try {
+    await prisma.workflowTemplateVersion.create({
+      data: {
+        workflowTemplateId: args.workflowTemplateId,
+        version: args.version,
+        ...publishedData,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+    const raced = await prisma.workflowTemplateVersion.findUnique({
+      where,
+      select: { id: true, status: true },
+    });
+    if (raced?.status === "PUBLISHED") {
+      recordPublishedSkip(args.skipped, skipKey, "workflow", args.version);
+      return;
+    }
+    if (raced) {
+      await prisma.workflowTemplateVersion.update({
+        where: { id: raced.id },
+        data: publishedData,
+      });
+      return;
+    }
+    throw error;
+  }
 }
 
 // Upsert a PUBLISHED configuration template version. Same immutability rule as above:
@@ -121,48 +160,67 @@ export async function upsertPublishedConfigurationVersion(
     skipped: string[];
   },
 ): Promise<void> {
-  const existing = await prisma.configurationTemplateVersion.findUnique({
-    where: {
-      templateId_version: {
-        templateId: args.templateId,
-        version: args.version,
-      },
+  const where = {
+    templateId_version: {
+      templateId: args.templateId,
+      version: args.version,
     },
+  } as const;
+  const skipKey = `configuration:${args.templateId}:${args.version}`;
+
+  const existing = await prisma.configurationTemplateVersion.findUnique({
+    where,
     select: { id: true, status: true },
   });
 
   if (existing?.status === "PUBLISHED") {
-    const key = `configuration:${args.templateId}:${args.version}`;
-    args.skipped.push(key);
-    // eslint-disable-next-line no-console
-    console.log(
-      `[seed] Skipped immutable PUBLISHED configuration version ${args.version} (already published).`,
-    );
+    recordPublishedSkip(args.skipped, skipKey, "configuration", args.version);
     return;
   }
 
   const now = new Date();
+  const publishedData = {
+    status: "PUBLISHED" as const,
+    snapshotJson: args.snapshot as object,
+    publishedAt: now,
+    retiredAt: null,
+  };
+
   if (existing) {
     await prisma.configurationTemplateVersion.update({
       where: { id: existing.id },
-      data: {
-        status: "PUBLISHED",
-        snapshotJson: args.snapshot as object,
-        publishedAt: now,
-        retiredAt: null,
-      },
+      data: publishedData,
     });
     return;
   }
 
-  await prisma.configurationTemplateVersion.create({
-    data: {
-      templateId: args.templateId,
-      version: args.version,
-      status: "PUBLISHED",
-      snapshotJson: args.snapshot as object,
-      publishedAt: now,
-      retiredAt: null,
-    },
-  });
+  try {
+    await prisma.configurationTemplateVersion.create({
+      data: {
+        templateId: args.templateId,
+        version: args.version,
+        ...publishedData,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+    const raced = await prisma.configurationTemplateVersion.findUnique({
+      where,
+      select: { id: true, status: true },
+    });
+    if (raced?.status === "PUBLISHED") {
+      recordPublishedSkip(args.skipped, skipKey, "configuration", args.version);
+      return;
+    }
+    if (raced) {
+      await prisma.configurationTemplateVersion.update({
+        where: { id: raced.id },
+        data: publishedData,
+      });
+      return;
+    }
+    throw error;
+  }
 }
