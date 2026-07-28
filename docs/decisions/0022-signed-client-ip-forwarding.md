@@ -44,8 +44,11 @@ signup and 10/minute verify limits each time (audit finding BIZ-003).
 - Forged or absent signatures can no longer control the throttle tracker identity in production.
 - Replay is bounded to the freshness window and bound to a specific IP and secret.
 - The signing covers IP + timestamp only (not method/path/nonce); this stops header-rotation abuse
-  but is not a full request-signing scheme. Per-account/email and global throttles remain follow-up
-  work (BIZ-003 acceptance criteria).
+  but is not a full request-signing scheme.
+- A named `perAccount` throttler (5/minute) now applies to `POST /auth/signup` and
+  `POST /auth/verify`. The guard keys that throttler on the normalized account email, so brute force
+  against a single account is bounded regardless of source IP; other endpoints fall through to the
+  IP tracker. Global abuse controls remain follow-up work.
 - Two-phase rollout: deploy API and web with the secret set; no feature flag needed because unsigned
   requests still work until the secret is present.
 

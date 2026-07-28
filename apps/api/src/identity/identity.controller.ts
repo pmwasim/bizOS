@@ -19,14 +19,14 @@ export class IdentityController {
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: { limit: 5, ttl: 60_000 }, perAccount: { limit: 5, ttl: 60_000 } })
   @Post("auth/signup")
   signUp(@Body(new ContractPipe(signUpRequestSchema)) input: SignUpRequest) {
     return this.identity.signUp(input);
   }
 
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 10, ttl: 60_000 }, perAccount: { limit: 5, ttl: 60_000 } })
   @Post("auth/verify")
   verifyCredentials(
     @Body(new ContractPipe(verifyCredentialsRequestSchema)) input: VerifyCredentialsRequest,
