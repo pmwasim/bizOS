@@ -31,6 +31,12 @@ See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md),
    - deploys API/web from GitHub Docker (`commitId`), waits for health URLs
 6. Independently, run `Infrastructure validation` after rotating Cloudflare or R2 credentials.
 7. Record the deployed SHA in the workflow summary.
+8. Verify the rollout with the release-readiness check (read-only; asserts web/API liveness, the
+   health contract, the deployed SHA when reported, and that unauthenticated access is rejected):
+
+   ```bash
+   RELEASE_EXPECT_SHA=<deployed-40-hex-sha> pnpm ops:release-readiness
+   ```
 
 Never run concurrent production migration jobs. The workflow concurrency group
 `production-migration` enforces this.
