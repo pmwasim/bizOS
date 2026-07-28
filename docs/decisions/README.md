@@ -20,6 +20,9 @@ constraints until superseded.
 | [0013](0013-quotation-document-slice.md)            | Shared document facts, explicit quote service | Accepted |
 | [0014](0014-single-maintainer-branch-protection.md) | Single-maintainer main protection policy      | Accepted |
 | [0015](0015-managed-hosting-behind-cloudflare.md)   | Managed hosting behind Cloudflare for MVP     | Accepted |
+| [0016](0016-purchase-order-approval-readiness.md)   | PO, approval evidence, derived readiness      | Accepted |
+| [0017](0017-po-object-storage.md)                   | Local/R2 private object store for PO files    | Accepted |
+| [0018](0018-invoice-document-slice.md)              | Invoice on shared document facts              | Accepted |
 
 ## Template
 

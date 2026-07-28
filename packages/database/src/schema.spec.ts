@@ -40,3 +40,64 @@ describe("MVP database migration", () => {
     expect(migration).toContain('CREATE UNIQUE INDEX "users_email_casefold_key"');
   });
 });
+
+describe("purchase order approval readiness migration", () => {
+  const poMigrationUrl = new URL(
+    "../prisma/migrations/20260727193000_purchase_orders_approval_readiness/migration.sql",
+    import.meta.url,
+  );
+
+  it("keeps purchase orders and stored objects under forced RLS", async () => {
+    const migration = await readFile(poMigrationUrl, "utf8");
+    expect(migration).toContain('"purchase_orders"');
+    expect(migration).toContain('"stored_objects"');
+    expect(migration).toContain("FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("purchase_orders_active_customer_po_number_key");
+    expect(migration).toContain("ON DELETE RESTRICT");
+  });
+
+  it("links purchase orders to same-business customers and quotations", async () => {
+    const migration = await readFile(poMigrationUrl, "utf8");
+    expect(migration).toContain(
+      'FOREIGN KEY ("tenant_id", "business_id", "customer_id") REFERENCES "customers"',
+    );
+    expect(migration).toContain(
+      'FOREIGN KEY ("tenant_id", "business_id", "quotation_id") REFERENCES "documents"',
+    );
+  });
+});
+
+describe("invoice document slice migration", () => {
+  const invoiceMigrationUrl = new URL(
+    "../prisma/migrations/20260728010000_invoice_document_slice/migration.sql",
+    import.meta.url,
+  );
+  const invoiceConstraintsUrl = new URL(
+    "../prisma/migrations/20260728010100_invoice_document_constraints/migration.sql",
+    import.meta.url,
+  );
+
+  it("adds invoice type, statuses, numbering, and PDF artifact columns", async () => {
+    const migration = await readFile(invoiceMigrationUrl, "utf8");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'INVOICE'");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'READY_TO_SEND'");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'SEND_FAILED'");
+    expect(migration).toContain("ADD VALUE IF NOT EXISTS 'ARCHIVED'");
+    expect(migration).toContain('"invoice_prefix"');
+    expect(migration).toContain('"next_invoice_number"');
+    expect(migration).toContain('"invoice_due_days"');
+    expect(migration).toContain('"due_date"');
+    expect(migration).toContain('"source_quotation_id"');
+    expect(migration).toContain('"po_number_snapshot"');
+    expect(migration).toContain('"pdf_storage_key"');
+    expect(migration).toContain('"pdf_checksum_sha256"');
+  });
+
+  it("keeps invoice and quotation field rules in a follow-up constraints migration", async () => {
+    const migration = await readFile(invoiceConstraintsUrl, "utf8");
+    expect(migration).toContain("documents_invoice_fields_check");
+    expect(migration).toContain("documents_archive_consistency_check");
+    expect(migration).toContain("\"type\"::text = 'INVOICE'");
+    expect(migration).toContain('"due_date" IS NOT NULL');
+  });
+});

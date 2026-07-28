@@ -1,0 +1,105 @@
+name: Sync Render R2 env
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-r2:
+    name: Sync R2 credentials to Render API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Require secrets
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          missing=0
+          for name in RENDER_API_KEY RENDER_API_SERVICE_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY CLOUDFLARE_ACCOUNT_ID R2_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required value: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All required R2/Render values are present (values not printed)."
+      - name: Upsert R2 env vars on Render API service
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          upsert() {
+            local key="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "Skipping empty $key"
+              return 0
+            fi
+            curl --fail-with-body --silent --show-error \
+              -X PUT "https://api.render.com/v1/services/${RENDER_API_SERVICE_ID}/env-vars/${key}" \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg value "$value" '{value:$value}')" \
+              >/dev/null
+            echo "Upserted $key"
+          }
+          upsert R2_ACCOUNT_ID "$R2_ACCOUNT_ID"
+          upsert R2_ACCESS_KEY_ID "$R2_ACCESS_KEY_ID"
+          upsert R2_SECRET_ACCESS_KEY "$R2_SECRET_ACCESS_KEY"
+          upsert R2_BUCKET "$R2_BUCKET"
+          if [ -n "${R2_ENDPOINT:-}" ]; then
+            upsert R2_ENDPOINT "$R2_ENDPOINT"
+          fi
+          # Ensure production never silently uses ephemeral local disk.
+          upsert OBJECT_STORE r2
+      - name: Redeploy API so env takes effect
+        id: redeploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -X POST "https://api.render.com/v1/services/${RENDER_API_SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${DEPLOY_SHA}\"}" \
+            | tee /tmp/redeploy.json | jq '{id,status,commit:(.commit.id)}'
+          echo "deploy_id=$(jq -r .id /tmp/redeploy.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for API deploy live
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          DEPLOY_ID: ${{ steps.redeploy.outputs.deploy_id }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            status=$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${RENDER_API_SERVICE_ID}/deploys/${DEPLOY_ID}" \
+              | jq -r '.status')
+            echo "attempt=$attempt status=$status"
+            case "$status" in
+              live) echo "API deploy live"; exit 0 ;;
+              build_failed|update_failed|canceled|deactivated) echo "Deploy failed: $status"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "Timed out waiting for deploy"; exit 1

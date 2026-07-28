@@ -3,19 +3,69 @@ import PDFDocument from "pdfkit";
 
 import { formatScaledInteger } from "@bizo/contracts/money";
 
+import { type InvoiceSnapshot } from "./invoice-snapshot.js";
 import { type QuotationSnapshot } from "./quotation-snapshot.js";
+
+type MoneySnapshot = {
+  currencyCode: string;
+  currencyScale: number;
+};
 
 @Injectable()
 export class PdfService {
   async renderQuotation(snapshot: QuotationSnapshot): Promise<Buffer> {
+    return this.renderCommercialDocument({
+      title: "QUOTATION",
+      documentTitle: `Quotation ${snapshot.number}`,
+      subject: `Quotation for ${snapshot.customer.name}`,
+      snapshot,
+      metaLines: [`Issued ${snapshot.issueDate}`, `Valid until ${snapshot.validUntil}`],
+      footer: `Thank you for the opportunity to work with you. This quotation is valid until ${snapshot.validUntil}.`,
+      extraCustomerLines: [],
+    });
+  }
+
+  async renderInvoice(snapshot: InvoiceSnapshot): Promise<Buffer> {
+    const extras: string[] = [];
+    if (snapshot.poNumber) extras.push(`Customer PO: ${snapshot.poNumber}`);
+    if (snapshot.projectReference) extras.push(`Reference: ${snapshot.projectReference}`);
+    return this.renderCommercialDocument({
+      title: "INVOICE",
+      documentTitle: `Invoice ${snapshot.number}`,
+      subject: `Invoice for ${snapshot.customer.name}`,
+      snapshot,
+      metaLines: [`Issued ${snapshot.issueDate}`, `Due ${snapshot.dueDate}`],
+      footer: `Payment is due by ${snapshot.dueDate}. Thank you for your business.`,
+      extraCustomerLines: extras,
+    });
+  }
+
+  private renderCommercialDocument(input: {
+    documentTitle: string;
+    extraCustomerLines: string[];
+    footer: string;
+    metaLines: string[];
+    snapshot: {
+      business: QuotationSnapshot["business"];
+      customer: QuotationSnapshot["customer"];
+      lines: QuotationSnapshot["lines"];
+      number: string;
+      subtotalMinor: string;
+      taxMinor: string;
+      totalMinor: string;
+    } & MoneySnapshot;
+    subject: string;
+    title: string;
+  }): Promise<Buffer> {
+    const { snapshot } = input;
     return new Promise((resolve, reject) => {
       const document = new PDFDocument({
         size: "A4",
         margin: 50,
         info: {
-          Title: `Quotation ${snapshot.number}`,
+          Title: input.documentTitle,
           Author: snapshot.business.name,
-          Subject: `Quotation for ${snapshot.customer.name}`,
+          Subject: input.subject,
         },
       });
       const chunks: Buffer[] = [];
@@ -32,7 +82,7 @@ export class PdfService {
       document
         .fillColor(charcoal)
         .fontSize(26)
-        .text("QUOTATION", 350, 50, { align: "right", width: 195 });
+        .text(input.title, 350, 50, { align: "right", width: 195 });
       document
         .fillColor(charcoal)
         .fontSize(16)
@@ -57,11 +107,10 @@ export class PdfService {
         .font("Helvetica-Bold")
         .fontSize(10)
         .text(`No. ${snapshot.number}`, 350, 100, { align: "right", width: 195 });
-      document
-        .font("Helvetica")
-        .fillColor(muted)
-        .text(`Issued ${snapshot.issueDate}`, { align: "right" })
-        .text(`Valid until ${snapshot.validUntil}`, { align: "right" });
+      document.font("Helvetica").fillColor(muted);
+      for (const line of input.metaLines) {
+        document.text(line, { align: "right" });
+      }
 
       document.fillColor(muted).font("Helvetica-Bold").fontSize(9).text("PREPARED FOR", 50, 205);
       document.fillColor(charcoal).fontSize(13).text(snapshot.customer.name, 50, 223);
@@ -69,6 +118,7 @@ export class PdfService {
       for (const line of snapshot.customer.address) document.text(line);
       if (snapshot.customer.email) document.text(snapshot.customer.email);
       if (snapshot.customer.phone) document.text(snapshot.customer.phone);
+      for (const line of input.extraCustomerLines) document.text(line);
 
       let y = 300;
       this.drawTableHeader(document, y, rule, muted);
@@ -127,12 +177,7 @@ export class PdfService {
         .fillColor(muted)
         .font("Helvetica")
         .fontSize(8)
-        .text(
-          `Thank you for the opportunity to work with you. This quotation is valid until ${snapshot.validUntil}.`,
-          50,
-          755,
-          { align: "center", width: 495 },
-        );
+        .text(input.footer, 50, 755, { align: "center", width: 495 });
       document.end();
     });
   }
@@ -164,7 +209,7 @@ export class PdfService {
     document: PDFKit.PDFDocument,
     label: string,
     amount: string,
-    snapshot: QuotationSnapshot,
+    snapshot: MoneySnapshot,
     y: number,
     muted: string,
   ): void {
@@ -178,7 +223,7 @@ export class PdfService {
       .text(this.money(amount, snapshot), 450, y, { align: "right", width: 95 });
   }
 
-  private money(amountMinor: string, snapshot: QuotationSnapshot): string {
+  private money(amountMinor: string, snapshot: MoneySnapshot): string {
     return `${snapshot.currencyCode} ${formatScaledInteger(
       BigInt(amountMinor),
       snapshot.currencyScale,
