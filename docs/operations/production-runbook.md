@@ -24,11 +24,16 @@ See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md),
 3. Ensure production secrets/variables are present.
 4. Run `Production deploy` (`workflow_dispatch` or intentional ops trigger).
 5. The workflow:
+   - runs a **preflight** job that fails before any mutation if the target SHA is malformed,
+     required hosting secrets (`RENDER_API_KEY`, `RENDER_API_SERVICE_ID`, `RENDER_WEB_SERVICE_ID`)
+     are missing, or `DATABASE_URL` is missing while a migration would run
    - runs the release gate
    - publishes `ghcr.io/<owner>/bizo-api:<sha>` and `bizo-web:<sha>`
    - runs exactly one migration job: `pnpm --filter @bizo/database prisma:migrate:deploy`
    - validates R2 with a put/get/delete probe when credentials are present
    - deploys API/web from GitHub Docker (`commitId`), waits for health URLs
+   - **fails the run** if hosting credentials are absent at deploy time, so a green workflow always
+     means the hosting rollout actually completed
 6. Independently, run `Infrastructure validation` after rotating Cloudflare or R2 credentials.
 7. Record the deployed SHA in the workflow summary.
 
