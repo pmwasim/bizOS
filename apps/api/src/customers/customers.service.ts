@@ -25,7 +25,7 @@ interface CustomerRecord {
   publicId: string;
 }
 
-import { ErpnextClient } from "../erpnext/erpnext.client.js";
+import { type ErpnextClient } from "../erpnext/erpnext.client.js";
 import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
 
 @Injectable()

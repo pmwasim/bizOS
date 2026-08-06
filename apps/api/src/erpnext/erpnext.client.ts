@@ -53,7 +53,10 @@ export class ErpnextClient {
     return body.message;
   }
 
-  async createDocument(docType: string, data: Record<string, unknown>): Promise<any> {
+  async createDocument(
+    docType: string,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     const connection = this.requireConnection();
     const response = await this.fetcher(
       new URL(`/api/resource/${encodeURIComponent(docType)}`, connection.baseUrl),
@@ -73,10 +76,10 @@ export class ErpnextClient {
     }
 
     const body: unknown = await response.json();
-    return (body as { data: any }).data;
+    return (body as { data: Record<string, unknown> }).data;
   }
 
-  async getDocument(docType: string, name: string): Promise<any> {
+  async getDocument(docType: string, name: string): Promise<Record<string, unknown>> {
     const connection = this.requireConnection();
     const response = await this.fetcher(
       new URL(
@@ -97,10 +100,14 @@ export class ErpnextClient {
     }
 
     const body: unknown = await response.json();
-    return (body as { data: any }).data;
+    return (body as { data: Record<string, unknown> }).data;
   }
 
-  async updateDocument(docType: string, name: string, data: Record<string, unknown>): Promise<any> {
+  async updateDocument(
+    docType: string,
+    name: string,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     const connection = this.requireConnection();
     const response = await this.fetcher(
       new URL(
@@ -123,7 +130,7 @@ export class ErpnextClient {
     }
 
     const body: unknown = await response.json();
-    return (body as { data: any }).data;
+    return (body as { data: Record<string, unknown> }).data;
   }
 
   private requireConnection(): ErpnextConnection {

@@ -23,7 +23,7 @@ import {
 import { PdfService } from "./pdf.service.js";
 import { calculateQuotation } from "./quotation-calculator.js";
 import { type QuotationSnapshot } from "./quotation-snapshot.js";
-import { ErpnextClient } from "../erpnext/erpnext.client.js";
+import { type ErpnextClient } from "../erpnext/erpnext.client.js";
 import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
 
 interface DecimalLike {
@@ -204,8 +204,8 @@ export class QuotationsService {
         try {
           await this.erpnext.createDocument("Quotation", {
             customer: customer.name,
-            transaction_date: issueDate.toISOString().split("T")[0],
-            valid_till: validUntil.toISOString().split("T")[0],
+            transaction_date: issueDate,
+            valid_till: validUntil,
             items: calculated.lines.map((line) => ({
               item_name: line.description,
               qty: parseFloat(line.quantity.toString()),

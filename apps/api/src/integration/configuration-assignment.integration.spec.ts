@@ -31,7 +31,7 @@ describe.runIf(databaseEnabled)("configuration assignment integration with Postg
     identity = new IdentityService(database);
     configuration = new ConfigurationService(database, access);
     platform = new PlatformService(database, access, configuration);
-    customers = new CustomersService(database, access);
+    customers = new CustomersService(database, access, {} as any);
     quotations = new QuotationsService(
       database,
       access,
@@ -39,6 +39,7 @@ describe.runIf(databaseEnabled)("configuration assignment integration with Postg
       {
         sendQuotation: () => undefined,
       } as unknown as MailService,
+      {} as any,
       configuration,
     );
   });

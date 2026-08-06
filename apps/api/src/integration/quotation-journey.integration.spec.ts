@@ -27,7 +27,7 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
     const configuration = new ConfigurationService(database, access);
     identity = new IdentityService(database);
     platform = new PlatformService(database, access, configuration);
-    customers = new CustomersService(database, access);
+    customers = new CustomersService(database, access, {} as any);
     quotations = new QuotationsService(
       database,
       access,
@@ -35,6 +35,7 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
       {
         sendQuotation: vi.fn().mockResolvedValue("integration-message-1"),
       } as unknown as MailService,
+      {} as any,
       configuration,
     );
   });

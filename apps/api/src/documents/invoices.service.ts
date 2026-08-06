@@ -42,7 +42,7 @@ import { OBJECT_STORE } from "../storage/object-store.token.js";
 import { calculateInvoice } from "./invoice-calculator.js";
 import { type InvoiceSnapshot } from "./invoice-snapshot.js";
 import { PdfService } from "./pdf.service.js";
-import { ErpnextClient } from "../erpnext/erpnext.client.js";
+import { type ErpnextClient } from "../erpnext/erpnext.client.js";
 import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
 
 interface DecimalLike {
@@ -361,8 +361,8 @@ export class InvoicesService {
         try {
           await this.erpnext.createDocument("Sales Invoice", {
             customer: quotation.customer.name,
-            posting_date: issueDate.toISOString().split("T")[0],
-            due_date: dueDate.toISOString().split("T")[0],
+            posting_date: issueDate,
+            due_date: dueDate,
             items: calculated.lines.map((line) => ({
               item_name: line.description,
               qty: parseFloat(line.quantity.toString()),
