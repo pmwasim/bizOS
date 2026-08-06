@@ -5,7 +5,7 @@
  * Probes the public web and API surfaces after a production deploy and fails
  * loudly if the release is not actually serving. Read-only: no signup, no data
  * mutation. Safe to run before a deploy (to capture the baseline) and after
- * (to confirm the rollout). Exits non-zero on the first failed check.
+ * (to confirm the rollout). Exits non-zero when any required check fails.
  *
  * Usage:
  *   node scripts/ops/release-readiness.mjs
@@ -36,7 +36,7 @@ async function get(url, headers = {}) {
   try {
     return await fetch(url, {
       signal: controller.signal,
-      headers: { "user-agent": "bizos-release-readiness/1.0", ...headers },
+      headers: { "user-agent": "bizos-release-readiness/1.1", ...headers },
       redirect: "manual",
     });
   } finally {
@@ -44,8 +44,24 @@ async function get(url, headers = {}) {
   }
 }
 
+async function checkHtmlRoute({ name, path, expectedStatus, marker }) {
+  try {
+    const response = await get(`${WEB_BASE}${path}`);
+    const body = await response.text();
+    const statusOk = response.status === expectedStatus;
+    const markerOk = body.includes(marker);
+    record(
+      name,
+      statusOk && markerOk,
+      `status=${response.status} marker=${markerOk ? "present" : "missing"} path=${path}`,
+    );
+  } catch (error) {
+    record(name, false, String(error));
+  }
+}
+
 async function main() {
-  // 1. Web serves 200 on the landing page.
+  // 1. Web serves the landing page.
   try {
     const web = await get(`${WEB_BASE}/`);
     record("web.landing.http200", web.status === 200, `status=${web.status}`);
@@ -53,7 +69,31 @@ async function main() {
     record("web.landing.http200", false, String(error));
   }
 
-  // 2. API liveness returns the documented contract.
+  // 2. Critical public auth routes must be present in the deployed route manifest.
+  // Checking only GET / allowed a stale image to pass while /signin returned Next's default 404.
+  await checkHtmlRoute({
+    name: "web.signin.route",
+    path: "/signin",
+    expectedStatus: 200,
+    marker: "Welcome back",
+  });
+  await checkHtmlRoute({
+    name: "web.signup.route",
+    path: "/signup",
+    expectedStatus: 200,
+    marker: "Create your account",
+  });
+
+  // 3. Unknown routes must use the repository's custom not-found page. This distinguishes
+  // the intended build from older images that still render Next.js's framework-default 404.
+  await checkHtmlRoute({
+    name: "web.notFound.custom",
+    path: "/__bizos_release_probe_missing_route__",
+    expectedStatus: 404,
+    marker: "find that page",
+  });
+
+  // 4. API liveness returns the documented contract.
   let health;
   try {
     const response = await get(`${API_BASE}/api/v1/health`);
@@ -64,7 +104,7 @@ async function main() {
     record("api.health.contract", false, String(error));
   }
 
-  // 3. Version surface (when the deployed build reports it) matches the target.
+  // 5. Version surface (when the deployed build reports it) matches the target.
   if (health && typeof health === "object") {
     if ("gitSha" in health && health.gitSha) {
       record("api.health.gitSha.present", true, `gitSha=${health.gitSha}`);
@@ -85,7 +125,7 @@ async function main() {
     }
   }
 
-  // 4. Security headers on the web landing page (BIZ-012). Report-only until
+  // 6. Security headers on the web landing page (BIZ-012). Report-only until
   // CSP/HSTS enforcement lands; surfacing gaps must not block a release.
   try {
     const web = await get(`${WEB_BASE}/`);
@@ -104,7 +144,7 @@ async function main() {
     record("web.securityHeaders.report", true, `probe error: ${String(error)}`);
   }
 
-  // 5. Unauthenticated API access is rejected.
+  // 7. Unauthenticated API access is rejected.
   try {
     const response = await get(`${API_BASE}/api/v1/me`);
     record("api.unauth.rejected", response.status === 401, `status=${response.status}`);
