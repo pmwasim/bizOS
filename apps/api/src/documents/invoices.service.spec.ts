@@ -171,7 +171,7 @@ describe("InvoicesService", () => {
       pdf,
       mail,
       objectStore,
-      {} as any,
+      {} as never,
       configuration,
     );
 
@@ -229,7 +229,7 @@ describe("InvoicesService", () => {
       {} as PdfService,
       {} as MailService,
       { put: vi.fn(), get: vi.fn() } as unknown as ObjectStore,
-      {} as any,
+      {} as never,
       configuration,
     );
 
@@ -289,7 +289,7 @@ describe("InvoicesService", () => {
       {} as PdfService,
       {} as MailService,
       { put: vi.fn(), get: vi.fn() } as unknown as ObjectStore,
-      {} as any,
+      {} as never,
       configuration,
     );
 
@@ -380,7 +380,7 @@ describe("InvoicesService", () => {
       {} as PdfService,
       {} as MailService,
       { put: vi.fn(), get: vi.fn() } as unknown as ObjectStore,
-      {} as any,
+      {} as never,
       defaultErpConfiguration,
     );
 
