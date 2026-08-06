@@ -187,6 +187,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       deploy_sha: ${{ steps.meta.outputs.deploy_sha }}
+      build_time: ${{ steps.meta.outputs.build_time }}
     steps:
       - name: Resolve deploy SHA
         id: meta
@@ -207,6 +208,7 @@ jobs:
             exit 1
           fi
           echo "deploy_sha=$CANDIDATE" >> "$GITHUB_OUTPUT"
+          echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -225,6 +227,9 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
+          build-args: |
+            GIT_SHA=${{ steps.meta.outputs.deploy_sha }}
+            BUILD_TIME=${{ steps.meta.outputs.build_time }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/bizo-api:${{ steps.meta.outputs.deploy_sha }}
             ghcr.io/${{ github.repository_owner }}/bizo-api:sha-${{ steps.meta.outputs.deploy_sha }}
