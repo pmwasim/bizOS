@@ -1,5 +1,92 @@
 # AGENTS.md
 
+Operating instructions for AI agents working on bizOS. Read this first, in full, before touching the
+repository. The rationale behind it is in
+[docs/multi-agent-protocol.md](docs/multi-agent-protocol.md).
+
+More than one agent may be working here at the same time. Assume you are not alone.
+
+## Start every session with this
+
+```bash
+pnpm graph            # refresh and read .agent/graph.md — the fastest way to orient
+pnpm agent:status     # what another agent is editing right now
+pnpm journal:latest   # the previous session's handoff notes
+```
+
+Then read `.agent/graph.md` and the last two or three entries in
+[docs/journal](docs/journal/README.md) before you propose an approach. The approach you are about to
+suggest may already have been tried and rejected.
+
+## Claim before you edit
+
+```bash
+pnpm agent:claim -- --agent <your-id> --task "<one line>" --scope <path> [--scope <path>]
+```
+
+Claims expire in four hours by default and are refused when they overlap another agent's active
+claim. Claim the narrowest area that covers your work — `.agent/graph.md` lists the claimable areas
+per workspace. If a claim is refused, choose a different scope or coordinate; do not reach for
+`--force` first.
+
+Release when you finish:
+
+```bash
+pnpm agent:release -- --agent <your-id>
+```
+
+## Record what you did
+
+Open the entry when you start substantive work, not when you finish:
+
+```bash
+pnpm journal:new -- --title "<summary>" --agent <your-id> --scope <path>
+```
+
+Fill in **Verification** with the commands you actually ran and their real results. Fill in
+**Handoff notes** with what the next agent needs to know. Never edit another agent's entry — correct
+the record with a new entry that links back.
+
+Before you hand off:
+
+```bash
+pnpm agent:verify     # graph freshness + journal validity + expired claims
+```
+
+## Repository rules that are not negotiable
+
+- A change that invalidates a handbook statement updates that document in the same change.
+- A decision with durable architectural consequences needs an ADR in
+  [docs/decisions](docs/decisions/README.md), accepted before implementation merges.
+- Conventional Commits with the scopes enforced by Commitlint.
+- No placeholder, skipped test, weakened assertion, silenced rule, or hidden retry left behind. If a
+  gate cannot pass, say so in the journal rather than making it pass dishonestly.
+- Full standards: [Coding standards](docs/coding-standards.md),
+  [Testing strategy](docs/testing-strategy.md), [Contributing](CONTRIBUTING.md).
+
+## Do not do these without a human
+
+Merging to `main`, tagging, production deploys, credential and secret handling, destructive database
+operations on shared environments, and marking an ADR `Accepted`. Escalate them in your journal
+entry's **Follow-ups** with the exact command or decision required.
+
+## Agent tooling reference
+
+| Command               | Purpose                                              |
+| --------------------- | ---------------------------------------------------- |
+| `pnpm graph`          | Regenerate `.agent/graph.json` and `.agent/graph.md` |
+| `pnpm graph:check`    | Fail if the committed graph is stale                 |
+| `pnpm agent:status`   | List active and expired claims                       |
+| `pnpm agent:claim`    | Claim paths for this session                         |
+| `pnpm agent:check`    | Test a scope for conflicts without claiming          |
+| `pnpm agent:release`  | Release claims by id or agent                        |
+| `pnpm agent:prune`    | Remove expired claims                                |
+| `pnpm agent:verify`   | Graph, journal, and registry checks together         |
+| `pnpm journal:new`    | Create a journal entry                               |
+| `pnpm journal:index`  | Rebuild the journal index                            |
+| `pnpm journal:latest` | Print the most recent entry path                     |
+| `pnpm journal:check`  | Validate journal entries and the index               |
+
 ## Cursor Cloud specific instructions
 
 bizOS is a pnpm + Turborepo monorepo. Two long-running apps plus supporting packages:
@@ -12,6 +99,9 @@ bizOS is a pnpm + Turborepo monorepo. Two long-running apps plus supporting pack
 
 Backing services (Docker Compose in `compose.yaml`): PostgreSQL, authenticated Redis, and Mailpit
 (local SMTP inbox at `http://localhost:8025`).
+
+`.agent/graph.md` has the full workspace map, dependency layers, entry points, and the handbook
+documents governing each workspace.
 
 ### Non-obvious gotchas
 

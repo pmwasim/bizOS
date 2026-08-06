@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "note": "Advisory work claims held by agents. Managed by `pnpm agent:*` commands.",
+  "claims": []
+}

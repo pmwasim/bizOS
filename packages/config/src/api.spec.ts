@@ -74,4 +74,43 @@ describe("readApiEnvironment", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts a complete keep-warm configuration", () => {
+    expect(
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        KEEP_WARM_SECRET: "wake-secret-long-enough",
+        KEEP_WARM_URL: "https://bizos-health.example.workers.dev/wake",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+      }),
+    ).toMatchObject({ KEEP_WARM_URL: "https://bizos-health.example.workers.dev/wake" });
+  });
+
+  it("rejects a keep-warm URL without its secret", () => {
+    expect(() =>
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        KEEP_WARM_URL: "https://bizos-health.example.workers.dev/wake",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a plaintext keep-warm URL in production", () => {
+    expect(() =>
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        KEEP_WARM_SECRET: "wake-secret-long-enough",
+        KEEP_WARM_URL: "http://bizos-health.example.workers.dev/wake",
+        NODE_ENV: "production",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+      }),
+    ).toThrow();
+  });
 });

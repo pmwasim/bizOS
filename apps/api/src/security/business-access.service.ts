@@ -17,7 +17,13 @@ export interface BusinessAccessContext {
 }
 
 export type AuthorizationObject =
-  "business" | "customers" | "quotations" | "purchase_orders" | "approvals" | "invoices";
+  | "business"
+  | "customers"
+  | "quotations"
+  | "purchase_orders"
+  | "approvals"
+  | "invoices"
+  | "payments";
 
 export type AuthorizationAction =
   "archive" | "create" | "export" | "read" | "send" | "update" | "upload" | "upload_evidence";
@@ -48,6 +54,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "invoices:export",
     "invoices:send",
     "invoices:archive",
+    "payments:create",
+    "payments:read",
+    "payments:update",
   ],
   ADMIN: [
     "business:read",
@@ -74,6 +83,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "invoices:export",
     "invoices:send",
     "invoices:archive",
+    "payments:create",
+    "payments:read",
+    "payments:update",
   ],
   MEMBER: [
     "business:read",
@@ -95,6 +107,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "invoices:update",
     "invoices:export",
     "invoices:send",
+    "payments:create",
+    "payments:read",
+    "payments:update",
   ],
   STAFF: [
     "business:read",
@@ -110,6 +125,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "purchase_orders:read",
     "purchase_orders:update",
     "purchase_orders:upload",
+    "payments:create",
+    "payments:read",
+    "payments:update",
   ],
   ACCOUNTANT: [
     "business:read",
@@ -120,6 +138,7 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "approvals:read",
     "invoices:read",
     "invoices:export",
+    "payments:read",
   ],
   EXTERNAL_AUDITOR: [
     "business:read",
@@ -130,6 +149,7 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "approvals:read",
     "invoices:read",
     "invoices:export",
+    "payments:read",
   ],
 };
 

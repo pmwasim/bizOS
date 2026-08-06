@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { invoiceStatusLabel, type Invoice } from "@bizo/contracts/invoices";
 
+import { type Payment } from "@bizo/contracts/payments";
+
 import { ArchiveInvoiceButton, MarkInvoiceReadyButton } from "@/components/invoice-actions";
 import { SendInvoiceForm } from "@/components/send-invoice-form";
 import { apiJson } from "@/lib/api";
@@ -17,7 +19,10 @@ export default async function InvoiceDetailPage({
 }) {
   const { businessId, invoiceId } = await params;
   const query = await searchParams;
-  const invoice = await apiJson<Invoice>(`/businesses/${businessId}/invoices/${invoiceId}`);
+  const [invoice, payments] = await Promise.all([
+    apiJson<Invoice>(`/businesses/${businessId}/invoices/${invoiceId}`),
+    apiJson<Payment[]>(`/businesses/${businessId}/payments`),
+  ]);
   const justSent = query.sent === "1";
   const pdfPath = `/api/businesses/${businessId}/invoices/${invoiceId}/pdf`;
   const canSend =
@@ -27,6 +32,18 @@ export default async function InvoiceDetailPage({
   const canMarkReady = invoice.status === "DRAFT";
   const canEdit = invoice.status === "DRAFT" || invoice.status === "READY_TO_SEND";
   const canArchive = invoice.status !== "ARCHIVED";
+
+  const appliedPayments = payments.filter(
+    (p) => p.allocations.some((a) => a.documentId === invoiceId) && p.status === "COMPLETED",
+  );
+  const amountPaidMinor = appliedPayments.reduce((acc, p) => {
+    const alloc = p.allocations.find((a) => a.documentId === invoiceId);
+    return acc + BigInt(alloc?.amountMinor || "0");
+  }, 0n);
+  const invoiceTotalMinor = BigInt(invoice.totalMinor);
+  const amountDueMinor = invoiceTotalMinor - amountPaidMinor;
+  const paymentStatus =
+    amountPaidMinor === 0n ? "Unpaid" : amountDueMinor <= 0n ? "Paid" : "Partially Paid";
 
   return (
     <div className="page preview-page">
@@ -99,6 +116,27 @@ export default async function InvoiceDetailPage({
           <div>
             <dt>Total</dt>
             <dd>{formatMoney(invoice.totalMinor, invoice.currencyCode, invoice.currencyScale)}</dd>
+          </div>
+          <div>
+            <dt>Payment status</dt>
+            <dd>
+              {paymentStatus}
+              {amountPaidMinor > 0n
+                ? ` (${formatMoney(amountPaidMinor.toString(), invoice.currencyCode, invoice.currencyScale)} paid)`
+                : ""}
+            </dd>
+          </div>
+          <div>
+            <dt>Amount due</dt>
+            <dd>
+              <strong>
+                {formatMoney(
+                  amountDueMinor.toString(),
+                  invoice.currencyCode,
+                  invoice.currencyScale,
+                )}
+              </strong>
+            </dd>
           </div>
         </dl>
         <div className="section-heading" style={{ marginTop: "1rem", gap: "0.75rem" }}>

@@ -4,6 +4,7 @@ import { readWebEnvironment } from "@bizo/config/web";
 
 import { auth } from "@/auth";
 import { clientIpHeaders } from "@/lib/client-ip";
+import { fetchThroughColdStart } from "@/lib/cold-start-retry";
 
 interface ProblemDetails {
   detail?: string;
@@ -26,15 +27,19 @@ function environment() {
 
 export async function publicApiFetch(path: string, init?: RequestInit): Promise<Response> {
   const clientIp = await clientIpHeaders();
-  return fetch(`${environment().API_INTERNAL_URL}${path}`, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      "content-type": "application/json",
-      ...clientIp,
-      ...init?.headers,
-    },
-  });
+  return fetchThroughColdStart(
+    () =>
+      fetch(`${environment().API_INTERNAL_URL}${path}`, {
+        ...init,
+        cache: "no-store",
+        headers: {
+          "content-type": "application/json",
+          ...clientIp,
+          ...init?.headers,
+        },
+      }),
+    init,
+  );
 }
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -44,29 +49,37 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   }
   const env = environment();
   const clientIp = await clientIpHeaders();
-  const assertion = await new SignJWT({})
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuer("bizo-web")
-    .setAudience("bizo-api")
-    .setSubject(session.user.id)
-    .setIssuedAt()
-    .setExpirationTime("2m")
-    .sign(new TextEncoder().encode(env.INTERNAL_AUTH_SECRET));
+  const userId = session.user.id;
 
-  const headers = new Headers(init?.headers);
-  headers.set("authorization", `Bearer ${assertion}`);
-  for (const [key, value] of Object.entries(clientIp)) {
-    headers.set(key, value);
-  }
-  if (!(init?.body instanceof FormData) && !headers.has("content-type")) {
-    headers.set("content-type", "application/json");
-  }
+  // Minted per attempt: the assertion lives 2 minutes, and retrying through a cold start can
+  // outlast a token signed once up front.
+  const buildRequest = async (): Promise<Response> => {
+    const assertion = await new SignJWT({})
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuer("bizo-web")
+      .setAudience("bizo-api")
+      .setSubject(userId)
+      .setIssuedAt()
+      .setExpirationTime("2m")
+      .sign(new TextEncoder().encode(env.INTERNAL_AUTH_SECRET));
 
-  return fetch(`${env.API_INTERNAL_URL}${path}`, {
-    ...init,
-    cache: "no-store",
-    headers,
-  });
+    const headers = new Headers(init?.headers);
+    headers.set("authorization", `Bearer ${assertion}`);
+    for (const [key, value] of Object.entries(clientIp)) {
+      headers.set(key, value);
+    }
+    if (!(init?.body instanceof FormData) && !headers.has("content-type")) {
+      headers.set("content-type", "application/json");
+    }
+
+    return fetch(`${env.API_INTERNAL_URL}${path}`, {
+      ...init,
+      cache: "no-store",
+      headers,
+    });
+  };
+
+  return fetchThroughColdStart(buildRequest, init);
 }
 
 export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {

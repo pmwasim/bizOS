@@ -10,6 +10,8 @@ export {
   InvoiceApprovalStatus,
   MembershipStatus,
   ModuleStatus,
+  PaymentStatus,
+  PaymentType,
   PlatformSystemAdminStatus,
   Prisma,
   PurchaseOrderStatus,

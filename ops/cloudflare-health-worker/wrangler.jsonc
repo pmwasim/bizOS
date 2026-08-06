@@ -9,8 +9,11 @@
     "head_sampling_rate": 1,
   },
   "triggers": {
-    // Free plan allows up to 5 cron triggers/account. 30-minute cadence keeps KV writes low.
-    "crons": ["*/30 * * * *"],
+    // Free plan allows up to 5 cron triggers/account.
+    // 5-minute cadence beats Render's ~15-minute idle spin-down. The worker only probes
+    // while warm-mode is active, so idle periods still cost nothing. Worst case is
+    // 288 ticks/day, well inside the free KV write allowance.
+    "crons": ["*/5 * * * *"],
   },
   "kv_namespaces": [
     {

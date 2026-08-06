@@ -1,0 +1,857 @@
+{
+  "version": 1,
+  "generator": "scripts/agent/graphify.mjs",
+  "note": "Generated artifact. Run `pnpm graph` after changing workspaces, docs, or decisions.",
+  "summary": {
+    "workspaceCount": 9,
+    "appCount": 2,
+    "packageCount": 7,
+    "edgeCount": 10,
+    "adrCount": 21,
+    "handbookDocumentCount": 80
+  },
+  "buildOrder": [
+    {
+      "layer": 0,
+      "workspaces": [
+        "@bizo/authorization",
+        "@bizo/config",
+        "@bizo/contracts",
+        "@bizo/storage",
+        "@bizo/ui"
+      ]
+    },
+    {
+      "layer": 1,
+      "workspaces": [
+        "@bizo/database",
+        "@bizo/queue",
+        "@bizo/web"
+      ]
+    },
+    {
+      "layer": 2,
+      "workspaces": [
+        "@bizo/api"
+      ]
+    }
+  ],
+  "workspaces": [
+    {
+      "name": "@bizo/api",
+      "type": "app",
+      "path": "apps/api",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [
+        "@bizo/authorization",
+        "@bizo/config",
+        "@bizo/contracts",
+        "@bizo/database",
+        "@bizo/storage"
+      ],
+      "dependedOnBy": [],
+      "scripts": [
+        "build",
+        "clean",
+        "dev",
+        "lint",
+        "start",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 100,
+      "testFiles": 32,
+      "areas": [
+        {
+          "name": "common",
+          "path": "apps/api/src/common",
+          "sourceFiles": 6,
+          "testFiles": 1
+        },
+        {
+          "name": "configuration",
+          "path": "apps/api/src/configuration",
+          "sourceFiles": 7,
+          "testFiles": 3
+        },
+        {
+          "name": "customers",
+          "path": "apps/api/src/customers",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "customization",
+          "path": "apps/api/src/customization",
+          "sourceFiles": 7,
+          "testFiles": 3
+        },
+        {
+          "name": "database",
+          "path": "apps/api/src/database",
+          "sourceFiles": 2,
+          "testFiles": 0
+        },
+        {
+          "name": "documents",
+          "path": "apps/api/src/documents",
+          "sourceFiles": 14,
+          "testFiles": 4
+        },
+        {
+          "name": "erpnext",
+          "path": "apps/api/src/erpnext",
+          "sourceFiles": 3,
+          "testFiles": 1
+        },
+        {
+          "name": "health",
+          "path": "apps/api/src/health",
+          "sourceFiles": 3,
+          "testFiles": 1
+        },
+        {
+          "name": "identity",
+          "path": "apps/api/src/identity",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "integration",
+          "path": "apps/api/src/integration",
+          "sourceFiles": 7,
+          "testFiles": 7
+        },
+        {
+          "name": "mail",
+          "path": "apps/api/src/mail",
+          "sourceFiles": 3,
+          "testFiles": 1
+        },
+        {
+          "name": "onboarding",
+          "path": "apps/api/src/onboarding",
+          "sourceFiles": 7,
+          "testFiles": 2
+        },
+        {
+          "name": "payments",
+          "path": "apps/api/src/payments",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "platform",
+          "path": "apps/api/src/platform",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
+          "name": "purchase-orders",
+          "path": "apps/api/src/purchase-orders",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
+          "name": "security",
+          "path": "apps/api/src/security",
+          "sourceFiles": 14,
+          "testFiles": 4
+        },
+        {
+          "name": "storage",
+          "path": "apps/api/src/storage",
+          "sourceFiles": 2,
+          "testFiles": 0
+        },
+        {
+          "name": "system-admin",
+          "path": "apps/api/src/system-admin",
+          "sourceFiles": 5,
+          "testFiles": 2
+        }
+      ],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/decisions/0015-managed-hosting-behind-cloudflare.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/deployment-handoff-cursor.md",
+        "docs/document-templates-plan.md",
+        "docs/multi-agent-protocol.md",
+        "docs/operations/local-test-evaluation-2026-08-06.md",
+        "docs/operations/n8n-integration-policy.md",
+        "docs/operations/phase1-authoritative-state-checkpoint.md",
+        "docs/operations/phase2-hardcoded-assumptions-audit.md",
+        "docs/operations/ubuntu-cutover-handoff.md",
+        "docs/spikes/opennext-cloudflare-web.md"
+      ]
+    },
+    {
+      "name": "@bizo/authorization",
+      "type": "package",
+      "path": "packages/authorization",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [],
+      "dependedOnBy": [
+        "@bizo/api"
+      ],
+      "scripts": [
+        "build",
+        "clean",
+        "lint",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 2,
+      "testFiles": 1,
+      "areas": [],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+      ]
+    },
+    {
+      "name": "@bizo/config",
+      "type": "package",
+      "path": "packages/config",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [],
+      "dependedOnBy": [
+        "@bizo/api",
+        "@bizo/web"
+      ],
+      "scripts": [
+        "build",
+        "clean",
+        "lint",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 5,
+      "testFiles": 2,
+      "areas": [],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/operations/local-test-evaluation-2026-08-06.md"
+      ]
+    },
+    {
+      "name": "@bizo/contracts",
+      "type": "package",
+      "path": "packages/contracts",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [],
+      "dependedOnBy": [
+        "@bizo/api",
+        "@bizo/database",
+        "@bizo/queue",
+        "@bizo/web"
+      ],
+      "scripts": [
+        "build",
+        "clean",
+        "lint",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 29,
+      "testFiles": 12,
+      "areas": [],
+      "governingDocs": [
+        "docs/api-guidelines.md",
+        "docs/architecture.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/document-templates-plan.md",
+        "docs/multi-agent-protocol.md",
+        "docs/operations/invoice-vertical-slice-checkpoint.md",
+        "docs/operations/phase2-hardcoded-assumptions-audit.md",
+        "docs/operations/phase4-configuration-architecture-design.md"
+      ]
+    },
+    {
+      "name": "@bizo/database",
+      "type": "package",
+      "path": "packages/database",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [
+        "@bizo/contracts"
+      ],
+      "dependedOnBy": [
+        "@bizo/api"
+      ],
+      "scripts": [
+        "build",
+        "clean",
+        "lint",
+        "prisma:format",
+        "prisma:generate",
+        "prisma:migrate:deploy",
+        "prisma:migrate:dev",
+        "prisma:seed",
+        "prisma:validate",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 2,
+      "testFiles": 1,
+      "areas": [],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/database-strategy.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/deployment-handoff-cursor.md",
+        "docs/operations/local-test-evaluation-2026-08-06.md",
+        "docs/operations/phase2-hardcoded-assumptions-audit.md",
+        "docs/operations/phase4-configuration-architecture-design.md",
+        "docs/operations/production-runbook.md"
+      ]
+    },
+    {
+      "name": "@bizo/queue",
+      "type": "package",
+      "path": "packages/queue",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [
+        "@bizo/contracts"
+      ],
+      "dependedOnBy": [],
+      "scripts": [
+        "build",
+        "clean",
+        "lint",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 2,
+      "testFiles": 1,
+      "areas": [],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+      ]
+    },
+    {
+      "name": "@bizo/storage",
+      "type": "package",
+      "path": "packages/storage",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [],
+      "dependedOnBy": [
+        "@bizo/api"
+      ],
+      "scripts": [
+        "build",
+        "clean",
+        "lint",
+        "test",
+        "test:coverage",
+        "typecheck",
+        "validate:r2"
+      ],
+      "sourceFiles": 3,
+      "testFiles": 1,
+      "areas": [],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/decisions/0017-po-object-storage.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/operations/invoice-vertical-slice-checkpoint.md",
+        "docs/operations/phase1-authoritative-state-checkpoint.md",
+        "docs/operations/phase2-hardcoded-assumptions-audit.md",
+        "docs/operations/r2-object-storage.md"
+      ]
+    },
+    {
+      "name": "@bizo/ui",
+      "type": "package",
+      "path": "packages/ui",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [],
+      "dependedOnBy": [
+        "@bizo/web"
+      ],
+      "scripts": [
+        "build",
+        "clean",
+        "lint",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 2,
+      "testFiles": 0,
+      "areas": [],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/coding-standards.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+      ]
+    },
+    {
+      "name": "@bizo/web",
+      "type": "app",
+      "path": "apps/web",
+      "description": null,
+      "owners": [
+        "@pmwasim"
+      ],
+      "dependsOn": [
+        "@bizo/config",
+        "@bizo/contracts",
+        "@bizo/ui"
+      ],
+      "dependedOnBy": [],
+      "scripts": [
+        "build",
+        "clean",
+        "dev",
+        "lint",
+        "start",
+        "test",
+        "test:coverage",
+        "typecheck"
+      ],
+      "sourceFiles": 73,
+      "testFiles": 4,
+      "areas": [
+        {
+          "name": "app",
+          "path": "apps/web/src/app",
+          "sourceFiles": 43,
+          "testFiles": 2
+        },
+        {
+          "name": "components",
+          "path": "apps/web/src/components",
+          "sourceFiles": 19,
+          "testFiles": 0
+        },
+        {
+          "name": "lib",
+          "path": "apps/web/src/lib",
+          "sourceFiles": 9,
+          "testFiles": 2
+        }
+      ],
+      "governingDocs": [
+        "docs/architecture.md",
+        "docs/decisions/0015-managed-hosting-behind-cloudflare.md",
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/deployment-handoff-cursor.md",
+        "docs/operations/local-test-evaluation-2026-08-06.md",
+        "docs/operations/phase1-authoritative-state-checkpoint.md",
+        "docs/operations/phase2-hardcoded-assumptions-audit.md",
+        "docs/operations/ubuntu-cutover-handoff.md",
+        "docs/spikes/opennext-cloudflare-web.md"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "@bizo/api",
+      "to": "@bizo/authorization",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/api",
+      "to": "@bizo/config",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/api",
+      "to": "@bizo/contracts",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/api",
+      "to": "@bizo/database",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/api",
+      "to": "@bizo/storage",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/database",
+      "to": "@bizo/contracts",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/queue",
+      "to": "@bizo/contracts",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/web",
+      "to": "@bizo/config",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/web",
+      "to": "@bizo/contracts",
+      "kind": "workspace-dependency"
+    },
+    {
+      "from": "@bizo/web",
+      "to": "@bizo/ui",
+      "kind": "workspace-dependency"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "0001",
+      "title": "ADR-0001: Record architecture decisions",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0001-record-architecture-decisions.md"
+    },
+    {
+      "id": "0002",
+      "title": "ADR-0002: Use pnpm workspaces and Turborepo",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0002-pnpm-turborepo-monorepo.md"
+    },
+    {
+      "id": "0003",
+      "title": "ADR-0003: Begin with a modular monolith",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0003-modular-monolith.md"
+    },
+    {
+      "id": "0004",
+      "title": "ADR-0004: Separate tenant and business boundaries",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0004-tenant-and-business-boundaries.md"
+    },
+    {
+      "id": "0005",
+      "title": "ADR-0005: Use PostgreSQL with Prisma",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0005-postgresql-and-prisma.md"
+    },
+    {
+      "id": "0006",
+      "title": "ADR-0006: Use a versioned deterministic workflow engine",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0006-versioned-workflow-engine.md"
+    },
+    {
+      "id": "0007",
+      "title": "ADR-0007: Use Casbin for authorization policy",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0007-casbin-authorization.md"
+    },
+    {
+      "id": "0008",
+      "title": "ADR-0008: Represent money as integer minor units",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0008-money-representation.md"
+    },
+    {
+      "id": "0009",
+      "title": "ADR-0009: Use Auth.js at the browser session boundary",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0009-authjs-session-boundary.md"
+    },
+    {
+      "id": "0010",
+      "title": "ADR-0010: Separate durable truth, queued work, and object bytes",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0010-outbox-bullmq-r2.md"
+    },
+    {
+      "id": "0011",
+      "title": "ADR-0011: Use REST and OpenAPI for public contracts",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0011-rest-openapi-contracts.md"
+    },
+    {
+      "id": "0012",
+      "title": "ADR-0012: Govern plugins and AI agents through application capabilities",
+      "status": "Accepted",
+      "date": "2026-07-26",
+      "path": "docs/decisions/0012-governed-extensions-and-ai.md"
+    },
+    {
+      "id": "0013",
+      "title": "ADR-0013: Share document facts and keep the quotation lifecycle explicit",
+      "status": "Accepted",
+      "date": "2026-07-27",
+      "path": "docs/decisions/0013-quotation-document-slice.md"
+    },
+    {
+      "id": "0014",
+      "title": "ADR-0014: Single-maintainer main-branch protection",
+      "status": "Accepted",
+      "date": "2026-07-27",
+      "path": "docs/decisions/0014-single-maintainer-branch-protection.md"
+    },
+    {
+      "id": "0015",
+      "title": "ADR-0015: Managed Node hosting behind Cloudflare for MVP",
+      "status": "Accepted",
+      "date": "2026-07-27",
+      "path": "docs/decisions/0015-managed-hosting-behind-cloudflare.md"
+    },
+    {
+      "id": "0016",
+      "title": "ADR-0016: Purchase order, approval evidence, and invoice readiness",
+      "status": "Accepted",
+      "date": "2026-07-27",
+      "path": "docs/decisions/0016-purchase-order-approval-readiness.md"
+    },
+    {
+      "id": "0017",
+      "title": "ADR-0017: Private object storage for PO and approval files",
+      "status": "Accepted",
+      "date": "2026-07-27",
+      "path": "docs/decisions/0017-po-object-storage.md"
+    },
+    {
+      "id": "0018",
+      "title": "ADR-0018: Invoice document slice on shared commercial facts",
+      "status": "Accepted",
+      "date": "2026-07-28",
+      "path": "docs/decisions/0018-invoice-document-slice.md"
+    },
+    {
+      "id": "0019",
+      "title": "ADR-0019: Open-source leverage for the Default ERP configuration foundation",
+      "status": "Superseded by ADR-0020",
+      "date": "2026-07-28",
+      "path": "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+    },
+    {
+      "id": "0020",
+      "title": "ADR-0020: Configuration-aware invoice conversion readiness",
+      "status": "Accepted",
+      "date": "2026-07-28",
+      "path": "docs/decisions/0020-configuration-aware-invoice-conversion.md"
+    },
+    {
+      "id": "0021",
+      "title": "ADR-0020: ERPNext foundation with a bizOS customer experience",
+      "status": "Accepted",
+      "date": "2026-07-28",
+      "path": "docs/decisions/0021-erpnext-foundation-customer-experience.md"
+    }
+  ],
+  "rootCommands": [
+    {
+      "name": "agent:check",
+      "command": "node scripts/agent/registry.mjs check"
+    },
+    {
+      "name": "agent:claim",
+      "command": "node scripts/agent/registry.mjs claim"
+    },
+    {
+      "name": "agent:prune",
+      "command": "node scripts/agent/registry.mjs prune"
+    },
+    {
+      "name": "agent:release",
+      "command": "node scripts/agent/registry.mjs release"
+    },
+    {
+      "name": "agent:status",
+      "command": "node scripts/agent/registry.mjs status"
+    },
+    {
+      "name": "agent:verify",
+      "command": "pnpm graph:check && pnpm journal:check && pnpm agent:status"
+    },
+    {
+      "name": "build",
+      "command": "turbo run build"
+    },
+    {
+      "name": "changeset",
+      "command": "changeset"
+    },
+    {
+      "name": "check",
+      "command": "pnpm format:check && pnpm docs:check && pnpm security:local-services && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate && pnpm build"
+    },
+    {
+      "name": "clean",
+      "command": "turbo run clean && rm -rf .turbo coverage"
+    },
+    {
+      "name": "commitlint",
+      "command": "commitlint --from HEAD~1 --to HEAD --verbose"
+    },
+    {
+      "name": "db:dry-run-report",
+      "command": "pnpm --filter @bizo/database exec node scripts/dry-run-assignment-report.mjs"
+    },
+    {
+      "name": "db:format",
+      "command": "pnpm --filter @bizo/database prisma:format"
+    },
+    {
+      "name": "db:seed",
+      "command": "pnpm --filter @bizo/contracts build && pnpm --filter @bizo/database prisma:generate && pnpm --filter @bizo/database prisma:seed"
+    },
+    {
+      "name": "db:validate",
+      "command": "pnpm --filter @bizo/database prisma:validate"
+    },
+    {
+      "name": "dev",
+      "command": "turbo run dev --parallel"
+    },
+    {
+      "name": "docs:check",
+      "command": "node scripts/check-doc-links.mjs"
+    },
+    {
+      "name": "format",
+      "command": "prettier --write ."
+    },
+    {
+      "name": "format:check",
+      "command": "prettier --check ."
+    },
+    {
+      "name": "graph",
+      "command": "node scripts/agent/graphify.mjs"
+    },
+    {
+      "name": "graph:check",
+      "command": "node scripts/agent/graphify.mjs --check"
+    },
+    {
+      "name": "journal:check",
+      "command": "node scripts/agent/journal.mjs check"
+    },
+    {
+      "name": "journal:index",
+      "command": "node scripts/agent/journal.mjs index"
+    },
+    {
+      "name": "journal:latest",
+      "command": "node scripts/agent/journal.mjs latest"
+    },
+    {
+      "name": "journal:new",
+      "command": "node scripts/agent/journal.mjs new"
+    },
+    {
+      "name": "lint",
+      "command": "eslint ."
+    },
+    {
+      "name": "ops:check:n8n",
+      "command": "bash scripts/ops/check-with-n8n-notify.sh"
+    },
+    {
+      "name": "ops:n8n:import",
+      "command": "bash scripts/ops/import-n8n-workflows.sh"
+    },
+    {
+      "name": "ops:n8n:notify",
+      "command": "node scripts/ops/n8n-notify.mjs"
+    },
+    {
+      "name": "ops:release-readiness",
+      "command": "node scripts/ops/release-readiness.mjs"
+    },
+    {
+      "name": "prepare",
+      "command": "lefthook install"
+    },
+    {
+      "name": "security:audit",
+      "command": "pnpm audit --audit-level=moderate"
+    },
+    {
+      "name": "security:local-services",
+      "command": "node --test scripts/check-local-services.spec.mjs && node scripts/check-local-services.mjs"
+    },
+    {
+      "name": "test",
+      "command": "turbo run test"
+    },
+    {
+      "name": "test:coverage",
+      "command": "turbo run test:coverage"
+    },
+    {
+      "name": "test:e2e",
+      "command": "playwright test"
+    },
+    {
+      "name": "typecheck",
+      "command": "turbo run typecheck"
+    },
+    {
+      "name": "version",
+      "command": "changeset version"
+    }
+  ],
+  "entryPoints": [
+    {
+      "path": "apps/api/src/main.ts",
+      "role": "API process entry point"
+    },
+    {
+      "path": "apps/api/src/app.module.ts",
+      "role": "API module composition"
+    },
+    {
+      "path": "apps/web/src/app",
+      "role": "Next.js App Router tree"
+    },
+    {
+      "path": "apps/web/src/auth.ts",
+      "role": "Auth.js session boundary"
+    },
+    {
+      "path": "packages/database/prisma/schema.prisma",
+      "role": "Database schema of record"
+    }
+  ]
+}

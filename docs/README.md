@@ -47,7 +47,10 @@ a handbook statement must update the relevant document in the same pull request.
 - [Observability](observability.md)
 - [Security](security.md)
 - [GitHub governance](github-governance.md)
+- [Multi-agent working protocol](multi-agent-protocol.md)
+- [Development journal](journal/README.md)
 - [Assumptions](assumptions.md)
+- [Spike: OpenNext on Cloudflare Workers](spikes/opennext-cloudflare-web.md)
 
 ## Decision status
 

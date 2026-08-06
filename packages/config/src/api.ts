@@ -16,6 +16,8 @@ const apiEnvironmentSchema = z
     FRAPPE_API_KEY: z.string().min(1).optional(),
     FRAPPE_API_SECRET: z.string().min(1).optional(),
     FRAPPE_BASE_URL: z.url().optional(),
+    KEEP_WARM_URL: z.url().optional(),
+    KEEP_WARM_SECRET: z.string().min(16).optional(),
   })
   .superRefine((value, context) => {
     const configured = [
@@ -37,6 +39,23 @@ const apiEnvironmentSchema = z
         code: "custom",
         message: "FRAPPE_BASE_URL must use HTTPS in production.",
         path: ["FRAPPE_BASE_URL"],
+      });
+    }
+
+    const keepWarmConfigured = [value.KEEP_WARM_URL, value.KEEP_WARM_SECRET].filter(Boolean).length;
+
+    if (keepWarmConfigured === 1) {
+      context.addIssue({
+        code: "custom",
+        message: "KEEP_WARM_URL and KEEP_WARM_SECRET must be configured together.",
+      });
+    }
+
+    if (value.NODE_ENV === "production" && value.KEEP_WARM_URL?.startsWith("http://")) {
+      context.addIssue({
+        code: "custom",
+        message: "KEEP_WARM_URL must use HTTPS in production.",
+        path: ["KEEP_WARM_URL"],
       });
     }
   });

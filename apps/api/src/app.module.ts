@@ -1,4 +1,4 @@
-import { Module, RequestMethod } from "@nestjs/common";
+import { type MiddlewareConsumer, Module, type NestModule, RequestMethod } from "@nestjs/common";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
@@ -10,6 +10,8 @@ import { DocumentsModule } from "./documents/documents.module.js";
 import { ErpnextModule } from "./erpnext/erpnext.module.js";
 import { CustomersModule } from "./customers/customers.module.js";
 import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module.js";
+import { PaymentsModule } from "./payments/payments.module.js";
+import { KeepWarmMiddleware } from "./common/keep-warm.middleware.js";
 import { NoStoreInterceptor } from "./common/no-store.interceptor.js";
 import { HealthModule } from "./health/health.module.js";
 import { IdentityModule } from "./identity/identity.module.js";
@@ -55,6 +57,7 @@ import { SystemAdminModule } from "./system-admin/system-admin.module.js";
     CustomersModule,
     DocumentsModule,
     PurchaseOrdersModule,
+    PaymentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ClientAwareThrottlerGuard },
@@ -62,4 +65,8 @@ import { SystemAdminModule } from "./system-admin/system-admin.module.js";
     { provide: APP_INTERCEPTOR, useClass: NoStoreInterceptor },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(KeepWarmMiddleware).forRoutes({ path: "{*path}", method: RequestMethod.ALL });
+  }
+}

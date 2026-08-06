@@ -12,6 +12,10 @@
       "types": "./dist/customers.d.ts",
       "default": "./dist/customers.js"
     },
+    "./document-templates": {
+      "types": "./dist/document-templates.d.ts",
+      "default": "./dist/document-templates.js"
+    },
     "./health": {
       "types": "./dist/health.d.ts",
       "default": "./dist/health.js"
@@ -59,6 +63,14 @@
     "./system-admin": {
       "types": "./dist/system-admin.d.ts",
       "default": "./dist/system-admin.js"
+    },
+    "./zatca": {
+      "types": "./dist/zatca.d.ts",
+      "default": "./dist/zatca.js"
+    },
+    "./payments": {
+      "types": "./dist/payments.d.ts",
+      "default": "./dist/payments.js"
     }
   },
   "scripts": {

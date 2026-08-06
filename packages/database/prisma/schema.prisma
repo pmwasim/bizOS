@@ -26,6 +26,17 @@ enum DocumentType {
   INVOICE
 }
 
+enum PaymentType {
+  INBOUND
+  OUTBOUND
+}
+
+enum PaymentStatus {
+  DRAFT
+  COMPLETED
+  REVERSED
+}
+
 enum DocumentStatus {
   DRAFT
   READY_TO_SEND
@@ -171,6 +182,7 @@ model Membership {
   user                     User                              @relation(fields: [userId], references: [id], onDelete: Restrict)
   businessAccess           BusinessAccess[]
   documents                Document[]
+  createdPayments          Payment[]
   purchaseOrders           PurchaseOrder[]
   auditEvents              ConfigurationAuditEvent[]
   configurationAssignments BusinessConfigurationAssignment[]
@@ -226,6 +238,8 @@ model Business {
   taxProfile               TaxProfile?
   customers                Customer[]
   documents                Document[]
+  payments                 Payment[]
+  paymentAllocations       PaymentAllocation[]
   purchaseOrders           PurchaseOrder[]
   storedObjects            StoredObject[]
   auditEvents              AuditEvent[]
@@ -356,6 +370,7 @@ model Document {
   lines               DocumentLine[]
   versions            DocumentVersion[]
   creator             Membership               @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  paymentAllocations  PaymentAllocation[]
   purchaseOrders      PurchaseOrder[]          @relation("PurchaseOrderQuotation")
   workflowContext     DocumentWorkflowContext?
 
@@ -390,13 +405,14 @@ model PurchaseOrder {
   createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business              Business       @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer              Customer       @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
-  quotation             Document?      @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
-  creator               Membership     @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
-  approvalChangedByUser User?          @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
+  business              Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer              Customer            @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  quotation             Document?           @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  creator               Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  approvalChangedByUser User?               @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
   storedObjects         StoredObject[]
-  linkedInvoices        Document[]     @relation("DocumentLinkedPurchaseOrder")
+  linkedInvoices        Document[]          @relation("DocumentLinkedPurchaseOrder")
+  paymentAllocations    PaymentAllocation[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status, createdAt])
@@ -535,6 +551,55 @@ model OutboxEvent {
   @@index([publishedAt, availableAt])
   @@index([tenantId, businessId, createdAt])
   @@map("outbox_events")
+}
+
+model Payment {
+  id                    BigInt        @id @default(autoincrement())
+  publicId              String        @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId              BigInt        @map("tenant_id")
+  businessId            BigInt        @map("business_id")
+  type                  PaymentType
+  status                PaymentStatus @default(DRAFT)
+  paymentDate           DateTime      @map("payment_date") @db.Date
+  amountMinor           Decimal       @map("amount_minor") @db.Decimal(38, 0)
+  currencyCode          String        @map("currency_code") @db.Char(3)
+  currencyScale         Int           @map("currency_scale") @db.SmallInt
+  reference             String?       @db.VarChar(120)
+  notes                 String?       @db.VarChar(2000)
+  createdByMembershipId BigInt        @map("created_by_membership_id")
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business    Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  creator     Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  allocations PaymentAllocation[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status, createdAt])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id              BigInt   @id @default(autoincrement())
+  publicId        String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt   @map("tenant_id")
+  businessId      BigInt   @map("business_id")
+  paymentId       BigInt   @map("payment_id")
+  documentId      BigInt?  @map("document_id")
+  purchaseOrderId BigInt?  @map("purchase_order_id")
+  amountMinor     Decimal  @map("amount_minor") @db.Decimal(38, 0)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business      Business       @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  payment       Payment        @relation(fields: [tenantId, businessId, paymentId], references: [tenantId, businessId, id], onDelete: Cascade)
+  document      Document?      @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  purchaseOrder PurchaseOrder? @relation(fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, paymentId])
+  @@index([tenantId, businessId, documentId])
+  @@index([tenantId, businessId, purchaseOrderId])
+  @@map("payment_allocations")
 }
 
 // Phase 4 — Configuration architecture. Platform-level catalog of ERP modules, versioned

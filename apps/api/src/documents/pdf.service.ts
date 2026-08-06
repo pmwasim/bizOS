@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import PDFDocument from "pdfkit";
 
+import {
+  documentTemplateSchema,
+  readableTextColor,
+  type DocumentTemplate,
+} from "@bizo/contracts/document-templates";
 import { formatScaledInteger } from "@bizo/contracts/money";
 
 import { type InvoiceSnapshot } from "./invoice-snapshot.js";
@@ -13,19 +18,24 @@ type MoneySnapshot = {
 
 @Injectable()
 export class PdfService {
-  async renderQuotation(snapshot: QuotationSnapshot): Promise<Buffer> {
+  async renderQuotation(snapshot: QuotationSnapshot, template?: DocumentTemplate): Promise<Buffer> {
+    const resolved = this.resolveTemplate(template);
     return this.renderCommercialDocument({
       title: "QUOTATION",
       documentTitle: `Quotation ${snapshot.number}`,
       subject: `Quotation for ${snapshot.customer.name}`,
       snapshot,
+      template: resolved,
       metaLines: [`Issued ${snapshot.issueDate}`, `Valid until ${snapshot.validUntil}`],
-      footer: `Thank you for the opportunity to work with you. This quotation is valid until ${snapshot.validUntil}.`,
+      footer:
+        resolved.quotationFooter ??
+        `Thank you for the opportunity to work with you. This quotation is valid until ${snapshot.validUntil}.`,
       extraCustomerLines: [],
     });
   }
 
-  async renderInvoice(snapshot: InvoiceSnapshot): Promise<Buffer> {
+  async renderInvoice(snapshot: InvoiceSnapshot, template?: DocumentTemplate): Promise<Buffer> {
+    const resolved = this.resolveTemplate(template);
     const extras: string[] = [];
     if (snapshot.poNumber) extras.push(`Customer PO: ${snapshot.poNumber}`);
     if (snapshot.projectReference) extras.push(`Reference: ${snapshot.projectReference}`);
@@ -34,10 +44,25 @@ export class PdfService {
       documentTitle: `Invoice ${snapshot.number}`,
       subject: `Invoice for ${snapshot.customer.name}`,
       snapshot,
+      template: resolved,
       metaLines: [`Issued ${snapshot.issueDate}`, `Due ${snapshot.dueDate}`],
-      footer: `Payment is due by ${snapshot.dueDate}. Thank you for your business.`,
+      footer:
+        resolved.invoiceFooter ??
+        `Payment is due by ${snapshot.dueDate}. Thank you for your business.`,
       extraCustomerLines: extras,
     });
+  }
+
+  /**
+   * A stored template is re-validated here rather than trusted. Rendering is the last step before a
+   * document reaches a customer, and a malformed colour would otherwise reach PDFKit directly.
+   */
+  private resolveTemplate(template: DocumentTemplate | undefined): DocumentTemplate {
+    if (!template) {
+      return documentTemplateSchema.parse({});
+    }
+    const parsed = documentTemplateSchema.safeParse(template);
+    return parsed.success ? parsed.data : documentTemplateSchema.parse({});
   }
 
   private renderCommercialDocument(input: {
@@ -55,9 +80,10 @@ export class PdfService {
       totalMinor: string;
     } & MoneySnapshot;
     subject: string;
+    template: DocumentTemplate;
     title: string;
   }): Promise<Buffer> {
-    const { snapshot } = input;
+    const { snapshot, template } = input;
     return new Promise((resolve, reject) => {
       const document = new PDFDocument({
         size: "A4",
@@ -73,12 +99,16 @@ export class PdfService {
       document.on("end", () => resolve(Buffer.concat(chunks)));
       document.on("error", reject);
 
-      const cobalt = "#2457d6";
+      const cobalt = template.accentColor;
       const charcoal = "#172033";
       const muted = "#667085";
       const rule = "#dfe3ea";
 
-      document.fillColor(cobalt).fontSize(12).font("Helvetica-Bold").text("bizOS");
+      document
+        .fillColor(cobalt)
+        .fontSize(12)
+        .font("Helvetica-Bold")
+        .text(template.headerText ?? snapshot.business.name);
       document
         .fillColor(charcoal)
         .fontSize(26)
@@ -96,7 +126,7 @@ export class PdfService {
       }
       if (snapshot.business.email) document.text(snapshot.business.email);
       if (snapshot.business.phone) document.text(snapshot.business.phone);
-      if (snapshot.business.taxRegistrationNumber) {
+      if (template.showTaxRegistration && snapshot.business.taxRegistrationNumber) {
         document.text(
           `${snapshot.business.taxName} number: ${snapshot.business.taxRegistrationNumber}`,
         );
@@ -164,7 +194,7 @@ export class PdfService {
       document
         .roundedRect(350, y, 195, 42, 7)
         .fill(cobalt)
-        .fillColor("#ffffff")
+        .fillColor(readableTextColor(cobalt))
         .font("Helvetica-Bold")
         .fontSize(12)
         .text("TOTAL", 365, y + 14, { width: 55 });
