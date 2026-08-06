@@ -25,11 +25,15 @@ interface CustomerRecord {
   publicId: string;
 }
 
+import { ErpnextClient } from "../erpnext/erpnext.client.js";
+import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
+
 @Injectable()
 export class CustomersService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
+    @Inject(ERPNEXT_CLIENT) private readonly erpnext: ErpnextClient,
   ) {}
 
   async create(
@@ -58,6 +62,20 @@ export class CustomersService {
           requestId,
         },
       });
+
+      if (this.erpnext.isConfigured()) {
+        try {
+          await this.erpnext.createDocument("Customer", {
+            customer_name: input.name,
+            customer_group: "Commercial",
+            territory: "All Territories",
+            customer_type: "Company",
+          });
+        } catch (error) {
+          console.error("Failed to sync customer to ERPNext:", error);
+        }
+      }
+
       return this.mapCustomer(customer);
     });
   }

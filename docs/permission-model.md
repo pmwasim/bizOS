@@ -27,23 +27,25 @@ authorization and audit.
 
 ## Default roles
 
-Runtime MVP roles (`OWNER`, `ADMIN`, `MEMBER`) map through `BusinessAccessService`:
+Runtime roles map through `BusinessAccessService`. `MEMBER` remains a compatibility role for
+existing businesses; new assignments should use the clearer Staff, Accountant, or External Auditor
+roles.
 
-| Object            | Actions                      | OWNER/ADMIN | MEMBER |
-| ----------------- | ---------------------------- | ----------- | ------ |
-| `purchase_orders` | create, read, update, upload | yes         | yes    |
-| `purchase_orders` | archive                      | yes         | no     |
-| `approvals`       | read                         | yes         | yes    |
-| `approvals`       | update, upload_evidence      | yes         | no     |
+| Capability                             | Owner/Admin | Staff | Accountant | External Auditor |
+| -------------------------------------- | ----------- | ----- | ---------- | ---------------- |
+| Operational contacts, quotations, POs  | yes         | yes   | read-only  | read-only        |
+| Invoice records and controlled exports | yes         | no    | read-only  | read-only        |
+| Business settings, archive, approvals  | yes         | no    | no         | no               |
 
-Future templates (Approver, Finance, Viewer) remain documented for later role expansion.
+Payments, ledger and tax-filing permissions will be added with their respective modules; no role is
+pre-authorized for capabilities that do not yet exist.
 
 - Owner: business administration and high-impact decisions.
 - Admin: team and operational configuration, excluding ownership transfer.
-- Operator: create and progress ordinary work.
-- Approver: review only assigned or policy-eligible decisions.
-- Finance specialist: tax, payment, correction, reconciliation, and formal exports.
-- Viewer: read explicitly allowed business information.
+- Staff: create and progress ordinary operational work.
+- Accountant: read financial records and exports until the payments, ledger, and tax modules define
+  their own explicit actions.
+- External auditor: read only the records explicitly made available within the business.
 
 Roles are templates, not hard-coded checks. Custom roles compose permissions after the default
 experience proves insufficient.

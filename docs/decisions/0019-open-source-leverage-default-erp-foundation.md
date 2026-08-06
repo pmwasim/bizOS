@@ -1,6 +1,6 @@
 # ADR-0019: Open-source leverage for the Default ERP configuration foundation
 
-Status: Accepted
+Status: Superseded by ADR-0020
 
 Date: 2026-07-28
 
@@ -25,8 +25,10 @@ scheduling. No arbitrary code." ADR-0007 decided Casbin for authorization. ADR-0
 PostgreSQL truth, BullMQ/Redis queues, and R2 object bytes. ADR-0013/0018 established immutable JSON
 snapshots and per-business numbering for commercial documents.
 
-This ADR evaluates whether any new open-source dependency is required to build the Stage B
-configuration/workflow versioning foundation, or whether the existing stack is sufficient.
+This ADR evaluated whether new open-source dependencies were needed while bizOS owned its ERP
+application stack. The product strategy has since changed: ERPNext/Frappe is now the committed ERP
+foundation, and bizOS is the configurable, customer-facing experience built on top of it. This
+decision is retained as historical context only.
 
 ## Stack verification
 

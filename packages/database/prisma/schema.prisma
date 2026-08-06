@@ -16,6 +16,9 @@ enum RoleCode {
   OWNER
   ADMIN
   MEMBER
+  STAFF
+  ACCOUNTANT
+  EXTERNAL_AUDITOR
 }
 
 enum DocumentType {

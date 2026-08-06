@@ -20,6 +20,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, string[]> = {
   OWNER: ["business.*", "customers.*", "quotations.*"],
   ADMIN: ["business.read", "business.update", "customers.*", "quotations.*"],
   MEMBER: ["business.read", "customers.*", "quotations.*"],
+  STAFF: ["business.read", "customers.*", "quotations.*"],
+  ACCOUNTANT: ["business.read", "customers.read", "quotations.read", "invoices.read"],
+  EXTERNAL_AUDITOR: ["business.read", "customers.read", "quotations.read", "invoices.read"],
 };
 
 @Injectable()
@@ -313,6 +316,12 @@ export class PlatformService {
         return "Admin";
       case RoleCode.MEMBER:
         return "Team member";
+      case RoleCode.STAFF:
+        return "Staff member";
+      case RoleCode.ACCOUNTANT:
+        return "Accountant";
+      case RoleCode.EXTERNAL_AUDITOR:
+        return "External auditor";
       default:
         throw new Error("Unsupported role code.");
     }

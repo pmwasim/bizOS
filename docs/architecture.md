@@ -42,7 +42,9 @@ isolation may later justify extracting a module behind its existing contracts.
 - `packages/queue`: BullMQ envelope and queue defaults.
 - `packages/storage`: R2 client and safe object-key rules.
 
-Future mobile uses the public API and design tokens, not Next.js internals.
+The responsive web application is the first client. Future Android, iPhone, desktop, and Linux
+clients use versioned public application contracts and shared design tokens, not Next.js internals
+or direct ERP database access.
 
 ## Module boundaries
 

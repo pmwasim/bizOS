@@ -11,6 +11,7 @@ import {
 } from "../security/business-access.service.js";
 import { type PdfService } from "./pdf.service.js";
 import { QuotationsService } from "./quotations.service.js";
+import { type ErpnextClient } from "../erpnext/erpnext.client.js";
 
 const access: BusinessAccessContext = {
   businessId: 2n,
@@ -107,6 +108,7 @@ describe("QuotationsService delivery", () => {
       businessAccess,
       {} as PdfService,
       {} as MailService,
+      { isConfigured: () => false, createDocument: () => undefined } as unknown as ErpnextClient,
     );
 
     await service.create(
@@ -225,7 +227,7 @@ describe("QuotationsService delivery", () => {
     const mail = {
       sendQuotation: vi.fn().mockRejectedValue({ code: "ECONNREFUSED" }),
     } as unknown as MailService;
-    const service = new QuotationsService(database, businessAccess, pdf, mail);
+    const service = new QuotationsService(database, businessAccess, pdf, mail, { isConfigured: () => false, createDocument: () => undefined } as unknown as ErpnextClient);
 
     await expect(
       service.send(
@@ -345,6 +347,7 @@ describe("QuotationsService delivery", () => {
       businessAccess,
       { renderQuotation } as unknown as PdfService,
       {} as MailService,
+      { isConfigured: () => false, createDocument: () => undefined } as unknown as ErpnextClient,
     );
 
     const result = await service.renderPdf(

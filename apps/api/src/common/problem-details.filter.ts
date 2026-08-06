@@ -15,6 +15,23 @@ interface ExceptionBody {
   message?: string | string[];
 }
 
+/**
+ * body-parser rejects malformed or oversized payloads with a plain Error carrying `type` and
+ * `statusCode`, not a Nest HttpException. Without this, a correctly-refused request is reported as
+ * a 500 server fault, which breaks the problem-details contract and pollutes error budgets.
+ */
+function bodyParserStatus(exception: unknown): number | undefined {
+  if (typeof exception !== "object" || exception === null || !("type" in exception)) {
+    return undefined;
+  }
+  const candidate = exception as { statusCode?: unknown; status?: unknown };
+  const status = candidate.statusCode ?? candidate.status;
+  if (typeof status !== "number" || status < 400 || status > 499) {
+    return undefined;
+  }
+  return status;
+}
+
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
   private readonly logger = new Logger(ProblemDetailsFilter.name);
@@ -24,7 +41,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const request = context.getRequest<Request>();
     const response = context.getResponse<Response>();
     const status =
-      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : (bodyParserStatus(exception) ?? HttpStatus.INTERNAL_SERVER_ERROR);
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
     const body: ExceptionBody =
@@ -79,6 +98,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         [HttpStatus.FORBIDDEN]: "You cannot do that",
         [HttpStatus.NOT_FOUND]: "Not found",
         [HttpStatus.CONFLICT]: "That already exists",
+        [HttpStatus.PAYLOAD_TOO_LARGE]: "That is too large",
         [HttpStatus.TOO_MANY_REQUESTS]: "Too many attempts",
       }[status] ?? "Request failed"
     );
@@ -92,6 +112,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         [HttpStatus.FORBIDDEN]: "FORBIDDEN",
         [HttpStatus.NOT_FOUND]: "NOT_FOUND",
         [HttpStatus.CONFLICT]: "CONFLICT",
+        [HttpStatus.PAYLOAD_TOO_LARGE]: "PAYLOAD_TOO_LARGE",
         [HttpStatus.TOO_MANY_REQUESTS]: "RATE_LIMITED",
       }[status] ?? "INTERNAL_ERROR"
     );

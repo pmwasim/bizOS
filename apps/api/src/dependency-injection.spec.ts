@@ -13,6 +13,7 @@ import { MailService } from "./mail/mail.service.js";
 import { PlatformService } from "./platform/platform.service.js";
 import { BusinessAccessService } from "./security/business-access.service.js";
 import { InternalAuthGuard } from "./security/internal-auth.guard.js";
+import { ERPNEXT_CLIENT } from "./erpnext/erpnext.module.js";
 
 describe("Nest dependency injection", () => {
   afterEach(() => {
@@ -43,6 +44,7 @@ describe("Nest dependency injection", () => {
         { provide: ConfigurationService, useValue: configuration },
         { provide: PdfService, useValue: pdf },
         { provide: MailService, useValue: mail },
+        { provide: ERPNEXT_CLIENT, useValue: { isConfigured: () => false, createDocument: () => undefined } },
       ],
     }).compile();
 

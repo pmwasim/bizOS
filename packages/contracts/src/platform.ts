@@ -63,7 +63,7 @@ export const businessSummarySchema = z.strictObject({
   currencyScale: z.number().int(),
   locale: z.string(),
   timeZone: z.string(),
-  role: z.enum(["OWNER", "ADMIN", "MEMBER"]),
+  role: z.enum(["OWNER", "ADMIN", "MEMBER", "STAFF", "ACCOUNTANT", "EXTERNAL_AUDITOR"]),
 });
 
 export const businessSettingsSchema = z.strictObject({

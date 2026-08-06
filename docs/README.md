@@ -1,16 +1,22 @@
 # bizOS handbook
 
-Status: MVP delivery baseline
+Status: Product and delivery baseline under approval
 
-Last reviewed: 2026-07-27
+Last reviewed: 2026-07-28
 
 This handbook is the source of truth for product intent, engineering constraints, and accepted
-architecture. A code change that invalidates a handbook statement must update the relevant document
-in the same pull request.
+architecture. The [Product and delivery baseline](product-delivery-baseline.md) controls where older
+handbook material conflicts during the ERPNext/Frappe product reset. A code change that invalidates
+a handbook statement must update the relevant document in the same pull request.
 
 ## Product and experience
 
 - [Vision](vision.md)
+- [Product and delivery baseline](product-delivery-baseline.md)
+- [MVP module delivery plan](mvp-module-plan.md)
+- [Country compliance delivery plan](country-compliance-plan.md)
+- [Operating and access governance](operating-access-governance.md)
+- [ERPNext/Frappe local foundation runbook](../ops/erpnext/README.md)
 - [Product overview](product-overview.md)
 - [Product requirements](product-requirements.md)
 - [Quotation MVP](mvp-quotation.md)

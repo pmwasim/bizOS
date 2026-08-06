@@ -57,6 +57,34 @@ describe("BusinessAccessService", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("keeps accountant and external-auditor access read-only", async () => {
+    const service = new BusinessAccessService({} as DatabaseService);
+
+    for (const role of [RoleCode.ACCOUNTANT, RoleCode.EXTERNAL_AUDITOR]) {
+      const access = { ...ownerAccess, role };
+      await expect(service.assertAllowed(access, "invoices", "read")).resolves.toBeUndefined();
+      await expect(service.assertAllowed(access, "invoices", "update")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.assertAllowed(access, "quotations", "send")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    }
+  });
+
+  it("lets staff work on operational records without finance administration", async () => {
+    const service = new BusinessAccessService({} as DatabaseService);
+    const staff = { ...ownerAccess, role: RoleCode.STAFF };
+
+    await expect(service.assertAllowed(staff, "quotations", "create")).resolves.toBeUndefined();
+    await expect(service.assertAllowed(staff, "invoices", "read")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(service.assertAllowed(staff, "business", "update")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
   it("resolves access only through an active membership and the requested business", async () => {
     const findFirst = vi.fn().mockResolvedValue({
       business: {

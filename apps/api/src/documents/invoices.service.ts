@@ -40,6 +40,8 @@ import { OBJECT_STORE } from "../storage/object-store.token.js";
 import { calculateInvoice } from "./invoice-calculator.js";
 import { type InvoiceSnapshot } from "./invoice-snapshot.js";
 import { PdfService } from "./pdf.service.js";
+import { ErpnextClient } from "../erpnext/erpnext.client.js";
+import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
 
 interface DecimalLike {
   toString(): string;
@@ -148,6 +150,7 @@ export class InvoicesService {
     @Inject(PdfService) private readonly pdf: PdfService,
     @Inject(MailService) private readonly mail: MailService,
     @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+    @Inject(ERPNEXT_CLIENT) private readonly erpnext: ErpnextClient,
   ) {}
 
   async createFromQuotation(
@@ -341,6 +344,24 @@ export class InvoicesService {
           },
         },
       });
+
+      if (this.erpnext.isConfigured()) {
+        try {
+          await this.erpnext.createDocument("Sales Invoice", {
+            customer: quotation.customer.name,
+            posting_date: issueDate.toISOString().split("T")[0],
+            due_date: dueDate.toISOString().split("T")[0],
+            items: calculated.lines.map((line) => ({
+              item_name: line.description,
+              qty: parseFloat(line.quantity.toString()),
+              rate: parseFloat(line.unitPriceMinor.toString()) / (10 ** business.currencyScale),
+            })),
+          });
+        } catch (error) {
+          console.error("Failed to sync invoice to ERPNext:", error);
+        }
+      }
+
       return this.mapInvoice(document);
     });
   }

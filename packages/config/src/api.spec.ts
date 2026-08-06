@@ -48,4 +48,30 @@ describe("readApiEnvironment", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts a complete Frappe connection", () => {
+    expect(
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        FRAPPE_API_KEY: "api-key",
+        FRAPPE_API_SECRET: "api-secret",
+        FRAPPE_BASE_URL: "http://localhost:8080",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+      }),
+    ).toMatchObject({ FRAPPE_BASE_URL: "http://localhost:8080" });
+  });
+
+  it("rejects a partial Frappe connection", () => {
+    expect(() =>
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        FRAPPE_BASE_URL: "http://localhost:8080",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+      }),
+    ).toThrow();
+  });
 });

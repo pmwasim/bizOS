@@ -7,6 +7,7 @@ import { ConfigurationModule } from "./configuration/configuration.module.js";
 import { CustomizationModule } from "./customization/customization.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { DocumentsModule } from "./documents/documents.module.js";
+import { ErpnextModule } from "./erpnext/erpnext.module.js";
 import { CustomersModule } from "./customers/customers.module.js";
 import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module.js";
 import { NoStoreInterceptor } from "./common/no-store.interceptor.js";
@@ -41,6 +42,7 @@ import { SystemAdminModule } from "./system-admin/system-admin.module.js";
     }),
     ThrottlerModule.forRoot([{ limit: 100, ttl: 60_000 }]),
     DatabaseModule,
+    ErpnextModule,
     MailModule,
     SecurityModule,
     HealthModule,

@@ -13,7 +13,31 @@
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "API_INTERNAL_URL",
+        "API_PORT",
+        "AUTH_SECRET",
+        "AUTH_URL",
+        "DATABASE_URL",
+        "FRAPPE_API_KEY",
+        "FRAPPE_API_SECRET",
+        "FRAPPE_BASE_URL",
+        "INTERNAL_AUTH_SECRET",
+        "N8N_CI_WEBHOOK_URL",
+        "N8N_CUSTOMIZATION_WEBHOOK_URL",
+        "N8N_WEBHOOK_SECRET",
+        "R2_ACCESS_KEY_ID",
+        "R2_ACCOUNT_ID",
+        "R2_BUCKET",
+        "R2_ENDPOINT",
+        "R2_SECRET_ACCESS_KEY",
+        "REDIS_PASSWORD",
+        "REDIS_URL",
+        "SMTP_FROM",
+        "SMTP_URL",
+        "WEB_PORT"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
