@@ -25,14 +25,17 @@ describe("recordPaymentRequestSchema", () => {
     expect(recordPaymentRequestSchema.parse(validRequest)).toEqual(validRequest);
   });
 
-  it.each(["0", "10.5", "01", "-1"])("rejects invalid payment amount %s", (amountMinor) => {
-    expect(
-      recordPaymentRequestSchema.safeParse({
-        ...validRequest,
-        amountMinor,
-      }).success,
-    ).toBe(false);
-  });
+  it.each(["0", "10.5", "01", "-1"])(
+    "rejects invalid payment amount %s",
+    (amountMinor) => {
+      expect(
+        recordPaymentRequestSchema.safeParse({
+          ...validRequest,
+          amountMinor,
+        }).success,
+      ).toBe(false);
+    },
+  );
 
   it("rejects allocations without a target", () => {
     expect(
