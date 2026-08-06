@@ -1,9 +1,14 @@
 import { z } from "zod";
 
-const decimalSchema = z
+const minorUnitValueSchema = z
   .string()
   .trim()
-  .regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/);
+  .regex(/^(?:0|[1-9]\d*)$/, "Amount must be an integer expressed in minor units.");
+
+const positiveMinorUnitValueSchema = z
+  .string()
+  .trim()
+  .regex(/^[1-9]\d*$/, "Amount must be greater than zero and expressed in minor units.");
 
 export const paymentTypeSchema = z.enum(["INBOUND", "OUTBOUND"]);
 
@@ -19,16 +24,26 @@ export function paymentStatusLabel(status: z.infer<typeof paymentStatusSchema>):
   return paymentStatusLabelByCode[status];
 }
 
-export const paymentAllocationInputSchema = z.strictObject({
-  documentId: z.string().uuid().optional(),
-  purchaseOrderId: z.string().uuid().optional(),
-  amountMinor: decimalSchema,
-});
+export const paymentAllocationInputSchema = z
+  .strictObject({
+    documentId: z.string().uuid().optional(),
+    purchaseOrderId: z.string().uuid().optional(),
+    amountMinor: positiveMinorUnitValueSchema,
+  })
+  .superRefine((allocation, context) => {
+    const targetCount = Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
+    if (targetCount !== 1) {
+      context.addIssue({
+        code: "custom",
+        message: "Each allocation must reference exactly one invoice or purchase order.",
+      });
+    }
+  });
 
 export const recordPaymentRequestSchema = z.strictObject({
   type: paymentTypeSchema,
   paymentDate: z.string().date(),
-  amountMinor: decimalSchema,
+  amountMinor: positiveMinorUnitValueSchema,
   currencyCode: z.string().regex(/^[A-Z]{3}$/),
   reference: z.string().trim().max(120).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
@@ -39,7 +54,7 @@ export const paymentAllocationSchema = z.strictObject({
   id: z.string().uuid(),
   documentId: z.string().uuid().nullable(),
   purchaseOrderId: z.string().uuid().nullable(),
-  amountMinor: z.string(),
+  amountMinor: minorUnitValueSchema,
   createdAt: z.string().datetime(),
 });
 
@@ -48,7 +63,7 @@ export const paymentSchema = z.strictObject({
   type: paymentTypeSchema,
   status: paymentStatusSchema,
   paymentDate: z.string().date(),
-  amountMinor: z.string(),
+  amountMinor: minorUnitValueSchema,
   currencyCode: z.string().regex(/^[A-Z]{3}$/),
   currencyScale: z.number().int().min(0).max(4),
   reference: z.string().nullable(),
