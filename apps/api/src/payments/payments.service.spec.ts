@@ -88,9 +88,9 @@ describe("PaymentsService", () => {
       new NotFoundException("We could not find that resource."),
     );
 
-    await expect(
-      service.list(access.userPublicId, access.businessPublicId),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.list(access.userPublicId, access.businessPublicId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     expect(database.withScope).not.toHaveBeenCalled();
   });
 

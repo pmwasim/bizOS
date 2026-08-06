@@ -4,7 +4,8 @@ Date: 2026-08-07
 
 Agent: chatgpt-gpt-5.6-thinking
 
-Scope: apps/api/src/payments, packages/contracts/src/payments.ts, apps/api/.data, .gitignore, package.json, scripts/check-tracked-runtime-artifacts.mjs
+Scope: apps/api/src/payments, packages/contracts/src/payments.ts, apps/api/.data, .gitignore,
+package.json, scripts/check-tracked-runtime-artifacts.mjs
 
 Status: In progress — GitHub CI pending
 
@@ -40,8 +41,8 @@ repository.
 - Payments are restricted to the business base currency because the current data model exposes one
   business currency scale and no governed multi-currency conversion path.
 - This change validates that allocations do not exceed a single payment amount. It does not yet
-  prevent cumulative completed allocations across several payments from exceeding a target
-  document balance; that requires target-balance transaction logic and dedicated acceptance tests.
+  prevent cumulative completed allocations across several payments from exceeding a target document
+  balance; that requires target-balance transaction logic and dedicated acceptance tests.
 - Runtime files are removed from future repository trees, but Git history was not rewritten. History
   rewriting and force-pushing are destructive operations reserved for explicit human authorization.
 
@@ -63,17 +64,17 @@ GitHub compare main...agent/harden-payment-boundary  # inspected; 13 commits, in
 
 ## Follow-ups
 
-1. **Release blocker:** wait for the full CI quality and Playwright gates; fix failures before marking
-   the pull request ready.
+1. **Release blocker:** wait for the full CI quality and Playwright gates; fix failures before
+   marking the pull request ready.
 2. Run `pnpm graph` and `pnpm journal:index`, then commit generated changes. The connector-only
    environment could not execute those repository generators.
 3. Inspect historical PDFs for personal, customer, tax, signature, or financial information. With
    explicit authorization, use `git filter-repo` to purge affected paths from all history and
    force-update protected refs in a controlled maintenance window.
-4. Add transaction-safe cumulative allocation checks so completed payments cannot overpay an
-   invoice or other target across multiple payment records.
-5. Define and test whether `STAFF`, `ACCOUNTANT`, and other roles should create, complete, or reverse
-   payments; this change intentionally preserves the existing policy table.
+4. Add transaction-safe cumulative allocation checks so completed payments cannot overpay an invoice
+   or other target across multiple payment records.
+5. Define and test whether `STAFF`, `ACCOUNTANT`, and other roles should create, complete, or
+   reverse payments; this change intentionally preserves the existing policy table.
 
 ## Handoff notes
 
