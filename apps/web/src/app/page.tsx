@@ -17,21 +17,23 @@ export default async function Home() {
       </nav>
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">Professional quotations, without the paperwork</span>
-          <h1>From new customer to sent quotation in minutes.</h1>
+          <span className="eyebrow">
+            Private beta · Quotation to invoice, without the paperwork
+          </span>
+          <h1>From new customer to sent invoice in minutes.</h1>
           <p>
             bizOS gives service businesses one calm place to create customers, prepare polished
-            quotations, and send them.
+            quotations, record approvals, and turn them into invoices they can send.
           </p>
           <div className="hero-actions">
             <Link className="button button-primary" href={session ? "/start" : "/signup"}>
-              {session ? "Continue to bizOS" : "Create your first quotation"}
+              {session ? "Continue to bizOS" : "Join the private beta"}
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
           </div>
           <ul className="hero-proof" aria-label="Included">
             <li>
-              <Check aria-hidden="true" size={16} /> No accounting setup
+              <Check aria-hidden="true" size={16} /> Quotations and invoices
             </li>
             <li>
               <Check aria-hidden="true" size={16} /> Professional PDF

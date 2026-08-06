@@ -27,8 +27,76 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Preflight (fail before any mutation)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Rollback re-runs must also prove hosting credentials exist; the release
+    # gate itself validates application code, not production reachability.
+    steps:
+      - name: Validate target SHA shape
+        env:
+          ROLLBACK_SHA: ${{ inputs.rollback_to_sha }}
+          REQUESTED_SHA: ${{ inputs.git_sha }}
+          DEFAULT_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$ROLLBACK_SHA" ]; then CANDIDATE="$ROLLBACK_SHA";
+          elif [ -n "$REQUESTED_SHA" ]; then CANDIDATE="$REQUESTED_SHA";
+          else CANDIDATE="$DEFAULT_SHA"; fi
+          if ! [[ "$CANDIDATE" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Deploy SHA must be a full 40-character lowercase git SHA (got '$CANDIDATE')."
+            exit 1
+          fi
+      - name: Require hosting credentials before mutation
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
+        run: |
+          missing=""
+          [ -z "$RENDER_API_KEY" ] && missing="$missing RENDER_API_KEY"
+          [ -z "$RENDER_API_SERVICE_ID" ] && missing="$missing RENDER_API_SERVICE_ID"
+          [ -z "$RENDER_WEB_SERVICE_ID" ] && missing="$missing RENDER_WEB_SERVICE_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required production hosting secrets:$missing"
+            echo "Refusing to publish images, migrate the database, or roll out hosting."
+            echo "Configure the production environment secrets, then re-run."
+            exit 1
+          fi
+          echo "Hosting credentials present; safe to proceed to mutation stages."
+      - name: Require database credentials before mutation
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SKIP_MIGRATE: ${{ inputs.skip_migrate }}
+          ROLLBACK_SHA: ${{ inputs.rollback_to_sha }}
+        run: |
+          if [ "$SKIP_MIGRATE" = "true" ] || [ -n "$ROLLBACK_SHA" ]; then
+            echo "Migration skipped for this run; DATABASE_URL not required."
+            exit 0
+          fi
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not configured but a production migration would run."
+            exit 1
+          fi
+          echo "DATABASE_URL present."
+      - name: Record preflight summary
+        env:
+          DEPLOY_SHA: ${{ inputs.rollback_to_sha || inputs.git_sha || github.sha }}
+          SKIP_MIGRATE: ${{ inputs.skip_migrate }}
+          ROLLBACK_SHA: ${{ inputs.rollback_to_sha }}
+        run: |
+          {
+            echo "## Production deploy preflight"
+            echo "- Target SHA: \`${DEPLOY_SHA}\`"
+            echo "- Mode: $( [ -n "$ROLLBACK_SHA" ] && echo rollback || echo deploy )"
+            echo "- Migration: $( [ "$SKIP_MIGRATE" = "true" ] && echo skipped-by-input || echo enabled )"
+            echo "- Hosting credentials: present"
+            echo "- Database credentials: $( [ "$SKIP_MIGRATE" = "true" ] || [ -n "$ROLLBACK_SHA" ] && echo not-required || echo present )"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   release-gate:
     name: Release gate
+    needs: [preflight]
     if: ${{ inputs.rollback_to_sha == '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -275,13 +343,15 @@ jobs:
           RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
           DEPLOY_SHA: ${{ needs.publish-images.outputs.deploy_sha }}
         run: |
+          # Preflight already fails the run before any mutation when these are
+          # absent. This guard exists so a green workflow can never mean
+          # "published and migrated but not deployed". Fail loudly instead of
+          # exiting 0 with a skipped rollout.
           if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_API_SERVICE_ID" ] || [ -z "$RENDER_WEB_SERVICE_ID" ]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Hosting credentials are not configured yet."
-            echo "Required production secrets: RENDER_API_KEY, RENDER_API_SERVICE_ID, RENDER_WEB_SERVICE_ID"
-            echo "Immutable images are published for SHA ${DEPLOY_SHA}"
-            echo "Migration and image publish can succeed while hosting approval is pending."
-            exit 0
+            echo "::error::Hosting credentials are not configured for SHA ${DEPLOY_SHA}."
+            echo "This run published images and may have migrated the database."
+            echo "Treat the workflow as FAILED: configure RENDER_* secrets and re-run to complete the rollout."
+            exit 1
           fi
           echo "configured=true" >> "$GITHUB_OUTPUT"
       - name: Deploy API (git/Docker build)
@@ -357,7 +427,9 @@ jobs:
             if [ "$HOSTING_CONFIGURED" = "true" ]; then
               echo "- Hosting rollout: completed"
             else
-              echo "- Hosting rollout: blocked pending RENDER_* production secrets"
+              # Unreachable while preflight and the hosting guard fail the run;
+              # kept defensive so a green summary can never claim otherwise.
+              echo "- Hosting rollout: NOT completed (workflow failed)"
             fi
             echo "- Rollback: re-run this workflow with rollback_to_sha set to the prior SHA"
           } >> "$GITHUB_STEP_SUMMARY"

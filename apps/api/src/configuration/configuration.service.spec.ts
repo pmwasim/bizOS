@@ -8,7 +8,10 @@ import {
   type BusinessAccessContext,
   type BusinessAccessService,
 } from "../security/business-access.service.js";
-import { ConfigurationService } from "./configuration.service.js";
+import {
+  ConfigurationService,
+  deriveInvoiceConversionRequirements,
+} from "./configuration.service.js";
 
 const access: BusinessAccessContext = {
   businessId: 200n,
@@ -754,6 +757,57 @@ describe("ConfigurationService", () => {
       });
 
       expect(result.allowed).toBe(false);
+    });
+  });
+
+  describe("deriveInvoiceConversionRequirements", () => {
+    it("treats Default ERP quotation workflow as optional customer PO", () => {
+      const requirements = deriveInvoiceConversionRequirements({
+        states: [
+          { key: "draft-quotation", label: "Draft", status: "DRAFT", isOptional: false },
+          { key: "sent-quotation", label: "Sent", status: "SENT", isOptional: false },
+          { key: "accepted", label: "Accepted", status: "ACCEPTED", isOptional: false },
+          { key: "converted", label: "Converted", status: "CONVERTED", isOptional: false },
+          { key: "customer-po", label: "Customer PO", status: "CUSTOMER_PO", isOptional: true },
+        ],
+        transitions: [
+          {
+            fromState: "accepted",
+            action: "convert",
+            toState: "converted",
+            allowedRoles: ["OWNER", "ADMIN"],
+          },
+        ],
+      });
+      expect(requirements).toEqual({
+        customerPoRequired: false,
+        approvalEvidenceRequired: false,
+      });
+    });
+
+    it("treats Service PO quotation workflow as requiring customer PO readiness", () => {
+      const requirements = deriveInvoiceConversionRequirements({
+        states: [
+          {
+            key: "ready-to-invoice",
+            label: "Ready",
+            status: "READY_TO_INVOICE",
+            isOptional: false,
+          },
+          { key: "converted", label: "Converted", status: "CONVERTED", isOptional: false },
+        ],
+        transitions: [
+          {
+            fromState: "ready-to-invoice",
+            action: "convert",
+            toState: "converted",
+            allowedRoles: ["OWNER", "ADMIN"],
+            guard: [{ field: "workflowState", operator: "eq", value: "READY_TO_INVOICE" }],
+          },
+        ],
+      });
+      expect(requirements.customerPoRequired).toBe(true);
+      expect(requirements.approvalEvidenceRequired).toBe(true);
     });
   });
 });

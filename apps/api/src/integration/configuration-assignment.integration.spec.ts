@@ -32,9 +32,15 @@ describe.runIf(databaseEnabled)("configuration assignment integration with Postg
     configuration = new ConfigurationService(database, access);
     platform = new PlatformService(database, access, configuration);
     customers = new CustomersService(database, access);
-    quotations = new QuotationsService(database, access, new PdfService(), {
-      sendQuotation: () => undefined,
-    } as unknown as MailService);
+    quotations = new QuotationsService(
+      database,
+      access,
+      new PdfService(),
+      {
+        sendQuotation: () => undefined,
+      } as unknown as MailService,
+      configuration,
+    );
   });
 
   afterAll(async () => {

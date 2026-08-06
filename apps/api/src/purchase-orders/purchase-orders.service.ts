@@ -11,6 +11,7 @@ import {
 
 import {
   bestReadiness,
+  canCreateInvoiceFromQuotation,
   type CreatePurchaseOrderRequest,
   derivePurchaseOrderReadiness,
   type PurchaseOrder,
@@ -35,14 +36,15 @@ import {
   type ObjectStore,
 } from "@bizo/storage";
 
+import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
-import { OBJECT_STORE } from "../storage/object-store.token.js";
 import {
   type AuthorizationAction,
   type AuthorizationObject,
   type BusinessAccessContext,
   BusinessAccessService,
 } from "../security/business-access.service.js";
+import { OBJECT_STORE } from "../storage/object-store.token.js";
 
 type PurchaseOrderDetail = {
   publicId: string;
@@ -79,6 +81,7 @@ export class PurchaseOrdersService {
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
     @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+    @Inject(ConfigurationService) private readonly configuration: ConfigurationService,
   ) {}
 
   async create(
@@ -169,8 +172,17 @@ export class PurchaseOrdersService {
     userPublicId: string,
     businessPublicId: string,
     quotationPublicId: string,
-  ): Promise<{ purchaseOrders: PurchaseOrder[]; readiness: Readiness }> {
+  ): Promise<{
+    purchaseOrders: PurchaseOrder[];
+    readiness: Readiness;
+    customerPoRequired: boolean;
+    canCreateInvoice: boolean;
+  }> {
     const access = await this.authorize(userPublicId, businessPublicId, "purchase_orders", "read");
+    const conversionPolicy = await this.configuration.getInvoiceConversionPolicy(
+      userPublicId,
+      businessPublicId,
+    );
     return this.database.withScope(access, async (transaction) => {
       const quotation = await transaction.document.findFirst({
         where: {
@@ -192,9 +204,19 @@ export class PurchaseOrdersService {
         include: this.detailInclude(),
       })) as PurchaseOrderDetail[];
       const purchaseOrders = rows.map((row) => this.mapPurchaseOrder(row));
+      const readiness = bestReadiness(
+        purchaseOrders.map((item) => item.readiness),
+        { customerPoRequired: conversionPolicy.customerPoRequired },
+      );
       return {
         purchaseOrders,
-        readiness: bestReadiness(purchaseOrders.map((item) => item.readiness)),
+        readiness,
+        customerPoRequired: conversionPolicy.customerPoRequired,
+        canCreateInvoice: canCreateInvoiceFromQuotation({
+          customerPoRequired: conversionPolicy.customerPoRequired,
+          quotationStatus: quotation.status,
+          purchaseOrderReadiness: readiness,
+        }),
       };
     });
   }

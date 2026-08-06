@@ -66,12 +66,13 @@ Quotations continue to use only `DRAFT` and `SENT`. Illegal transitions are reje
 
 ### Conversion rules
 
-- Conversion requires an authorized quotation in the same business and at least one active linked PO
-  with readiness `READY_TO_INVOICE`.
+- Conversion is configuration-aware (ADR-0020). Businesses on Service PO & Approval still require an
+  authorized quotation in the same business and at least one active linked PO with readiness
+  `READY_TO_INVOICE`. Default ERP allows conversion from a sent quotation without a customer PO.
 - Copy customer snapshot fields via customer FK + copied line inputs; copy currency, quantities,
   prices, tax inputs, and totals; recalculate server-side and verify against copied totals.
-- Copy linked ready PO number into `po_number_snapshot` and optional `purchase_order_id`; copy
-  project/reference when present.
+- When a ready PO exists, copy its number into `po_number_snapshot` and optional
+  `purchase_order_id`; copy project/reference when present. Otherwise leave those fields null.
 - After copy, the invoice does not live-bind to quotation line mutations.
 - Direct invoice creation without a quotation is **out of scope** for this release so the readiness
   workflow is not weakened.

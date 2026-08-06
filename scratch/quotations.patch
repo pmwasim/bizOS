@@ -1,0 +1,44 @@
+--- apps/api/src/documents/quotations.service.ts
++++ apps/api/src/documents/quotations.service.ts
+@@ -23,6 +23,8 @@
+ import { PdfService } from "./pdf.service.js";
+ import { calculateQuotation } from "./quotation-calculator.js";
+ import { type QuotationSnapshot } from "./quotation-snapshot.js";
++import { ErpnextClient } from "../erpnext/erpnext.client.js";
++import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
+ 
+ interface DecimalLike {
+   toString(): string;
+@@ -94,6 +96,7 @@
+     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
+     @Inject(PdfService) private readonly pdf: PdfService,
+     @Inject(MailService) private readonly mail: MailService,
++    @Inject(ERPNEXT_CLIENT) private readonly erpnext: ErpnextClient,
+   ) {}
+ 
+   async create(
+@@ -194,6 +197,23 @@
+           requestId,
+         },
+       });
++
++      if (this.erpnext.isConfigured()) {
++        try {
++          await this.erpnext.createDocument("Quotation", {
++            customer: customer.name,
++            transaction_date: issueDate.toISOString().split("T")[0],
++            valid_till: validUntil.toISOString().split("T")[0],
++            items: calculated.lines.map((line) => ({
++              item_name: line.description,
++              qty: parseFloat(line.quantity),
++              rate: parseFloat(line.unitPriceMinor.toString()) / (10 ** business.currencyScale),
++            })),
++          });
++        } catch (error) {
++          console.error("Failed to sync quotation to ERPNext:", error);
++        }
++      }
++
+       return this.mapQuotation(document);
+     });
+   }

@@ -1,0 +1,52 @@
+--- apps/api/src/erpnext/erpnext.client.ts
++++ apps/api/src/erpnext/erpnext.client.ts
+@@ -53,6 +53,49 @@
+     return body.message;
+   }
+ 
++  async createDocument(docType: string, data: Record<string, unknown>): Promise<any> {
++    const connection = this.requireConnection();
++    const response = await this.fetcher(
++      new URL(`/api/resource/${encodeURIComponent(docType)}`, connection.baseUrl),
++      {
++        headers: {
++          Accept: "application/json",
++          "Content-Type": "application/json",
++          Authorization: `token ${connection.apiKey}:${connection.apiSecret}`,
++        },
++        method: "POST",
++        body: JSON.stringify(data),
++      },
++    );
++
++    if (!response.ok) {
++      throw new ErpnextRequestError(response.status);
++    }
++
++    const body: unknown = await response.json();
++    return (body as { data: any }).data;
++  }
++
++  async getDocument(docType: string, name: string): Promise<any> {
++    const connection = this.requireConnection();
++    const response = await this.fetcher(
++      new URL(`/api/resource/${encodeURIComponent(docType)}/${encodeURIComponent(name)}`, connection.baseUrl),
++      {
++        headers: {
++          Accept: "application/json",
++          Authorization: `token ${connection.apiKey}:${connection.apiSecret}`,
++        },
++        method: "GET",
++      },
++    );
++
++    if (!response.ok) {
++      throw new ErpnextRequestError(response.status);
++    }
++
++    const body: unknown = await response.json();
++    return (body as { data: any }).data;
++  }
++
+   private requireConnection(): ErpnextConnection {
+     if (!this.connection) {

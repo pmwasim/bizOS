@@ -18,6 +18,7 @@ import { ConflictException, Inject, Injectable, NotFoundException } from "@nestj
 import {
   configurationSnapshotSchema,
   type ConfigurationSnapshot,
+  type InvoiceConversionPolicy,
 } from "@bizo/contracts/configuration";
 import {
   workflowDefinitionSchema,
@@ -227,6 +228,52 @@ function summarizeAssignment(record: AssignmentRecord): AssignmentSummary {
     reason: record.reason,
     assignedAt: record.assignedAt.toISOString(),
   };
+}
+
+function guardRequiresCustomerPo(condition: WorkflowGuardCondition): boolean {
+  if (
+    condition.field === "purchaseOrder" ||
+    condition.field.startsWith("purchaseOrder.") ||
+    condition.field === "approvalEvidence" ||
+    condition.field.startsWith("approvalEvidence.")
+  ) {
+    return true;
+  }
+  return condition.value === "READY_TO_INVOICE" || condition.value === "ready-to-invoice";
+}
+
+export function deriveInvoiceConversionRequirements(definition: WorkflowDefinition): {
+  customerPoRequired: boolean;
+  approvalEvidenceRequired: boolean;
+} {
+  const hasMandatoryReadyState = definition.states.some(
+    (state) => state.status === "READY_TO_INVOICE" && !state.isOptional,
+  );
+  let customerPoRequired = hasMandatoryReadyState;
+  let approvalEvidenceRequired = hasMandatoryReadyState;
+
+  for (const transition of definition.transitions) {
+    if (transition.action !== "convert" && transition.action !== "mark-ready-to-invoice") {
+      continue;
+    }
+    for (const condition of transition.guard ?? []) {
+      if (guardRequiresCustomerPo(condition)) {
+        customerPoRequired = true;
+      }
+      if (
+        condition.field === "approvalEvidence" ||
+        condition.field.startsWith("approvalEvidence.")
+      ) {
+        approvalEvidenceRequired = true;
+      }
+    }
+  }
+
+  if (customerPoRequired && hasMandatoryReadyState) {
+    approvalEvidenceRequired = true;
+  }
+
+  return { customerPoRequired, approvalEvidenceRequired };
 }
 
 @Injectable()
@@ -451,6 +498,69 @@ export class ConfigurationService {
         ...summarizeAssignment(assignment),
         businessId: access.businessPublicId,
         snapshot: parseSnapshot(version.snapshotJson),
+      };
+    });
+  }
+
+  async getInvoiceConversionPolicy(
+    userPublicId: string,
+    businessPublicId: string,
+  ): Promise<InvoiceConversionPolicy> {
+    const access = await this.resolveAccess(userPublicId, businessPublicId);
+    return this.database.withScope(access, async (transaction) => {
+      const assignment = await this.findCurrentPrimary(transaction, access);
+      if (!assignment) {
+        throw new NotFoundException(
+          "No primary configuration assignment is active for this business.",
+        );
+      }
+
+      const version = await transaction.configurationTemplateVersion.findUniqueOrThrow({
+        where: { id: assignment.configurationTemplateVersionId },
+        select: { snapshotJson: true },
+      });
+      const snapshot = parseSnapshot(version.snapshotJson);
+      const quotationWorkflowRef = snapshot.workflows.find(
+        (workflow) => workflow.documentType === "QUOTATION",
+      );
+
+      if (!quotationWorkflowRef) {
+        return {
+          customerPoRequired: true,
+          approvalEvidenceRequired: true,
+          templateCode: assignment.configurationTemplateVersion.template.code,
+          templateVersion: assignment.configurationTemplateVersion.version,
+        };
+      }
+
+      const workflowVersion = await transaction.workflowTemplateVersion.findFirst({
+        where: {
+          status: WorkflowVersionStatus.PUBLISHED,
+          workflowTemplate: { code: quotationWorkflowRef.workflowTemplateCode },
+          ...(quotationWorkflowRef.version ? { version: quotationWorkflowRef.version } : {}),
+        },
+        select: { definitionJson: true },
+        orderBy: quotationWorkflowRef.version
+          ? undefined
+          : [{ publishedAt: "desc" }, { id: "desc" }],
+      });
+
+      if (!workflowVersion) {
+        return {
+          customerPoRequired: true,
+          approvalEvidenceRequired: true,
+          templateCode: assignment.configurationTemplateVersion.template.code,
+          templateVersion: assignment.configurationTemplateVersion.version,
+        };
+      }
+
+      const requirements = deriveInvoiceConversionRequirements(
+        parseWorkflowDefinition(workflowVersion.definitionJson),
+      );
+      return {
+        ...requirements,
+        templateCode: assignment.configurationTemplateVersion.template.code,
+        templateVersion: assignment.configurationTemplateVersion.version,
       };
     });
   }
