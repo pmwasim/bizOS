@@ -29,8 +29,10 @@ describe("Nest dependency injection", () => {
       assignConfiguration: () => undefined,
       getActiveAssignment: () => undefined,
       getEnabledModules: () => undefined,
+      getInvoiceConversionPolicy: () => undefined,
       getDefaultErpPublishedVersion: () => undefined,
       getPublishedVersion: () => undefined,
+      createDocumentWorkflowContext: () => undefined,
     };
     const module = await Test.createTestingModule({
       providers: [

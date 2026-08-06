@@ -705,7 +705,8 @@ textarea:focus {
   color: #667085;
 }
 
-.readiness-ready_to_invoice {
+.readiness-ready_to_invoice,
+.readiness-customer_po_optional {
   background: var(--success-bg);
   color: var(--success);
 }

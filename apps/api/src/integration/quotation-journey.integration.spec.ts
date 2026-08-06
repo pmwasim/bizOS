@@ -28,9 +28,15 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
     identity = new IdentityService(database);
     platform = new PlatformService(database, access, configuration);
     customers = new CustomersService(database, access);
-    quotations = new QuotationsService(database, access, new PdfService(), {
-      sendQuotation: vi.fn().mockResolvedValue("integration-message-1"),
-    } as unknown as MailService);
+    quotations = new QuotationsService(
+      database,
+      access,
+      new PdfService(),
+      {
+        sendQuotation: vi.fn().mockResolvedValue("integration-message-1"),
+      } as unknown as MailService,
+      configuration,
+    );
   });
 
   afterAll(async () => {

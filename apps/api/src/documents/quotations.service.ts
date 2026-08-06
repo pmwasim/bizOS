@@ -13,6 +13,7 @@ import {
 } from "@bizo/contracts/quotations";
 import { DeliveryStatus, DocumentStatus, DocumentType, type Prisma } from "@bizo/database";
 
+import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
 import { MailService } from "../mail/mail.service.js";
 import {
@@ -94,6 +95,7 @@ export class QuotationsService {
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
     @Inject(PdfService) private readonly pdf: PdfService,
     @Inject(MailService) private readonly mail: MailService,
+    @Inject(ConfigurationService) private readonly configuration: ConfigurationService,
   ) {}
 
   async create(
@@ -104,7 +106,7 @@ export class QuotationsService {
   ): Promise<Quotation> {
     const access = await this.authorize(userPublicId, businessPublicId, "create");
 
-    return this.database.withScope(access, async (transaction) => {
+    const quotation = await this.database.withScope(access, async (transaction) => {
       const business = (await transaction.business.findUniqueOrThrow({
         where: { id: access.businessId },
         include: { settings: true, taxProfile: true },
@@ -196,6 +198,15 @@ export class QuotationsService {
       });
       return this.mapQuotation(document);
     });
+
+    await this.configuration.createDocumentWorkflowContext({
+      userPublicId,
+      businessPublicId,
+      documentId: quotation.id,
+      documentType: "QUOTATION",
+    });
+
+    return quotation;
   }
 
   async list(userPublicId: string, businessPublicId: string): Promise<Quotation[]> {

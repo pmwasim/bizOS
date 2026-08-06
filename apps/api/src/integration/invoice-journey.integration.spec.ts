@@ -50,6 +50,7 @@ describe.runIf(databaseEnabled)("invoice journey with PostgreSQL boundaries", ()
       access,
       new PdfService(),
       mail as unknown as MailService,
+      configuration,
     );
     invoices = new InvoicesService(
       database,
@@ -57,6 +58,7 @@ describe.runIf(databaseEnabled)("invoice journey with PostgreSQL boundaries", ()
       new PdfService(),
       mail as unknown as MailService,
       objectStore,
+      configuration,
     );
   });
 

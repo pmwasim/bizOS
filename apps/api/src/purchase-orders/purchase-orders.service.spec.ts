@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DocumentType, InvoiceApprovalStatus, PurchaseOrderStatus } from "@bizo/database";
 
+import { type ConfigurationService } from "../configuration/configuration.service.js";
 import { type DatabaseService } from "../database/database.service.js";
 import { type BusinessAccessService } from "../security/business-access.service.js";
 import { PurchaseOrdersService } from "./purchase-orders.service.js";
@@ -17,6 +18,15 @@ const access = {
   userId: 19n,
   userPublicId: "9dc31c21-87e7-4aa5-a1ac-648ebc812028",
 };
+
+const configuration = {
+  getInvoiceConversionPolicy: vi.fn().mockResolvedValue({
+    customerPoRequired: true,
+    approvalEvidenceRequired: true,
+    templateCode: "service-po-approval",
+    templateVersion: "1.0.0",
+  }),
+} as unknown as ConfigurationService;
 
 describe("PurchaseOrdersService", () => {
   const objectStore = {
@@ -53,6 +63,7 @@ describe("PurchaseOrdersService", () => {
       database as unknown as DatabaseService,
       businessAccess as unknown as BusinessAccessService,
       objectStore,
+      configuration,
     );
   });
 

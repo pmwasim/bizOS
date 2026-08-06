@@ -16,6 +16,7 @@ import {
 } from "@bizo/contracts/invoices";
 import {
   bestReadiness,
+  canCreateInvoiceFromQuotation,
   derivePurchaseOrderReadiness,
   type Readiness,
 } from "@bizo/contracts/purchase-orders";
@@ -29,6 +30,7 @@ import {
 } from "@bizo/database";
 import { invoicePdfObjectKey, sha256Hex, type ObjectStore } from "@bizo/storage";
 
+import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
 import { MailService } from "../mail/mail.service.js";
 import {
@@ -148,6 +150,7 @@ export class InvoicesService {
     @Inject(PdfService) private readonly pdf: PdfService,
     @Inject(MailService) private readonly mail: MailService,
     @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+    @Inject(ConfigurationService) private readonly configuration: ConfigurationService,
   ) {}
 
   async createFromQuotation(
@@ -157,8 +160,12 @@ export class InvoicesService {
     requestId: string,
   ): Promise<Invoice> {
     const access = await this.authorize(userPublicId, businessPublicId, "create");
+    const conversionPolicy = await this.configuration.getInvoiceConversionPolicy(
+      userPublicId,
+      businessPublicId,
+    );
 
-    return this.database.withScope(access, async (transaction) => {
+    const invoice = await this.database.withScope(access, async (transaction) => {
       const quotation = await transaction.document.findFirst({
         where: {
           businessId: access.businessId,
@@ -213,22 +220,26 @@ export class InvoicesService {
             quotationLinked: true,
           }),
         }));
-      const rollup = bestReadiness(readinessItems.map((item) => item.readiness));
-      if (rollup.code !== "READY_TO_INVOICE") {
+      const rollup = bestReadiness(
+        readinessItems.map((item) => item.readiness),
+        { customerPoRequired: conversionPolicy.customerPoRequired },
+      );
+      if (
+        !canCreateInvoiceFromQuotation({
+          customerPoRequired: conversionPolicy.customerPoRequired,
+          quotationStatus: quotation.status,
+          purchaseOrderReadiness: rollup,
+        })
+      ) {
         throw new BadRequestException({
           code: "QUOTATION_NOT_READY",
-          detail:
-            "This quotation is not ready to invoice yet. Finish purchase-order approval first.",
+          detail: conversionPolicy.customerPoRequired
+            ? "This quotation is not ready to invoice yet. Finish purchase-order approval first."
+            : "Send the quotation before creating an invoice.",
         });
       }
-      const readyPo = readinessItems.find((item) => item.readiness.code === "READY_TO_INVOICE")?.po;
-      if (!readyPo) {
-        throw new BadRequestException({
-          code: "QUOTATION_NOT_READY",
-          detail:
-            "This quotation is not ready to invoice yet. Finish purchase-order approval first.",
-        });
-      }
+      const readyPo =
+        readinessItems.find((item) => item.readiness.code === "READY_TO_INVOICE")?.po ?? null;
 
       const business = (await transaction.business.findUniqueOrThrow({
         where: { id: access.businessId },
@@ -300,9 +311,9 @@ export class InvoicesService {
           validUntil: this.toDatabaseDate(dueDate),
           dueDate: this.toDatabaseDate(dueDate),
           sourceQuotationId: quotation.id,
-          purchaseOrderId: readyPo.id,
-          projectReference: readyPo.projectReference,
-          poNumberSnapshot: readyPo.poNumber,
+          purchaseOrderId: readyPo?.id ?? null,
+          projectReference: readyPo?.projectReference ?? null,
+          poNumberSnapshot: readyPo?.poNumber ?? null,
           currencyCode: quotation.currencyCode,
           currencyScale: quotation.currencyScale,
           subtotalMinor: calculated.subtotalMinor.toString(),
@@ -336,13 +347,23 @@ export class InvoicesService {
           requestId,
           after: {
             sourceQuotationId: quotation.publicId,
-            purchaseOrderId: readyPo.publicId,
+            purchaseOrderId: readyPo?.publicId ?? null,
             status: document.status,
+            configurationTemplateCode: conversionPolicy.templateCode,
           },
         },
       });
       return this.mapInvoice(document);
     });
+
+    await this.configuration.createDocumentWorkflowContext({
+      userPublicId,
+      businessPublicId,
+      documentId: invoice.id,
+      documentType: "INVOICE",
+    });
+
+    return invoice;
   }
 
   async list(userPublicId: string, businessPublicId: string): Promise<Invoice[]> {
