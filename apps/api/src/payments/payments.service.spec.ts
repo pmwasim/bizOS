@@ -64,7 +64,10 @@ describe("PaymentsService", () => {
     vi.clearAllMocks();
     businessAccess.resolve.mockResolvedValue(access);
     businessAccess.assertAllowed.mockResolvedValue(undefined);
-    transaction.business.findFirst.mockResolvedValue({ baseCurrency: "SAR", currencyScale: 2 });
+    transaction.business.findFirst.mockResolvedValue({
+      baseCurrency: "SAR",
+      currencyScale: 2,
+    });
     transaction.payment.create.mockResolvedValue(paymentRow);
     transaction.payment.findMany.mockResolvedValue([]);
     service = new PaymentsService(
@@ -85,9 +88,9 @@ describe("PaymentsService", () => {
       new NotFoundException("We could not find that resource."),
     );
 
-    await expect(service.list(access.userPublicId, access.businessPublicId)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.list(access.userPublicId, access.businessPublicId),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(database.withScope).not.toHaveBeenCalled();
   });
 
