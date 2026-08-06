@@ -24,5 +24,8 @@ blob-report/
 packages/database/generated/
 packages/database/prisma/migrations/**/migration_lock.toml
 
+# Runtime object-store data must never be committed.
+apps/api/.data/
+
 *.log
 tmp/
