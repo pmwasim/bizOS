@@ -1,0 +1,63 @@
+name: Agent format refresh
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/agent-format-refresh.yml
+      - apps/api/src/payments/payments.service.spec.ts
+      - docs/journal/2026-08-07-harden-payment-boundary-and-runtime-artifacts.md
+      - packages/contracts/src/payments.spec.ts
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-format-refresh
+  cancel-in-progress: true
+
+jobs:
+  format:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.head_ref == 'agent/harden-payment-boundary'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/harden-payment-boundary
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install locked dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Format changed files
+        run: >-
+          pnpm exec prettier --write
+          apps/api/src/payments/payments.service.spec.ts
+          docs/journal/2026-08-07-harden-payment-boundary-and-runtime-artifacts.md
+          packages/contracts/src/payments.spec.ts
+      - name: Commit formatting
+        run: |
+          if git diff --quiet -- \
+            apps/api/src/payments/payments.service.spec.ts \
+            docs/journal/2026-08-07-harden-payment-boundary-and-runtime-artifacts.md \
+            packages/contracts/src/payments.spec.ts; then
+            echo "Formatting already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/api/src/payments/payments.service.spec.ts \
+            docs/journal/2026-08-07-harden-payment-boundary-and-runtime-artifacts.md \
+            packages/contracts/src/payments.spec.ts
+          git commit -m "style(payments): apply repository formatting"
+          git push origin HEAD:agent/harden-payment-boundary
