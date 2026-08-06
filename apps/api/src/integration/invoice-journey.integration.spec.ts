@@ -34,7 +34,7 @@ describe.runIf(databaseEnabled)("invoice journey with PostgreSQL boundaries", ()
     const configuration = new ConfigurationService(database, access);
     identity = new IdentityService(database);
     platform = new PlatformService(database, access, configuration);
-    customers = new CustomersService(database, access, {} as never);
+    customers = new CustomersService(database, access, { isConfigured: () => false } as never);
     mail = {
       sendQuotation: vi.fn().mockResolvedValue("integration-quotation-1"),
       sendInvoice: vi.fn().mockResolvedValue("integration-invoice-1"),
@@ -50,7 +50,7 @@ describe.runIf(databaseEnabled)("invoice journey with PostgreSQL boundaries", ()
       access,
       new PdfService(),
       mail as unknown as MailService,
-      {} as never,
+      { isConfigured: () => false } as never,
       configuration,
     );
     invoices = new InvoicesService(
@@ -59,7 +59,7 @@ describe.runIf(databaseEnabled)("invoice journey with PostgreSQL boundaries", ()
       new PdfService(),
       mail as unknown as MailService,
       objectStore,
-      {} as never,
+      { isConfigured: () => false } as never,
       configuration,
     );
   });
