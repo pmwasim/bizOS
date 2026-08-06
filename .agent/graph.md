@@ -18,10 +18,10 @@ layer above it.
 
 | Workspace | Type | Path | Depends on | Depended on by | Source | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 100 | 32 |
+| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 101 | 33 |
 | `@bizo/authorization` | package | `packages/authorization` | — | `@bizo/api` | 2 | 1 |
 | `@bizo/config` | package | `packages/config` | — | `@bizo/api`, `@bizo/web` | 5 | 2 |
-| `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 29 | 12 |
+| `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 30 | 13 |
 | `@bizo/database` | package | `packages/database` | `@bizo/contracts` | `@bizo/api` | 2 | 1 |
 | `@bizo/queue` | package | `packages/queue` | `@bizo/contracts` | — | 2 | 1 |
 | `@bizo/storage` | package | `packages/storage` | — | `@bizo/api` | 3 | 1 |
@@ -47,7 +47,7 @@ First-level source areas. These are the natural units for a work claim
 - `apps/api/src/integration` — 7 source files, 7 test files
 - `apps/api/src/mail` — 3 source files, 1 test file
 - `apps/api/src/onboarding` — 7 source files, 2 test files
-- `apps/api/src/payments` — 3 source files, 0 test files
+- `apps/api/src/payments` — 4 source files, 1 test file
 - `apps/api/src/platform` — 4 source files, 1 test file
 - `apps/api/src/purchase-orders` — 4 source files, 1 test file
 - `apps/api/src/security` — 14 source files, 4 test files

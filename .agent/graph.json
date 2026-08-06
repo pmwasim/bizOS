@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 100,
-      "testFiles": 32,
+      "sourceFiles": 101,
+      "testFiles": 33,
       "areas": [
         {
           "name": "common",
@@ -141,8 +141,8 @@
         {
           "name": "payments",
           "path": "apps/api/src/payments",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "platform",
@@ -271,8 +271,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 29,
-      "testFiles": 12,
+      "sourceFiles": 30,
+      "testFiles": 13,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -713,7 +713,7 @@
     },
     {
       "name": "check",
-      "command": "pnpm format:check && pnpm docs:check && pnpm security:local-services && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate && pnpm build"
+      "command": "pnpm format:check && pnpm docs:check && pnpm repo:artifacts && pnpm security:local-services && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate && pnpm build"
     },
     {
       "name": "clean",
@@ -802,6 +802,10 @@
     {
       "name": "prepare",
       "command": "lefthook install"
+    },
+    {
+      "name": "repo:artifacts",
+      "command": "node scripts/check-tracked-runtime-artifacts.mjs"
     },
     {
       "name": "security:audit",
