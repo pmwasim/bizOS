@@ -72,6 +72,26 @@ describe("BusinessAccessService", () => {
     }
   });
 
+  it("reserves payment completion and reversal for owner and admin roles", async () => {
+    const service = new BusinessAccessService({} as DatabaseService);
+
+    for (const role of [RoleCode.OWNER, RoleCode.ADMIN]) {
+      const access = { ...ownerAccess, role };
+      await expect(service.assertAllowed(access, "payments", "complete")).resolves.toBeUndefined();
+      await expect(service.assertAllowed(access, "payments", "reverse")).resolves.toBeUndefined();
+    }
+
+    for (const role of [RoleCode.MEMBER, RoleCode.STAFF, RoleCode.ACCOUNTANT]) {
+      const access = { ...ownerAccess, role };
+      await expect(service.assertAllowed(access, "payments", "complete")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.assertAllowed(access, "payments", "reverse")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    }
+  });
+
   it("lets staff work on operational records without finance administration", async () => {
     const service = new BusinessAccessService({} as DatabaseService);
     const staff = { ...ownerAccess, role: RoleCode.STAFF };
