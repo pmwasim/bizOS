@@ -16,8 +16,11 @@ Rules:
 ## Entries
 
 - [2026-08-06 — Render cold starts, keep-warm, and the OpenNext spike](2026-08-06-render-cold-start-and-opennext-spike.md)
-  - Agent: claude-opus · Status: In progress
+  - Agent: claude-opus (Cowork session) · Status: In progress — keep-warm and retry work complete
+    and verified; OpenNext build spike blocked
 - [2026-08-06 — Multi-agent workspace tooling](2026-08-06-multi-agent-workspace-tooling.md)
   - Agent: claude-opus · Status: Complete
 - [2026-08-06 — Module 7 Payment Recording](2026-08-06-module-7-payment-recording.md)
   - Agent: c0d88fc3-7c6c-444b-b0db-afbe4013189f · Status: Completed
+- [2026-08-06 — Fix brace-expansion override conflict for CJS minimatch compatibility](2026-08-06-fix-brace-expansion-override-conflict-for-cjs-minimatch-comp.md)
+  - Agent: antigravity-agent · Status: Complete
