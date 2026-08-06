@@ -22,7 +22,7 @@ const contentSecurityPolicy = [
   "frame-src 'self'",
   "img-src 'self' data: blob:",
   "object-src 'none'",
-  isProduction ? "script-src 'self'" : "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline'" + (isProduction ? "" : " 'unsafe-eval'"),
   "script-src-attr 'none'",
   "style-src 'self' 'unsafe-inline'",
   "connect-src 'self'",
