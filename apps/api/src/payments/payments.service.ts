@@ -46,40 +46,53 @@ export class PaymentsService {
     input: RecordPaymentRequest,
     requestId: string,
   ): Promise<Payment> {
+    this.assertAllocationTotal(input);
     const access = await this.authorize(userPublicId, businessPublicId, "payments", "create");
     return this.database.withScope(access, async (transaction) => {
-      // Resolve document IDs for allocations
+      const currencyScale = await this.requireBusinessCurrencyScale(
+        transaction,
+        access,
+        input.currencyCode,
+      );
       const resolvedAllocations = await Promise.all(
-        input.allocations.map(async (alloc) => {
+        input.allocations.map(async (allocation) => {
+          const targetCount =
+            Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
+          if (targetCount !== 1) {
+            throw new BadRequestException(
+              "Each allocation must reference exactly one invoice or purchase order.",
+            );
+          }
+
           let documentId: bigint | null = null;
           let purchaseOrderId: bigint | null = null;
 
-          if (alloc.documentId) {
-            const doc = await transaction.document.findFirst({
-              where: { businessId: access.businessId, publicId: alloc.documentId },
+          if (allocation.documentId) {
+            const document = await transaction.document.findFirst({
+              where: { businessId: access.businessId, publicId: allocation.documentId },
             });
-            if (!doc) {
-              throw new NotFoundException(`Invoice with ID ${alloc.documentId} not found.`);
+            if (!document) {
+              throw new NotFoundException(`Invoice with ID ${allocation.documentId} not found.`);
             }
-            documentId = doc.id;
+            documentId = document.id;
           }
 
-          if (alloc.purchaseOrderId) {
-            const po = await transaction.purchaseOrder.findFirst({
-              where: { businessId: access.businessId, publicId: alloc.purchaseOrderId },
+          if (allocation.purchaseOrderId) {
+            const purchaseOrder = await transaction.purchaseOrder.findFirst({
+              where: { businessId: access.businessId, publicId: allocation.purchaseOrderId },
             });
-            if (!po) {
+            if (!purchaseOrder) {
               throw new NotFoundException(
-                `Purchase Order with ID ${alloc.purchaseOrderId} not found.`,
+                `Purchase Order with ID ${allocation.purchaseOrderId} not found.`,
               );
             }
-            purchaseOrderId = po.id;
+            purchaseOrderId = purchaseOrder.id;
           }
 
           return {
             documentId,
             purchaseOrderId,
-            amountMinor: alloc.amountMinor,
+            amountMinor: allocation.amountMinor,
           };
         }),
       );
@@ -94,16 +107,16 @@ export class PaymentsService {
           paymentDate: new Date(`${input.paymentDate}T00:00:00.000Z`),
           amountMinor: input.amountMinor,
           currencyCode: input.currencyCode,
-          currencyScale: 2, // Ideally should come from global config or input
+          currencyScale,
           reference: input.reference,
           notes: input.notes,
           allocations: {
-            create: resolvedAllocations.map((alloc) => ({
+            create: resolvedAllocations.map((allocation) => ({
               tenantId: access.tenantId,
               businessId: access.businessId,
-              documentId: alloc.documentId,
-              purchaseOrderId: alloc.purchaseOrderId,
-              amountMinor: alloc.amountMinor,
+              documentId: allocation.documentId,
+              purchaseOrderId: allocation.purchaseOrderId,
+              amountMinor: allocation.amountMinor,
             })),
           },
         },
@@ -162,6 +175,7 @@ export class PaymentsService {
     input: RecordPaymentRequest,
     requestId: string,
   ): Promise<Payment> {
+    this.assertAllocationTotal(input);
     const access = await this.authorize(userPublicId, businessPublicId, "payments", "update");
     return this.database.withScope(access, async (transaction) => {
       const existing = await this.requirePayment(transaction, access, paymentPublicId);
@@ -169,42 +183,54 @@ export class PaymentsService {
         throw new BadRequestException("Only DRAFT payments can be edited.");
       }
 
+      const currencyScale = await this.requireBusinessCurrencyScale(
+        transaction,
+        access,
+        input.currencyCode,
+      );
       const resolvedAllocations = await Promise.all(
-        input.allocations.map(async (alloc) => {
+        input.allocations.map(async (allocation) => {
+          const targetCount =
+            Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
+          if (targetCount !== 1) {
+            throw new BadRequestException(
+              "Each allocation must reference exactly one invoice or purchase order.",
+            );
+          }
+
           let documentId: bigint | null = null;
           let purchaseOrderId: bigint | null = null;
 
-          if (alloc.documentId) {
-            const doc = await transaction.document.findFirst({
-              where: { businessId: access.businessId, publicId: alloc.documentId },
+          if (allocation.documentId) {
+            const document = await transaction.document.findFirst({
+              where: { businessId: access.businessId, publicId: allocation.documentId },
             });
-            if (!doc) {
-              throw new NotFoundException(`Invoice with ID ${alloc.documentId} not found.`);
+            if (!document) {
+              throw new NotFoundException(`Invoice with ID ${allocation.documentId} not found.`);
             }
-            documentId = doc.id;
+            documentId = document.id;
           }
 
-          if (alloc.purchaseOrderId) {
-            const po = await transaction.purchaseOrder.findFirst({
-              where: { businessId: access.businessId, publicId: alloc.purchaseOrderId },
+          if (allocation.purchaseOrderId) {
+            const purchaseOrder = await transaction.purchaseOrder.findFirst({
+              where: { businessId: access.businessId, publicId: allocation.purchaseOrderId },
             });
-            if (!po) {
+            if (!purchaseOrder) {
               throw new NotFoundException(
-                `Purchase Order with ID ${alloc.purchaseOrderId} not found.`,
+                `Purchase Order with ID ${allocation.purchaseOrderId} not found.`,
               );
             }
-            purchaseOrderId = po.id;
+            purchaseOrderId = purchaseOrder.id;
           }
 
           return {
             documentId,
             purchaseOrderId,
-            amountMinor: alloc.amountMinor,
+            amountMinor: allocation.amountMinor,
           };
         }),
       );
 
-      // Delete existing allocations and recreate them
       await transaction.paymentAllocation.deleteMany({
         where: { paymentId: existing.id },
       });
@@ -216,15 +242,16 @@ export class PaymentsService {
           paymentDate: new Date(`${input.paymentDate}T00:00:00.000Z`),
           amountMinor: input.amountMinor,
           currencyCode: input.currencyCode,
+          currencyScale,
           reference: input.reference,
           notes: input.notes,
           allocations: {
-            create: resolvedAllocations.map((alloc) => ({
+            create: resolvedAllocations.map((allocation) => ({
               tenantId: access.tenantId,
               businessId: access.businessId,
-              documentId: alloc.documentId,
-              purchaseOrderId: alloc.purchaseOrderId,
-              amountMinor: alloc.amountMinor,
+              documentId: allocation.documentId,
+              purchaseOrderId: allocation.purchaseOrderId,
+              amountMinor: allocation.amountMinor,
             })),
           },
         },
@@ -327,16 +354,45 @@ export class PaymentsService {
     });
   }
 
+  private assertAllocationTotal(input: RecordPaymentRequest): void {
+    const allocatedMinor = input.allocations.reduce(
+      (total, allocation) => total + BigInt(allocation.amountMinor),
+      0n,
+    );
+    if (allocatedMinor > BigInt(input.amountMinor)) {
+      throw new BadRequestException("Payment allocations cannot exceed the payment amount.");
+    }
+  }
+
   private async authorize(
     userPublicId: string,
     businessPublicId: string,
-    _object: AuthorizationObject,
-    _action: AuthorizationAction,
+    object: AuthorizationObject,
+    action: AuthorizationAction,
   ): Promise<BusinessAccessContext> {
     const access = await this.businessAccess.resolve(userPublicId, businessPublicId);
-    // Temporarily skipping strict assertAllowed check to avoid failing on new policy types until authz is seeded
-    // await this.businessAccess.assertAllowed(access, object, action);
+    await this.businessAccess.assertAllowed(access, object, action);
     return access;
+  }
+
+  private async requireBusinessCurrencyScale(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    currencyCode: string,
+  ): Promise<number> {
+    const business = await transaction.business.findFirst({
+      where: { id: access.businessId },
+      select: { baseCurrency: true, currencyScale: true },
+    });
+    if (!business) {
+      throw new NotFoundException("We could not find that business.");
+    }
+    if (business.baseCurrency !== currencyCode) {
+      throw new BadRequestException(
+        `Payment currency must match the business base currency (${business.baseCurrency}).`,
+      );
+    }
+    return business.currencyScale;
   }
 
   private detailInclude() {
@@ -376,12 +432,12 @@ export class PaymentsService {
       currencyScale: row.currencyScale,
       reference: row.reference,
       notes: row.notes,
-      allocations: row.allocations.map((alloc) => ({
-        id: alloc.publicId,
-        amountMinor: alloc.amountMinor.toFixed(0),
-        documentId: alloc.document?.publicId ?? null,
-        purchaseOrderId: alloc.purchaseOrder?.publicId ?? null,
-        createdAt: alloc.createdAt.toISOString(),
+      allocations: row.allocations.map((allocation) => ({
+        id: allocation.publicId,
+        amountMinor: allocation.amountMinor.toFixed(0),
+        documentId: allocation.document?.publicId ?? null,
+        purchaseOrderId: allocation.purchaseOrder?.publicId ?? null,
+        createdAt: allocation.createdAt.toISOString(),
       })),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
