@@ -79,7 +79,10 @@ export class ErpnextClient {
   async getDocument(docType: string, name: string): Promise<any> {
     const connection = this.requireConnection();
     const response = await this.fetcher(
-      new URL(`/api/resource/${encodeURIComponent(docType)}/${encodeURIComponent(name)}`, connection.baseUrl),
+      new URL(
+        `/api/resource/${encodeURIComponent(docType)}/${encodeURIComponent(name)}`,
+        connection.baseUrl,
+      ),
       {
         headers: {
           Accept: "application/json",
@@ -100,7 +103,10 @@ export class ErpnextClient {
   async updateDocument(docType: string, name: string, data: Record<string, unknown>): Promise<any> {
     const connection = this.requireConnection();
     const response = await this.fetcher(
-      new URL(`/api/resource/${encodeURIComponent(docType)}/${encodeURIComponent(name)}`, connection.baseUrl),
+      new URL(
+        `/api/resource/${encodeURIComponent(docType)}/${encodeURIComponent(name)}`,
+        connection.baseUrl,
+      ),
       {
         headers: {
           Accept: "application/json",

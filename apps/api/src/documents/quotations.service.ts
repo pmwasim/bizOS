@@ -209,7 +209,7 @@ export class QuotationsService {
             items: calculated.lines.map((line) => ({
               item_name: line.description,
               qty: parseFloat(line.quantity.toString()),
-              rate: parseFloat(line.unitPriceMinor.toString()) / (10 ** business.currencyScale),
+              rate: parseFloat(line.unitPriceMinor.toString()) / 10 ** business.currencyScale,
             })),
           });
         } catch (error) {

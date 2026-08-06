@@ -243,7 +243,14 @@ describe("QuotationsService delivery", () => {
     const mail = {
       sendQuotation: vi.fn().mockRejectedValue({ code: "ECONNREFUSED" }),
     } as unknown as MailService;
-    const service = new QuotationsService(database, businessAccess, pdf, mail, { isConfigured: () => false, createDocument: () => undefined } as unknown as ErpnextClient, configuration);
+    const service = new QuotationsService(
+      database,
+      businessAccess,
+      pdf,
+      mail,
+      { isConfigured: () => false, createDocument: () => undefined } as unknown as ErpnextClient,
+      configuration,
+    );
 
     await expect(
       service.send(

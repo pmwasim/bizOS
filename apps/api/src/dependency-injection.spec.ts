@@ -46,7 +46,10 @@ describe("Nest dependency injection", () => {
         { provide: ConfigurationService, useValue: configuration },
         { provide: PdfService, useValue: pdf },
         { provide: MailService, useValue: mail },
-        { provide: ERPNEXT_CLIENT, useValue: { isConfigured: () => false, createDocument: () => undefined } },
+        {
+          provide: ERPNEXT_CLIENT,
+          useValue: { isConfigured: () => false, createDocument: () => undefined },
+        },
       ],
     }).compile();
 
