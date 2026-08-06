@@ -16,9 +16,10 @@ Rules:
 ## Entries
 
 - [2026-08-07 — Harden payment boundary and runtime artifact handling](2026-08-07-harden-payment-boundary-and-runtime-artifacts.md)
-  - Agent: chatgpt-gpt-5.6-thinking · Status: In progress — GitHub CI pending
+  - Agent: chatgpt-gpt-5.6-thinking · Status: Complete — GitHub CI verified
 - [2026-08-06 — Render cold starts, keep-warm, and the OpenNext spike](2026-08-06-render-cold-start-and-opennext-spike.md)
-  - Agent: claude-opus · Status: In progress
+  - Agent: claude-opus (Cowork session) · Status: In progress — keep-warm and retry work complete
+    and verified; OpenNext build spike blocked
 - [2026-08-06 — Multi-agent workspace tooling](2026-08-06-multi-agent-workspace-tooling.md)
   - Agent: claude-opus · Status: Complete
 - [2026-08-06 — Module 7 Payment Recording](2026-08-06-module-7-payment-recording.md)

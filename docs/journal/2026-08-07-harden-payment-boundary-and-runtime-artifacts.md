@@ -55,7 +55,8 @@ selected by the lockfile.
 
 ## Verification
 
-GitHub Actions validated the final implementation at branch head `c85b367831850a69a17feaa198dbd9bac2486f92`.
+GitHub Actions validated the final implementation at branch head
+`c85b367831850a69a17feaa198dbd9bac2486f92`.
 
 ```text
 Dependency review run 31132221588       # passed
@@ -74,10 +75,10 @@ CI run 31132221613                      # passed
   Playwright desktop/mobile journeys    # passed
 ```
 
-The connected environment could not clone the repository because outbound DNS access was unavailable,
-so GitHub Actions was used as the independent executable validation environment. Temporary
-branch-only workflows were used to regenerate the lockfile and apply the repository's pinned
-Prettier version; both temporary workflows were removed after their commits landed.
+The connected environment could not clone the repository because outbound DNS access was
+unavailable, so GitHub Actions was used as the independent executable validation environment.
+Temporary branch-only workflows were used to regenerate the lockfile and apply the repository's
+pinned Prettier version; both temporary workflows were removed after their commits landed.
 
 ## Follow-ups
 
@@ -86,8 +87,8 @@ Prettier version; both temporary workflows were removed after their commits land
    force-update protected refs in a controlled maintenance window.
 2. Add transaction-safe cumulative allocation checks so completed payments cannot overpay an invoice
    or other target across multiple payment records.
-3. Define and test whether `STAFF`, `ACCOUNTANT`, and other roles should create, complete, or reverse
-   payments; this change intentionally preserves the existing policy table.
+3. Define and test whether `STAFF`, `ACCOUNTANT`, and other roles should create, complete, or
+   reverse payments; this change intentionally preserves the existing policy table.
 4. Add document-currency checks when target documents can differ from the business base currency or
    when governed multi-currency support is introduced.
 
