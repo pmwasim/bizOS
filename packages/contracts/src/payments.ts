@@ -31,7 +31,8 @@ export const paymentAllocationInputSchema = z
     amountMinor: positiveMinorUnitValueSchema,
   })
   .superRefine((allocation, context) => {
-    const targetCount = Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
+    const targetCount =
+      Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
     if (targetCount !== 1) {
       context.addIssue({
         code: "custom",
