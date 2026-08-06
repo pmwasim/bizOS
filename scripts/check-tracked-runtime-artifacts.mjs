@@ -15,6 +15,4 @@ if (forbiddenFiles.length > 0) {
   }
   console.error("Remove these files from Git and keep apps/api/.data/ ignored.");
   process.exitCode = 1;
-} else {
-  console.log("Tracked runtime artifact check passed.");
 }
