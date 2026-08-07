@@ -9,7 +9,8 @@ documentation
 
 Status: In progress — repository correction implemented; CI pending
 
-Related: [Issue #56 — Production `/signin` returns a stale Next.js 404](https://github.com/pmwasim/bizOS/issues/56)
+Related:
+[Issue #56 — Production `/signin` returns a stale Next.js 404](https://github.com/pmwasim/bizOS/issues/56)
 
 ## Context
 
@@ -83,5 +84,5 @@ repository or connected-source evidence.
 Working branch: `ops/retire-render-production-path`.
 
 Do not use Render for bizOS production. Issue #56 is the authoritative incident record. No Ubuntu
-production process was restarted, no Cloudflare route was changed, and no production secret was
-read or modified in this session.
+production process was restarted, no Cloudflare route was changed, and no production secret was read
+or modified in this session.

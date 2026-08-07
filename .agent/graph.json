@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 21,
-    "handbookDocumentCount": 80
+    "adrCount": 22,
+    "handbookDocumentCount": 81
   },
   "buildOrder": [
     {
@@ -186,7 +186,6 @@
         "docs/operations/n8n-integration-policy.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/ubuntu-cutover-handoff.md",
         "docs/spikes/opennext-cloudflare-web.md"
       ]
     },
@@ -676,6 +675,13 @@
       "status": "Accepted",
       "date": "2026-07-28",
       "path": "docs/decisions/0021-erpnext-foundation-customer-experience.md"
+    },
+    {
+      "id": "0022",
+      "title": "ADR-0022: Ubuntu production hosting",
+      "status": "Accepted",
+      "date": "2026-08-07",
+      "path": "docs/decisions/0022-ubuntu-production-hosting.md"
     }
   ],
   "rootCommands": [

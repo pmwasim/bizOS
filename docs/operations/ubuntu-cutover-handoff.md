@@ -62,8 +62,8 @@ blindly.
 ## Build verification
 
 The current web image/build uses the existing Next.js App Router application. The sign-in page lives
-at `apps/web/src/app/(auth)/signin/page.tsx`; the route group does not appear in the public URL, so it
-must resolve as `/signin`.
+at `apps/web/src/app/(auth)/signin/page.tsx`; the route group does not appear in the public URL, so
+it must resolve as `/signin`.
 
 Before restart or rollout:
 

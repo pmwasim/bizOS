@@ -50,13 +50,13 @@ forensics, but are removed from the active production control surface.
 3. The Render-specific GitHub production deployment workflow is removed from the active repository.
 4. Current operations documentation must identify Ubuntu as production and explicitly reject
    `RENDER_*` deployment instructions.
-5. The exact Ubuntu checkout path, process manager/container names, ports, Cloudflare origin mapping,
-   restart command, and rollback command must be discovered on the host and recorded before a new
-   automated production workflow is introduced.
-6. GitHub CI may build and validate deployable artifacts, but it must not claim production deployment
-   success without evidence from the Ubuntu host and the public hostname.
-7. Cloudflare remains the public DNS/TLS/ingress boundary as configured operationally; credentials and
-   tunnel secrets are not stored in this ADR.
+5. The exact Ubuntu checkout path, process manager/container names, ports, Cloudflare origin
+   mapping, restart command, and rollback command must be discovered on the host and recorded before
+   a new automated production workflow is introduced.
+6. GitHub CI may build and validate deployable artifacts, but it must not claim production
+   deployment success without evidence from the Ubuntu host and the public hostname.
+7. Cloudflare remains the public DNS/TLS/ingress boundary as configured operationally; credentials
+   and tunnel secrets are not stored in this ADR.
 
 ## Consequences
 

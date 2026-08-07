@@ -15,6 +15,9 @@ Rules:
 
 ## Entries
 
+- [2026-08-07 — Retire obsolete Render production path](2026-08-07-retire-render-production-path.md)
+  - Agent: chatgpt-gpt-5.6-thinking · Status: In progress — repository correction implemented; CI
+    pending
 - [2026-08-07 — Harden payment state-transition authorization](2026-08-07-payment-state-transition-authorization.md)
   - Agent: chatgpt-gpt-5.6-thinking · Status: Complete — GitHub CI verified
 - [2026-08-07 — Harden payment boundary and runtime artifact handling](2026-08-07-harden-payment-boundary-and-runtime-artifacts.md)
