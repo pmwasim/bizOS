@@ -20,9 +20,18 @@ blob-report/
 .env
 .env.*
 !.env.example
+.dev.vars
 
 packages/database/generated/
 packages/database/prisma/migrations/**/migration_lock.toml
 
+# Local object-store emulation data (R2 stand-in for dev) — disposable, per-machine, never shipped.
+apps/api/.data/
+
 *.log
 tmp/
+
+# Scratch coordination workspace for ad-hoc sub-agent fan-out (briefings, dispatch notes,
+# throwaway verification scripts). Not part of the AGENTS.md journal/graph system in .agent/
+# (singular) and never a deliverable — keep it local, never committed.
+.agents/

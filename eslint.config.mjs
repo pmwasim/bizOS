@@ -14,6 +14,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/generated/**",
       "**/node_modules/**",
+      ".agents/**",
     ],
   },
   eslint.configs.recommended,
