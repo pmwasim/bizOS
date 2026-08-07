@@ -8,7 +8,8 @@ Scope: apps/api/src/payments, apps/api/src/security
 
 Status: In progress — GitHub CI pending
 
-Related: [2026-08-07 — Harden payment boundary and runtime artifact handling](./2026-08-07-harden-payment-boundary-and-runtime-artifacts.md)
+Related:
+[2026-08-07 — Harden payment boundary and runtime artifact handling](./2026-08-07-harden-payment-boundary-and-runtime-artifacts.md)
 
 ## Context
 
@@ -46,5 +47,5 @@ GitHub CI pending
 
 ## Handoff notes
 
-Working branch: `agent/payment-state-transition-authz`. Do not merge until CI is green. No production
-deployment, secret change, data mutation, or history rewrite was performed.
+Working branch: `agent/payment-state-transition-authz`. Do not merge until CI is green. No
+production deployment, secret change, data mutation, or history rewrite was performed.
