@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   refresh:
+    # Temporary same-repository workflow; remove after generated files are committed.
     if: >-
       github.actor != 'github-actions[bot]' &&
       github.head_ref == 'agent/payment-state-transition-authz'
