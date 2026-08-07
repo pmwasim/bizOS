@@ -311,7 +311,9 @@ export class SalesOrdersService {
 
       const updated = (await transaction.document.update({
         where: { id: existing.id },
-        data: { status: DocumentStatus.ARCHIVED },
+        // documents_archive_consistency_check requires archivedAt to be set whenever status is
+        // ARCHIVED.
+        data: { status: DocumentStatus.ARCHIVED, archivedAt: new Date() },
         include: this.detailInclude(),
       })) as unknown as SalesOrderRecord;
 

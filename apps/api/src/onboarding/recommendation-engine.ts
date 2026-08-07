@@ -38,6 +38,12 @@ const IMPLEMENTED_MODULE_CODES: ReadonlySet<string> = new Set([
   "quotations",
   "purchase-orders",
   "invoices",
+  "sales-orders",
+  "delivery-service",
+  "payments",
+  "credit-notes",
+  "inventory",
+  "projects",
 ]);
 
 // Default-erp workflow refs (matches the seed snapshot).
@@ -112,6 +118,10 @@ export function recommendConfiguration(args: {
   const quotationsEnabled = answerBoolean(answers, "quotations");
   const taxRegistered = answerString(answers, "taxRegistration") === "registered";
   const numberingPrefix = answerString(answers, "numberingPreferences") ?? "QUO-";
+  const salesOrdersEnabled = answerBoolean(answers, "salesOrders");
+  const deliveryEnabled = answerBoolean(answers, "deliveryOrServiceCompletion");
+  const projectsEnabled = answerBoolean(answers, "projects");
+  const inventoryEnabled = answerBoolean(answers, "inventory");
 
   // Detect conflicting answers that prevent a safe recommendation.
   const conflicts: string[] = [];
@@ -152,21 +162,37 @@ export function recommendConfiguration(args: {
       reason: customerPo === "disabled" ? "Customer POs disabled by answer." : undefined,
     },
     { code: "invoices", enabled: true, reason: "Invoicing is always enabled." },
+    { code: "payments", enabled: true, reason: "Payments are always enabled." },
+    { code: "credit-notes", enabled: true, reason: "Credit notes are always enabled." },
+    {
+      code: "sales-orders",
+      enabled: salesOrdersEnabled,
+      reason: salesOrdersEnabled
+        ? "Sales orders enabled by answer."
+        : "Sales orders disabled by answer.",
+    },
+    {
+      code: "delivery-service",
+      enabled: deliveryEnabled,
+      reason: deliveryEnabled
+        ? "Delivery/service completion enabled by answer."
+        : "Delivery/service completion disabled by answer.",
+    },
+    {
+      code: "projects",
+      enabled: projectsEnabled,
+      reason: projectsEnabled ? "Projects enabled by answer." : "Projects disabled by answer.",
+    },
+    {
+      code: "inventory",
+      enabled: inventoryEnabled,
+      reason: inventoryEnabled ? "Inventory enabled by answer." : "Inventory disabled by answer.",
+    },
   ];
 
   // Unimplemented modules: surface them as disabled flags so the UI can show
   // the user their answers were recognized, but never enable them.
   const unimplementedFlags: OnboardingModuleFlag[] = [
-    { code: "sales-orders", enabled: false, reason: "Not implemented in this release." },
-    {
-      code: "delivery-service",
-      enabled: false,
-      reason: "Not implemented in this release.",
-    },
-    { code: "payments", enabled: false, reason: "Not implemented in this release." },
-    { code: "credit-notes", enabled: false, reason: "Not implemented in this release." },
-    { code: "inventory", enabled: false, reason: "Not implemented in this release." },
-    { code: "projects", enabled: false, reason: "Not implemented in this release." },
     {
       code: "supplier-purchases",
       enabled: false,

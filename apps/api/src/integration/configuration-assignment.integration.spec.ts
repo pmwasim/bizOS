@@ -90,7 +90,11 @@ describe.runIf(databaseEnabled)("configuration assignment integration with Postg
     const enabledCodes = enabled.map((m) => m.code).sort();
     expect(enabledCodes).toContain("customers");
     expect(enabledCodes).toContain("quotations");
-    expect(enabledCodes).not.toContain("sales-orders");
+    // sales-orders shipped this session (see the phase-1 implementation journal entry) and is
+    // enabled for newly onboarded businesses now; supplier-purchases has not shipped and is the
+    // current stand-in for "this module is still filtered out because it's unimplemented".
+    expect(enabledCodes).toContain("sales-orders");
+    expect(enabledCodes).not.toContain("supplier-purchases");
   }, 60_000);
 
   it("captures a document workflow context tied to the active assignment", async () => {

@@ -118,24 +118,22 @@ export const ONBOARDING_QUESTIONNAIRE: OnboardingQuestionnaire =
           {
             id: "salesOrders",
             type: "boolean",
-            prompt: "Convert accepted quotations into sales orders?",
-            helpText: "Sales orders are not yet implemented.",
+            prompt: "Track confirmed customer orders as sales orders?",
+            helpText: "Sales orders are recorded and confirmed independently of quotations today.",
             options: [
               { value: "true", label: "Yes" },
               { value: "false", label: "No" },
             ],
-            disabledOptions: ["true"],
           },
           {
             id: "deliveryOrServiceCompletion",
             type: "boolean",
-            prompt: "Record delivery or service completion before invoicing?",
-            helpText: "Delivery tracking is not yet implemented.",
+            prompt: "Record delivery notes for goods or services provided?",
+            helpText: "Delivery notes can optionally reference a sales order.",
             options: [
               { value: "true", label: "Yes" },
               { value: "false", label: "No" },
             ],
-            disabledOptions: ["true"],
           },
           {
             id: "partialInvoicing",
@@ -157,13 +155,12 @@ export const ONBOARDING_QUESTIONNAIRE: OnboardingQuestionnaire =
           {
             id: "projects",
             type: "boolean",
-            prompt: "Track projects with milestones?",
-            helpText: "Projects are not yet implemented.",
+            prompt: "Track projects and link them to customers?",
+            helpText: "Milestones and time tracking are not implemented yet.",
             options: [
               { value: "true", label: "Yes" },
               { value: "false", label: "No" },
             ],
-            disabledOptions: ["true"],
           },
           {
             id: "supplierPurchasing",
@@ -179,13 +176,12 @@ export const ONBOARDING_QUESTIONNAIRE: OnboardingQuestionnaire =
           {
             id: "inventory",
             type: "boolean",
-            prompt: "Track inventory and stock movements?",
-            helpText: "Inventory is not yet implemented.",
+            prompt: "Keep an item master for products you sell?",
+            helpText: "Stock movement tracking and valuation (FIFO/AVCO) are not implemented yet.",
             options: [
               { value: "true", label: "Yes" },
               { value: "false", label: "No" },
             ],
-            disabledOptions: ["true"],
           },
           {
             id: "partialPayments",

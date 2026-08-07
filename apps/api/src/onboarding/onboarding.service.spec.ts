@@ -90,10 +90,12 @@ describe("OnboardingService", () => {
     it("surfaces unimplemented modules as disabled options", () => {
       const service = new OnboardingService(createConfigurationMock());
       const questionnaire = service.getQuestionnaire();
-      const projectsQuestion = questionnaire.steps
+      // supplier-purchases (unlike projects/inventory, which shipped this session) has no
+      // service backing it yet, so its questionnaire toggle stays disabled.
+      const supplierPurchasingQuestion = questionnaire.steps
         .flatMap((step) => step.questions)
-        .find((q) => q.id === "projects");
-      expect(projectsQuestion?.disabledOptions).toContain("true");
+        .find((q) => q.id === "supplierPurchasing");
+      expect(supplierPurchasingQuestion?.disabledOptions).toContain("true");
     });
   });
 
@@ -174,7 +176,7 @@ describe("OnboardingService", () => {
       expect(recommendation.summary.some((line) => line.includes("conflicting"))).toBe(true);
     });
 
-    it("never enables unimplemented modules even when the user answers yes", async () => {
+    it("enables projects and inventory by answer now that they've shipped, but never supplier-purchases", async () => {
       const service = new OnboardingService(createConfigurationMock());
       const recommendation = await service.recommend({
         answers: {
@@ -186,6 +188,33 @@ describe("OnboardingService", () => {
           projects: "true",
           inventory: "true",
           supplierPurchasing: "true",
+          taxRegistration: "not",
+          numberingPreferences: "Q-",
+        },
+      });
+      const projects = recommendation.enabledModules.find((m) => m.code === "projects");
+      expect(projects?.enabled).toBe(true);
+      const inventory = recommendation.enabledModules.find((m) => m.code === "inventory");
+      expect(inventory?.enabled).toBe(true);
+      // supplier-purchases has no service backing it yet -- the engine must refuse to enable it
+      // even though the questionnaire answer says "true".
+      const supplierPurchases = recommendation.enabledModules.find(
+        (m) => m.code === "supplier-purchases",
+      );
+      expect(supplierPurchases?.enabled).toBe(false);
+    });
+
+    it("disables projects and inventory when answered no", async () => {
+      const service = new OnboardingService(createConfigurationMock());
+      const recommendation = await service.recommend({
+        answers: {
+          country: "SA",
+          currency: "SAR",
+          businessType: "services",
+          quotations: "true",
+          customerPurchaseOrders: "optional",
+          projects: "false",
+          inventory: "false",
           taxRegistration: "not",
           numberingPreferences: "Q-",
         },
