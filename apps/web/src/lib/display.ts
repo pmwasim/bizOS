@@ -1,12 +1,16 @@
 export function formatMoney(
-  amountMinor: string,
+  amountMinor: string | number,
   currency: string,
-  scale: number,
+  scale = 2,
   locale = "en",
 ): string {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(
     Number(amountMinor) / 10 ** scale,
   );
+}
+
+export function formatMinor(amountMinor: string | number, scale = 2, currency = "USD"): string {
+  return formatMoney(amountMinor, currency, scale);
 }
 
 export function estimateQuotationTotal(
@@ -17,9 +21,12 @@ export function estimateQuotationTotal(
   }>,
 ): number {
   return lines.reduce((sum, line) => {
-    const subtotal = Number(line.quantity) * Number(line.unitPrice);
-    return (
-      sum + (Number.isFinite(subtotal) ? subtotal * (1 + Number(line.taxRatePercent) / 100) : 0)
-    );
+    const qty = Number(String(line.quantity ?? "").replace(/,/g, ""));
+    const price = Number(String(line.unitPrice ?? "").replace(/,/g, ""));
+    const tax = Number(String(line.taxRatePercent ?? "").replace(/,/g, ""));
+    const subtotal = qty * price;
+    if (!Number.isFinite(subtotal) || subtotal <= 0) return sum;
+    const taxMultiplier = Number.isFinite(tax) && tax > 0 ? 1 + tax / 100 : 1;
+    return sum + subtotal * taxMultiplier;
   }, 0);
 }

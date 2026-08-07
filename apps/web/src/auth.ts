@@ -7,6 +7,9 @@ import { readWebEnvironment } from "@bizo/config/web";
 import { clientIpHeaders } from "@/lib/client-ip";
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
+  trustHost: true,
+  useSecureCookies:
+    process.env.NODE_ENV === "production" && Boolean(process.env.AUTH_URL?.startsWith("https://")),
   pages: {
     signIn: "/signin",
   },
@@ -42,6 +45,15 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch {
+        // Fall through
+      }
+      return baseUrl;
+    },
     jwt({ token, user }) {
       if (user) {
         token.userId = user.id;

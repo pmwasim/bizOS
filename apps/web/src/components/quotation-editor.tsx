@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useSyncExternalStore, useMemo, useState } from "react";
 
 import { type Customer } from "@bizo/contracts/customers";
 
@@ -16,6 +16,15 @@ interface EditorLine {
   quantity: string;
   taxRatePercent: string;
   unitPrice: string;
+}
+
+const emptySubscribe = () => () => {};
+function useIsHydrated() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
 }
 
 export function QuotationEditor({
@@ -35,6 +44,7 @@ export function QuotationEditor({
 }) {
   const action = createQuotationAction.bind(null, businessId);
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
+  const hydrated = useIsHydrated();
   const [lines, setLines] = useState<EditorLine[]>([
     {
       id: "line-1",
@@ -70,7 +80,7 @@ export function QuotationEditor({
   }
 
   return (
-    <form action={formAction} className="quote-editor">
+    <form action={formAction} className="quote-editor" data-hydrated={hydrated}>
       <ActionMessage error={state.error} />
       <label className="field customer-select">
         <span>Customer</span>
@@ -97,8 +107,12 @@ export function QuotationEditor({
             <label>
               <span className="mobile-field-label">Description</span>
               <input
-                value={line.description}
+                name="description"
+                defaultValue={line.description}
                 onChange={(event) => update(line.id, "description", event.target.value)}
+                onInput={(event) =>
+                  update(line.id, "description", (event.target as HTMLInputElement).value)
+                }
                 placeholder="e.g. Website design"
                 required
                 maxLength={500}
@@ -108,8 +122,12 @@ export function QuotationEditor({
             <label>
               <span className="mobile-field-label">Quantity</span>
               <input
-                value={line.quantity}
+                name="quantity"
+                defaultValue={line.quantity}
                 onChange={(event) => update(line.id, "quantity", event.target.value)}
+                onInput={(event) =>
+                  update(line.id, "quantity", (event.target as HTMLInputElement).value)
+                }
                 inputMode="decimal"
                 required
                 aria-label={`Item ${index + 1} quantity`}
@@ -120,8 +138,12 @@ export function QuotationEditor({
               <div className="money-input">
                 <span>{currency}</span>
                 <input
-                  value={line.unitPrice}
+                  name="unitPrice"
+                  defaultValue={line.unitPrice}
                   onChange={(event) => update(line.id, "unitPrice", event.target.value)}
+                  onInput={(event) =>
+                    update(line.id, "unitPrice", (event.target as HTMLInputElement).value)
+                  }
                   inputMode="decimal"
                   placeholder="0.00"
                   required
@@ -132,8 +154,12 @@ export function QuotationEditor({
             <label>
               <span className="mobile-field-label">Tax %</span>
               <input
-                value={line.taxRatePercent}
+                name="taxRatePercent"
+                defaultValue={line.taxRatePercent}
                 onChange={(event) => update(line.id, "taxRatePercent", event.target.value)}
+                onInput={(event) =>
+                  update(line.id, "taxRatePercent", (event.target as HTMLInputElement).value)
+                }
                 inputMode="decimal"
                 aria-label={`Item ${index + 1} tax percent`}
                 required
