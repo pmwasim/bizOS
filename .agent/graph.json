@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 21,
-    "handbookDocumentCount": 80
+    "adrCount": 22,
+    "handbookDocumentCount": 82
   },
   "buildOrder": [
     {
@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 100,
-      "testFiles": 32,
+      "sourceFiles": 127,
+      "testFiles": 33,
       "areas": [
         {
           "name": "common",
@@ -77,6 +77,18 @@
           "path": "apps/api/src/configuration",
           "sourceFiles": 7,
           "testFiles": 3
+        },
+        {
+          "name": "credit-notes",
+          "path": "apps/api/src/credit-notes",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "crm",
+          "path": "apps/api/src/crm",
+          "sourceFiles": 4,
+          "testFiles": 0
         },
         {
           "name": "customers",
@@ -97,9 +109,15 @@
           "testFiles": 0
         },
         {
+          "name": "delivery-notes",
+          "path": "apps/api/src/delivery-notes",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
           "name": "documents",
           "path": "apps/api/src/documents",
-          "sourceFiles": 14,
+          "sourceFiles": 15,
           "testFiles": 4
         },
         {
@@ -127,6 +145,12 @@
           "testFiles": 7
         },
         {
+          "name": "inventory",
+          "path": "apps/api/src/inventory",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
           "name": "mail",
           "path": "apps/api/src/mail",
           "sourceFiles": 3,
@@ -151,10 +175,22 @@
           "testFiles": 1
         },
         {
+          "name": "projects",
+          "path": "apps/api/src/projects",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
           "name": "purchase-orders",
           "path": "apps/api/src/purchase-orders",
           "sourceFiles": 4,
           "testFiles": 1
+        },
+        {
+          "name": "sales-orders",
+          "path": "apps/api/src/sales-orders",
+          "sourceFiles": 3,
+          "testFiles": 0
         },
         {
           "name": "security",
@@ -163,9 +199,21 @@
           "testFiles": 4
         },
         {
+          "name": "statements",
+          "path": "apps/api/src/statements",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
           "name": "storage",
           "path": "apps/api/src/storage",
           "sourceFiles": 2,
+          "testFiles": 0
+        },
+        {
+          "name": "suppliers",
+          "path": "apps/api/src/suppliers",
+          "sourceFiles": 3,
           "testFiles": 0
         },
         {
@@ -179,6 +227,7 @@
         "docs/architecture.md",
         "docs/decisions/0015-managed-hosting-behind-cloudflare.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/decisions/0022-web-tier-cloudflare-workers-hosting-split.md",
         "docs/deployment-handoff-cursor.md",
         "docs/document-templates-plan.md",
         "docs/multi-agent-protocol.md",
@@ -187,6 +236,7 @@
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-cutover-handoff.md",
+        "docs/prd.md",
         "docs/spikes/opennext-cloudflare-web.md"
       ]
     },
@@ -215,7 +265,8 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/prd.md"
       ]
     },
     {
@@ -271,8 +322,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 29,
-      "testFiles": 12,
+      "sourceFiles": 38,
+      "testFiles": 13,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -282,7 +333,8 @@
         "docs/multi-agent-protocol.md",
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/phase4-configuration-architecture-design.md"
+        "docs/operations/phase4-configuration-architecture-design.md",
+        "docs/prd.md"
       ]
     },
     {
@@ -324,7 +376,8 @@
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
-        "docs/operations/production-runbook.md"
+        "docs/operations/production-runbook.md",
+        "docs/prd.md"
       ]
     },
     {
@@ -386,7 +439,8 @@
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/r2-object-storage.md"
+        "docs/operations/r2-object-storage.md",
+        "docs/prd.md"
       ]
     },
     {
@@ -442,19 +496,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 73,
+      "sourceFiles": 103,
       "testFiles": 4,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 43,
+          "sourceFiles": 63,
           "testFiles": 2
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 19,
+          "sourceFiles": 29,
           "testFiles": 0
         },
         {
@@ -468,11 +522,14 @@
         "docs/architecture.md",
         "docs/decisions/0015-managed-hosting-behind-cloudflare.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/decisions/0022-web-tier-cloudflare-workers-hosting-split.md",
+        "docs/decisions/README.md",
         "docs/deployment-handoff-cursor.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-cutover-handoff.md",
+        "docs/prd.md",
         "docs/spikes/opennext-cloudflare-web.md"
       ]
     }
@@ -676,6 +733,13 @@
       "status": "Accepted",
       "date": "2026-07-28",
       "path": "docs/decisions/0021-erpnext-foundation-customer-experience.md"
+    },
+    {
+      "id": "0022",
+      "title": "ADR-0022: Web tier hosting split — apps/web to Cloudflare Workers via OpenNext",
+      "status": "Proposed",
+      "date": "2026-08-07",
+      "path": "docs/decisions/0022-web-tier-cloudflare-workers-hosting-split.md"
     }
   ],
   "rootCommands": [
@@ -786,6 +850,10 @@
     {
       "name": "ops:check:n8n",
       "command": "bash scripts/ops/check-with-n8n-notify.sh"
+    },
+    {
+      "name": "ops:deploy:local",
+      "command": "bash scripts/ops/deploy-local.sh"
     },
     {
       "name": "ops:n8n:import",
