@@ -1,49 +1,44 @@
+"use client";
+
 import Link from "next/link";
-import { AuthError } from "next-auth";
-import { redirect } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { type FormEvent, useState } from "react";
 
-import { auth, signIn } from "@/auth";
-
-type SignInPageProps = {
-  searchParams: Promise<{
-    callbackUrl?: string;
-    error?: string;
-  }>;
-};
-
-function safeCallbackUrl(value: string | undefined) {
+function safeCallbackUrl(value: string | null) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/start";
 }
 
-export default async function SignInPage({ searchParams }: SignInPageProps) {
-  const session = await auth();
-  if (session) redirect("/start");
+export default function SignInPage() {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  const params = await searchParams;
-  const callbackUrl = safeCallbackUrl(params.callbackUrl);
-  const hasCredentialError = params.error === "CredentialsSignin";
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
 
-  async function authenticate(formData: FormData) {
-    "use server";
-
-    const email = formData.get("email");
-    const password = formData.get("password");
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "");
+    const password = String(formData.get("password") ?? "");
 
     try {
-      await signIn("credentials", {
+      const result = await signIn("credentials", {
         email,
         password,
-        redirectTo: callbackUrl,
+        redirect: false,
       });
-    } catch (error) {
-      if (error instanceof AuthError) {
-        const query = new URLSearchParams({
-          error: "CredentialsSignin",
-          callbackUrl,
-        });
-        redirect(`/signin?${query.toString()}`);
+
+      if (!result?.ok) {
+        setError("Email or password is incorrect. Please try again.");
+        return;
       }
-      throw error;
+
+      const callbackUrl = safeCallbackUrl(new URLSearchParams(window.location.search).get("callbackUrl"));
+      window.location.assign(callbackUrl);
+    } catch {
+      setError("Sign in is temporarily unavailable. Please try again.");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -60,10 +55,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <p>Use the email and password for your bizOS account.</p>
         </div>
 
-        <form action={authenticate} className="form-stack">
-          {hasCredentialError ? (
-            <div className="form-error" role="alert">
-              Email or password is incorrect. Please try again.
+        <form className="form-stack" onSubmit={handleSubmit}>
+          {error ? (
+            <div className="form-error" role="alert" aria-live="polite">
+              {error}
             </div>
           ) : null}
 
@@ -71,6 +66,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             <span>Email</span>
             <input
               autoComplete="email"
+              autoFocus
+              disabled={pending}
               inputMode="email"
               name="email"
               required
@@ -80,17 +77,22 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
           <label className="field">
             <span>Password</span>
-            <input autoComplete="current-password" name="password" required type="password" />
+            <input
+              autoComplete="current-password"
+              disabled={pending}
+              name="password"
+              required
+              type="password"
+            />
           </label>
 
-          <button className="button button-primary" type="submit">
-            Sign in
+          <button className="button button-primary" disabled={pending} type="submit">
+            {pending ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
         <p className="auth-note">
-          Access is limited to accounts already enabled for the private beta. If you need access,
-          return to the home page and use the beta request flow.
+          Access is limited to accounts already enabled for the private beta.
         </p>
       </section>
     </main>
