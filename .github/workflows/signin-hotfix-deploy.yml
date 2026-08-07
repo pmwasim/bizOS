@@ -7,7 +7,8 @@ on:
       - .github/workflows/signin-hotfix-deploy.yml
 
 permissions:
-  contents: write
+  contents: read
+  issues: write
 
 concurrency:
   group: signin-hotfix-production-deploy
@@ -21,7 +22,23 @@ jobs:
       HOTFIX_SHA: dbcfa78f8c6ef38c4065c884fe2024ddff6dc269
       SIGNIN_URL: https://bizos.qloudihub.com/signin
     steps:
+      - name: Check whether hotfix is already live
+        id: current
+        run: |
+          body=$(mktemp)
+          code=$(curl --silent --show-error --location \
+            --output "$body" --write-out '%{http_code}' "$SIGNIN_URL" || true)
+          if [ "$code" = "200" ] && grep -q "Sign in to bizOS" "$body"; then
+            echo "live=true" >> "$GITHUB_OUTPUT"
+            echo "Hotfix is already live."
+          else
+            echo "live=false" >> "$GITHUB_OUTPUT"
+            echo "Current production response does not contain the sign-in form (HTTP $code)."
+          fi
+          rm -f "$body"
+
       - name: Require Render credentials
+        if: steps.current.outputs.live != 'true'
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
@@ -30,6 +47,7 @@ jobs:
           test -n "$RENDER_WEB_SERVICE_ID"
 
       - name: Deploy exact web hotfix commit
+        if: steps.current.outputs.live != 'true'
         id: deploy
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -47,6 +65,7 @@ jobs:
           echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
 
       - name: Wait for Render deploy
+        if: steps.current.outputs.live != 'true'
         env:
           DEPLOY_ID: ${{ steps.deploy.outputs.deploy_id }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -86,31 +105,18 @@ jobs:
           echo "Production sign-in verification failed."
           exit 1
 
-      - name: Check out main for deployment receipt
-        if: always()
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-
-      - name: Record deployment receipt
-        if: always()
+      - name: Report success
+        if: success()
         env:
-          STATUS: ${{ job.status }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p ops/deploy-receipts
-          cat > ops/deploy-receipts/signin-hotfix.json <<EOF
-          {
-            "hotfixSha": "${HOTFIX_SHA}",
-            "signinUrl": "${SIGNIN_URL}",
-            "status": "${STATUS}",
-            "workflowRun": "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          }
-          EOF
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ops/deploy-receipts/signin-hotfix.json
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "ops: record sign-in hotfix deployment"
-          git push origin HEAD:main
+          gh issue comment 62 --repo "$GITHUB_REPOSITORY" --body \
+            "SUCCESS: \`${HOTFIX_SHA}\` is live at ${SIGNIN_URL}; HTTP 200 and the expected sign-in form were verified. Workflow: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 62 --repo "$GITHUB_REPOSITORY" --body \
+            "FAILURE: production verification for \`${HOTFIX_SHA}\` did not complete successfully. Workflow: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
