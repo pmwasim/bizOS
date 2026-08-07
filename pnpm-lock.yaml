@@ -131,8 +131,8 @@ importers:
         specifier: 8.3.0
         version: 8.3.0
       jose:
-        specifier: 6.2.4
-        version: 6.2.4
+        specifier: 6.2.8
+        version: 6.2.8
       multer:
         specifier: 2.2.0
         version: 2.2.0
@@ -201,8 +201,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       jose:
-        specifier: 6.2.4
-        version: 6.2.4
+        specifier: 6.2.8
+        version: 6.2.8
       lucide-react:
         specifier: 1.27.0
         version: 1.27.0(react@19.2.8)
@@ -3306,8 +3306,8 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  jose@6.2.4:
-    resolution: {integrity: sha512-N8acGzVsQy6M/fjFcxtysNc4Q379TcM5dM/qKkNtsHFji88yANnXTr7BLeP75iPnFwBfQzM/jg2BZ9+HZrHCZA==}
+  jose@6.2.8:
+    resolution: {integrity: sha512-Bsdjwm3Qsd/P0jR+BHDe3LytDfY7WBq2HmCCLIwuVRHMuEC9ae7/R474GIUdF1NgCyZjzVo/A9DOiOBtXq8ZoQ==}
 
   js-md5@0.8.3:
     resolution: {integrity: sha512-qR0HB5uP6wCuRMrWPTrkMaev7MJZwJuuw4fnwAzRgP4J4/F8RwtodOKpGp4XpqsLBFzzgqIO42efFAyz2Et6KQ==}
@@ -4815,7 +4815,7 @@ snapshots:
   '@auth/core@0.41.3':
     dependencies:
       '@panva/hkdf': 1.2.1
-      jose: 6.2.4
+      jose: 6.2.8
       oauth4webapi: 3.8.6
       preact: 10.24.3
       preact-render-to-string: 6.5.11(preact@10.24.3)
@@ -7901,7 +7901,7 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@6.2.4: {}
+  jose@6.2.8: {}
 
   js-md5@0.8.3: {}
 
