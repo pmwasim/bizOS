@@ -55,8 +55,8 @@ CI run 31133327118                      # passed
   Playwright desktop/mobile journeys    # passed
 ```
 
-The final branch diff was also reviewed after removal of the temporary metadata workflow. It contains
-only the two authorization/service files, their tests, and journal metadata.
+The final branch diff was also reviewed after removal of the temporary metadata workflow. It
+contains only the two authorization/service files, their tests, and journal metadata.
 
 ## Follow-ups
 
