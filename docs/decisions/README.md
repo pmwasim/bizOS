@@ -3,11 +3,12 @@
 ADRs capture durable choices, alternatives, consequences, and review triggers. Accepted ADRs are
 constraints until superseded.
 
-| [0019](0019-open-source-leverage-default-erp-foundation.md) | Open-source leverage for Default ERP
-foundation | Superseded | | [0020](0020-configuration-aware-invoice-conversion.md) |
-Configuration-aware invoice conversion | Accepted | |
-[0021](0021-erpnext-foundation-customer-experience.md) | ERPNext foundation with bizOS customer
-experience | Accepted |
+| ADR                                                         | Decision                                          | Status     |
+| ----------------------------------------------------------- | ------------------------------------------------- | ---------- |
+| [0019](0019-open-source-leverage-default-erp-foundation.md) | Open-source leverage for Default ERP foundation   | Superseded |
+| [0020](0020-configuration-aware-invoice-conversion.md)      | Configuration-aware invoice conversion            | Accepted   |
+| [0021](0021-erpnext-foundation-customer-experience.md)      | ERPNext foundation with bizOS customer experience | Accepted   |
+| [0022](0022-ubuntu-production-hosting.md)                   | Ubuntu production hosting                         | Accepted   |
 
 ## Template
 

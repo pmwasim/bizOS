@@ -1,0 +1,140 @@
+name: Production release gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_sha:
+        description: Full 40-character commit SHA to validate (defaults to workflow SHA)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release-gate-${{ inputs.git_sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate release candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      API_INTERNAL_URL: http://localhost:3001/api/v1
+      AUTH_URL: http://127.0.0.1:3000
+      AUTH_SECRET: ci-only-auth-secret-that-is-at-least-32-bytes
+      DATABASE_URL: postgresql://bizo:ci-only@localhost:5432/bizo
+      INTERNAL_AUTH_SECRET: ci-only-internal-auth-secret-at-least-32-bytes
+      NEXT_TELEMETRY_DISABLED: "1"
+      REDIS_PASSWORD: ci-only-redis-password
+      REDIS_URL: redis://:ci-only-redis-password@127.0.0.1:6379
+      RUN_DATABASE_TESTS: "true"
+      RUN_REDIS_TESTS: "true"
+      SMTP_FROM: quotes@example.test
+      SMTP_URL: smtp://localhost:1025
+      TURBO_TELEMETRY_DISABLED: "1"
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: bizo
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_USER: bizo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bizo -d bizo" --health-interval 5s --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Resolve and validate candidate SHA
+        id: candidate
+        env:
+          REQUESTED_SHA: ${{ inputs.git_sha }}
+          DEFAULT_SHA: ${{ github.sha }}
+        run: |
+          sha="${REQUESTED_SHA:-$DEFAULT_SHA}"
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Release SHA must be a full 40-character lowercase git SHA."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Validating release candidate: $sha"
+
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.candidate.outputs.sha }}
+          persist-credentials: false
+
+      - name: Start authenticated Redis and SMTP test services
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if docker pull redis:8-alpine && docker pull axllent/mailpit:v1.30.0; then
+              break
+            fi
+            echo "Docker Hub pull failed (attempt ${attempt}); retrying..."
+            sleep $((attempt * 5))
+          done
+          docker run --detach --name bizo-release-redis \
+            --publish 127.0.0.1:6379:6379 \
+            redis:8-alpine redis-server --requirepass "$REDIS_PASSWORD"
+          docker run --detach --name bizo-release-mailpit \
+            --publish 127.0.0.1:1025:1025 \
+            --publish 127.0.0.1:8025:8025 \
+            axllent/mailpit:v1.30.0
+          for attempt in {1..30}; do
+            if docker exec -e REDISCLI_AUTH="$REDIS_PASSWORD" bizo-release-redis redis-cli ping \
+              && curl --fail --silent http://127.0.0.1:8025/livez; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs bizo-release-redis
+          docker logs bizo-release-mailpit
+          exit 1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies
+        run: pnpm security:audit
+
+      - name: Apply test database migrations
+        run: pnpm --filter @bizo/database prisma:migrate:deploy
+
+      - name: Verify test database migration status
+        run: pnpm --filter @bizo/database exec prisma migrate status
+
+      - name: Run foundation gate
+        run: pnpm check
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run desktop and mobile journeys
+        run: pnpm test:e2e
+
+      - name: Record release-gate summary
+        if: always()
+        env:
+          CANDIDATE_SHA: ${{ steps.candidate.outputs.sha }}
+        run: |
+          {
+            echo "## Production release gate"
+            echo "- Candidate SHA: \`${CANDIDATE_SHA}\`"
+            echo "- Scope: validation only"
+            echo "- Production deploy: not performed"
+            echo "- Production migration: not performed"
+            echo "- Hosting credentials: not accessed"
+            echo "- Next step after success: deploy the exact SHA through the documented Ubuntu production mechanism, then run local and public release-readiness probes."
+          } >> "$GITHUB_STEP_SUMMARY"
