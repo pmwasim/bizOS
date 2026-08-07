@@ -173,4 +173,39 @@ describe("PaymentsService", () => {
 
     expect(transaction.payment.create).not.toHaveBeenCalled();
   });
+
+  it("uses dedicated authorization actions for completion and reversal", async () => {
+    transaction.payment.findFirst.mockResolvedValueOnce(paymentRow);
+    transaction.payment.update.mockResolvedValueOnce({
+      ...paymentRow,
+      status: PaymentStatus.COMPLETED,
+    });
+
+    await service.markAsCompleted(
+      access.userPublicId,
+      access.businessPublicId,
+      paymentRow.publicId,
+      "req-4",
+    );
+
+    expect(businessAccess.assertAllowed).toHaveBeenCalledWith(access, "payments", "complete");
+
+    transaction.payment.findFirst.mockResolvedValueOnce({
+      ...paymentRow,
+      status: PaymentStatus.COMPLETED,
+    });
+    transaction.payment.update.mockResolvedValueOnce({
+      ...paymentRow,
+      status: PaymentStatus.REVERSED,
+    });
+
+    await service.reverse(
+      access.userPublicId,
+      access.businessPublicId,
+      paymentRow.publicId,
+      "req-5",
+    );
+
+    expect(businessAccess.assertAllowed).toHaveBeenCalledWith(access, "payments", "reverse");
+  });
 });

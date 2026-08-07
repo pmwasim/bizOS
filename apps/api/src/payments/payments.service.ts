@@ -284,7 +284,7 @@ export class PaymentsService {
     paymentPublicId: string,
     requestId: string,
   ): Promise<Payment> {
-    const access = await this.authorize(userPublicId, businessPublicId, "payments", "update");
+    const access = await this.authorize(userPublicId, businessPublicId, "payments", "complete");
     return this.database.withScope(access, async (transaction) => {
       const existing = await this.requirePayment(transaction, access, paymentPublicId);
       if (existing.status !== PaymentStatus.DRAFT) {
@@ -322,7 +322,7 @@ export class PaymentsService {
     paymentPublicId: string,
     requestId: string,
   ): Promise<Payment> {
-    const access = await this.authorize(userPublicId, businessPublicId, "payments", "update");
+    const access = await this.authorize(userPublicId, businessPublicId, "payments", "reverse");
     return this.database.withScope(access, async (transaction) => {
       const existing = await this.requirePayment(transaction, access, paymentPublicId);
       if (existing.status !== PaymentStatus.COMPLETED) {

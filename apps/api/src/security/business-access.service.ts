@@ -26,7 +26,16 @@ export type AuthorizationObject =
   | "payments";
 
 export type AuthorizationAction =
-  "archive" | "create" | "export" | "read" | "send" | "update" | "upload" | "upload_evidence";
+  | "archive"
+  | "complete"
+  | "create"
+  | "export"
+  | "read"
+  | "reverse"
+  | "send"
+  | "update"
+  | "upload"
+  | "upload_evidence";
 
 const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
   OWNER: [
@@ -57,6 +66,8 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:create",
     "payments:read",
     "payments:update",
+    "payments:complete",
+    "payments:reverse",
   ],
   ADMIN: [
     "business:read",
@@ -86,6 +97,8 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:create",
     "payments:read",
     "payments:update",
+    "payments:complete",
+    "payments:reverse",
   ],
   MEMBER: [
     "business:read",
