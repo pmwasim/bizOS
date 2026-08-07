@@ -25,8 +25,8 @@ workflow. It accepts an exact Git SHA and runs dependency audit, local test-data
 `pnpm check`, and desktop/mobile Playwright journeys.
 
 It deliberately has no production hosting credentials and performs no Ubuntu deployment or
-production database migration. A green release gate means a candidate is validated; it does not
-mean the candidate is live.
+production database migration. A green release gate means a candidate is validated; it does not mean
+the candidate is live.
 
 After the Ubuntu deployment mechanism is identified, run `scripts/ops/release-readiness.mjs` against
 the local origin before public cutover and against the public host afterward. The probe requires the

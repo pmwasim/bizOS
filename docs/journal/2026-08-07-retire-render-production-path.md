@@ -29,8 +29,8 @@ therefore a production Ubuntu runtime/origin drift problem rather than a missing
 
 - Removed the active Render-specific `.github/workflows/production-deploy.yml` from the branch.
 - Added `.github/workflows/production-release-gate.yml`, a validation-only manual gate for an exact
-  Git SHA. It runs dependency audit, test-database migrations, `pnpm check`, and Playwright but has no
-  production hosting credentials and performs no production deploy or production migration.
+  Git SHA. It runs dependency audit, test-database migrations, `pnpm check`, and Playwright but has
+  no production hosting credentials and performs no production deploy or production migration.
 - Rewrote `docs/operations/ubuntu-cutover-handoff.md` as the current Ubuntu production handoff.
 - Added ADR-0022 recording Ubuntu as the authoritative production host and Render as retired.
 - Updated the ADR index.
