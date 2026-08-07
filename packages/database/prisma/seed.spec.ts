@@ -34,18 +34,27 @@ import { runAllSeeds } from "./seeds/index.js";
 describe("seed module catalog", () => {
   it("marks exactly the implemented modules as implemented", () => {
     const implemented = MODULE_CATALOG.filter((m) => m.implemented).map((m) => m.code);
-    expect(implemented).toEqual(["customers", "quotations", "purchase-orders", "invoices"]);
+    expect(implemented).toEqual([
+      "customers",
+      "quotations",
+      "purchase-orders",
+      "invoices",
+      "sales-orders",
+      "delivery-service",
+      "payments",
+      "statements",
+      "credit-notes",
+      "inventory",
+      "projects",
+      "leads",
+      "opportunities",
+      "suppliers",
+    ]);
   });
 
   it("marks all planned modules as not implemented", () => {
     const planned = MODULE_CATALOG.filter((m) => !m.implemented).map((m) => m.code);
     expect(planned).toEqual([
-      "sales-orders",
-      "delivery-service",
-      "payments",
-      "credit-notes",
-      "inventory",
-      "projects",
       "supplier-purchases",
       "supplier-bills",
       "supplier-payments",
@@ -123,9 +132,9 @@ describe("default-erp snapshot", () => {
     expect(roles).toEqual(["OWNER", "ADMIN", "MEMBER"]);
   });
 
-  it("publishes version 1.0.0 under the default-erp template code", () => {
+  it("publishes version 1.1.0 under the default-erp template code", () => {
     expect(DEFAULT_ERP_TEMPLATE_CODE).toBe("default-erp");
-    expect(DEFAULT_ERP_VERSION).toBe("1.0.0");
+    expect(DEFAULT_ERP_VERSION).toBe("1.1.0");
   });
 });
 

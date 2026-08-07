@@ -24,6 +24,15 @@ enum RoleCode {
 enum DocumentType {
   QUOTATION
   INVOICE
+  SALES_ORDER
+  DELIVERY_NOTE
+  SERVICE_COMPLETION
+  SUPPLIER_QUOTATION
+  SUPPLIER_PURCHASE_ORDER
+  SUPPLIER_BILL
+  GOODS_RECEIPT_NOTE
+  CREDIT_NOTE
+  DEBIT_NOTE
 }
 
 enum PaymentType {
@@ -66,6 +75,10 @@ enum InvoiceApprovalStatus {
 enum StoredObjectKind {
   PURCHASE_ORDER
   APPROVAL_EVIDENCE
+  SUPPLIER_PO
+  SUPPLIER_BILL
+  GOODS_RECEIPT
+  PROJECT_EVIDENCE
 }
 
 enum ModuleStatus {
@@ -234,21 +247,27 @@ model Business {
 
   tenant                   Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   access                   BusinessAccess[]
-  settings                 BusinessSettings?
-  taxProfile               TaxProfile?
-  customers                Customer[]
-  documents                Document[]
-  payments                 Payment[]
-  paymentAllocations       PaymentAllocation[]
-  purchaseOrders           PurchaseOrder[]
-  storedObjects            StoredObject[]
-  auditEvents              AuditEvent[]
-  outboxEvents             OutboxEvent[]
-  assignments              BusinessConfigurationAssignment[]
-  documentWorkflowContexts DocumentWorkflowContext[]
-  customFieldDefinitions   CustomFieldDefinition[]
-  featureFlags             FeatureFlag[]
-  customizationRequests    CustomizationRequest[]
+   settings                 BusinessSettings?
+   taxProfile               TaxProfile?
+   customers                Customer[]
+   suppliers                Supplier[]
+   documents                Document[]
+   payments                 Payment[]
+   paymentAllocations       PaymentAllocation[]
+   purchaseOrders           PurchaseOrder[]
+   storedObjects            StoredObject[]
+   auditEvents              AuditEvent[]
+   outboxEvents             OutboxEvent[]
+   assignments              BusinessConfigurationAssignment[]
+   documentWorkflowContexts DocumentWorkflowContext[]
+   customFieldDefinitions   CustomFieldDefinition[]
+   featureFlags             FeatureFlag[]
+   customizationRequests    CustomizationRequest[]
+   creditNoteAllocations    CreditNoteAllocation[]
+   leads                    Lead[]
+   opportunities            Opportunity[]
+   projects                 Project[]
+   inventoryItems           InventoryItem[]
 
   @@unique([tenantId, id])
   @@index([tenantId, name])
@@ -281,6 +300,14 @@ model BusinessSettings {
   invoicePrefix         String   @default("INV") @map("invoice_prefix") @db.VarChar(12)
   nextInvoiceNumber     Int      @default(1) @map("next_invoice_number")
   invoiceDueDays        Int      @default(30) @map("invoice_due_days") @db.SmallInt
+  salesOrderPrefix      String   @default("SO") @map("sales_order_prefix") @db.VarChar(12)
+  nextSalesOrderNumber  Int      @default(1) @map("next_sales_order_number")
+  deliveryNotePrefix    String   @default("DN") @map("delivery_note_prefix") @db.VarChar(12)
+  nextDeliveryNoteNumber Int     @default(1) @map("next_delivery_note_number")
+  creditNotePrefix      String   @default("CN") @map("credit_note_prefix") @db.VarChar(12)
+  nextCreditNoteNumber  Int      @default(1) @map("next_credit_note_number")
+  purchaseOrderPrefix   String   @default("PO") @map("purchase_order_prefix") @db.VarChar(12)
+  nextPurchaseOrderNumber Int    @default(1) @map("next_purchase_order_number")
   defaultMessage        String?  @map("default_message") @db.VarChar(1000)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -327,10 +354,46 @@ model Customer {
   business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   documents      Document[]
   purchaseOrders PurchaseOrder[]
+  projects       Project[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, name])
   @@map("customers")
+}
+
+model Supplier {
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId     BigInt   @map("tenant_id")
+  businessId   BigInt   @map("business_id")
+  name         String   @db.VarChar(200)
+  contactName  String?  @map("contact_name") @db.VarChar(120)
+  email        String?  @db.VarChar(320)
+  phone        String?  @db.VarChar(40)
+  addressLine1 String?  @map("address_line_1") @db.VarChar(200)
+  addressLine2 String?  @map("address_line_2") @db.VarChar(200)
+  city         String?  @db.VarChar(120)
+  postalCode   String?  @map("postal_code") @db.VarChar(32)
+  countryCode  String?  @map("country_code") @db.Char(2)
+  taxId        String?  @map("tax_id") @db.VarChar(80)
+  taxName      String?  @map("tax_name") @db.VarChar(80)
+  bankName     String?  @map("bank_name") @db.VarChar(120)
+  iban         String?  @db.VarChar(34)
+  swiftCode    String?  @map("swift_code") @db.VarChar(11)
+  paymentTerms Int?     @map("payment_terms") @db.SmallInt
+  notes        String?  @db.VarChar(2000)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business        Business         @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  documents       Document[]
+  purchaseOrders  PurchaseOrder[] @relation("SupplierPurchaseOrders")
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, name])
+  @@index([tenantId, businessId, taxId])
+  @@map("suppliers")
 }
 
 model Document {
@@ -347,8 +410,13 @@ model Document {
   dueDate               DateTime?      @map("due_date") @db.Date
   sourceQuotationId     BigInt?        @map("source_quotation_id")
   purchaseOrderId       BigInt?        @map("purchase_order_id")
+  supplierId            BigInt?        @map("supplier_id")
+  sourceDocumentId      BigInt?        @map("source_document_id")
+  referenceDocumentId   BigInt?        @map("reference_document_id")
   projectReference      String?        @map("project_reference") @db.VarChar(120)
   poNumberSnapshot      String?        @map("po_number_snapshot") @db.VarChar(80)
+  deliveryDate          DateTime?      @map("delivery_date") @db.Date
+  receivedAt            DateTime?      @map("received_at") @db.Timestamptz(3)
   notes                 String?        @db.VarChar(2000)
   currencyCode          String         @map("currency_code") @db.Char(3)
   currencyScale         Int            @map("currency_scale") @db.SmallInt
@@ -364,8 +432,16 @@ model Document {
 
   business            Business                 @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   customer            Customer                 @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  supplier            Supplier?                @relation(fields: [tenantId, businessId, supplierId], references: [tenantId, businessId, id], onDelete: Restrict)
   sourceQuotation     Document?                @relation("DocumentSourceQuotation", fields: [tenantId, businessId, sourceQuotationId], references: [tenantId, businessId, id], onDelete: Restrict)
   derivedInvoices     Document[]               @relation("DocumentSourceQuotation")
+  sourceDocument      Document?                @relation("DocumentSourceLink", fields: [tenantId, businessId, sourceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  linkedDocuments     Document[]               @relation("DocumentSourceLink")
+  referenceDocument   Document?                @relation("DocumentReferenceLink", fields: [tenantId, businessId, referenceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  referencedBy        Document[]               @relation("DocumentReferenceLink")
+  opportunityQuotations Opportunity[]           @relation("OpportunityQuotation")
+  creditNoteAllocations CreditNoteAllocation[]  @relation("CreditNoteAllocations")
+  invoiceCreditNoteAllocations CreditNoteAllocation[] @relation("InvoiceCreditNoteAllocations")
   linkedPurchaseOrder PurchaseOrder?           @relation("DocumentLinkedPurchaseOrder", fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
   lines               DocumentLine[]
   versions            DocumentVersion[]
@@ -388,6 +464,7 @@ model PurchaseOrder {
   tenantId                BigInt                @map("tenant_id")
   businessId              BigInt                @map("business_id")
   customerId              BigInt                @map("customer_id")
+  supplierId              BigInt?               @map("supplier_id")
   quotationId             BigInt?               @map("quotation_id")
   poNumber                String                @map("po_number") @db.VarChar(80)
   poDate                  DateTime?             @map("po_date") @db.Date
@@ -407,6 +484,7 @@ model PurchaseOrder {
 
   business              Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   customer              Customer            @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  supplier              Supplier?           @relation("SupplierPurchaseOrders", fields: [tenantId, businessId, supplierId], references: [tenantId, businessId, id], onDelete: Restrict)
   quotation             Document?           @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
   creator               Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
   approvalChangedByUser User?               @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
@@ -843,6 +921,132 @@ model CustomizationRequest {
   @@index([tenantId, businessId])
   @@index([status])
   @@map("customization_requests")
+}
+
+model CreditNoteAllocation {
+  id              BigInt   @id @default(autoincrement())
+  publicId        String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt   @map("tenant_id")
+  businessId      BigInt   @map("business_id")
+  creditNoteId    BigInt   @map("credit_note_id")
+  invoiceId       BigInt   @map("invoice_id")
+  amountMinor     Decimal  @map("amount_minor") @db.Decimal(38, 0)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business   Business   @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  creditNote Document   @relation("CreditNoteAllocations", fields: [tenantId, businessId, creditNoteId], references: [tenantId, businessId, id], onDelete: Cascade)
+  invoice    Document   @relation("InvoiceCreditNoteAllocations", fields: [tenantId, businessId, invoiceId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, creditNoteId])
+  @@index([tenantId, businessId, invoiceId])
+  @@map("credit_note_allocations")
+}
+
+model Lead {
+  id              BigInt       @id @default(autoincrement())
+  publicId        String       @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt       @map("tenant_id")
+  businessId      BigInt       @map("business_id")
+  name             String       @db.VarChar(200)
+  company          String?      @db.VarChar(200)
+  email            String?      @db.VarChar(320)
+  phone            String?      @db.VarChar(40)
+  source           String?      @map("source") @db.VarChar(80)
+  status           String       @default("NEW") @map("status") @db.VarChar(40)
+  estimatedValue   Decimal?     @map("estimated_value") @db.Decimal(38, 0)
+  currencyCode     String?      @map("currency_code") @db.Char(3)
+  notes            String?      @db.VarChar(2000)
+  assignedToMembershipId BigInt? @map("assigned_to_membership_id")
+  convertedAt      DateTime?    @map("converted_at") @db.Timestamptz(3)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business     Business       @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  opportunities Opportunity[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status])
+  @@map("leads")
+}
+
+model Opportunity {
+  id              BigInt       @id @default(autoincrement())
+  publicId        String       @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt       @map("tenant_id")
+  businessId      BigInt       @map("business_id")
+  leadId          BigInt?      @map("lead_id")
+  quotationId     BigInt?      @map("quotation_id")
+  name            String       @db.VarChar(200)
+  stage           String       @default("PROSPECTING") @map("stage") @db.VarChar(40)
+  probability     Int?         @map("probability") @db.SmallInt
+  amountMinor     Decimal?     @map("amount_minor") @db.Decimal(38, 0)
+  currencyCode    String?      @map("currency_code") @db.Char(3)
+  expectedCloseDate DateTime?  @map("expected_close_date") @db.Date
+  actualCloseDate DateTime?    @map("actual_close_date") @db.Date
+  notes           String?      @db.VarChar(2000)
+  assignedToMembershipId BigInt? @map("assigned_to_membership_id")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business  @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  lead     Lead?     @relation(fields: [tenantId, businessId, leadId], references: [tenantId, businessId, id], onDelete: SetNull)
+  quote    Document? @relation("OpportunityQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: SetNull)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, stage])
+  @@map("opportunities")
+}
+
+model Project {
+  id              BigInt       @id @default(autoincrement())
+  publicId        String       @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt       @map("tenant_id")
+  businessId      BigInt       @map("business_id")
+  name            String       @db.VarChar(200)
+  description     String?      @db.VarChar(2000)
+  status          String       @default("ACTIVE") @map("status") @db.VarChar(40)
+  startDate       DateTime?    @map("start_date") @db.Date
+  endDate         DateTime?    @map("end_date") @db.Date
+  budgetMinor     Decimal?     @map("budget_minor") @db.Decimal(38, 0)
+  currencyCode    String?      @map("currency_code") @db.Char(3)
+  customerId      BigInt?      @map("customer_id")
+  notes           String?      @db.VarChar(2000)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business  @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer Customer? @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: SetNull)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status])
+  @@map("projects")
+}
+
+model InventoryItem {
+  id              BigInt       @id @default(autoincrement())
+  publicId        String       @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt       @map("tenant_id")
+  businessId      BigInt       @map("business_id")
+  sku             String       @map("sku") @db.VarChar(60)
+  name            String       @db.VarChar(200)
+  description     String?      @db.VarChar(500)
+  itemType        String       @default("INVENTORY") @map("item_type") @db.VarChar(20)
+  unit            String?      @map("unit") @db.VarChar(20)
+  costPriceMinor  Decimal?     @map("cost_price_minor") @db.Decimal(38, 0)
+  sellingPriceMinor Decimal?   @map("selling_price_minor") @db.Decimal(38, 0)
+  taxRatePpm      Int          @default(0) @map("rate_ppm")
+  reorderLevel    Int?         @map("reorder_level") @db.Integer
+  isActive        Boolean      @default(true) @map("is_active")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, sku])
+  @@index([tenantId, businessId, name])
+  @@map("inventory_items")
 }
 
 model PlatformSystemAdmin {

@@ -1,16 +1,23 @@
 // Phase 5 — Default bizOS ERP v1 seed.
 //
-// ConfigurationTemplate code `default-erp`, kind DEFAULT. Version 1.0.0 PUBLISHED.
-// Three WorkflowTemplates:
+// ConfigurationTemplate code `default-erp`, kind DEFAULT.
+// Version 1.0.0 PUBLISHED (immutable — kept as-is for businesses already assigned to it).
+// Version 1.1.0 PUBLISHED — adds payments, statements, sales-orders, delivery-service,
+// credit-notes, inventory, projects, leads, opportunities, and suppliers to the enabled
+// module snapshot (see module-catalog.ts). getDefaultErpPublishedVersion() picks the latest
+// published version by publishedAt, so newly onboarded businesses get 1.1.0 automatically;
+// businesses already on 1.0.0 keep that pinned snapshot unless a System Admin reassigns them.
+// Three WorkflowTemplates (unchanged since 1.0.0 — the new document types below don't run
+// through DocumentWorkflowContext, same as purchase orders):
 //   - default-quotation-workflow v1.0.0 (documentType QUOTATION)
 //   - default-invoice-workflow v1.0.0 (documentType INVOICE)
 //   - default-procurement-workflow v1.0.0 (documentType PURCHASE_ORDER, informational)
 //
-// Only implemented modules (customers, quotations, purchase-orders, invoices) are
-// enabled in the snapshot. Planned modules are seeded but enabled=false so they are
-// present for future configuration without surfacing in nav. Customer PO and approval
-// evidence are OPTIONAL in this configuration — the Service PO & Approval configuration
-// is the one that mandates them (see service-po-approval.ts).
+// Only implemented modules (per module-catalog.ts's IMPLEMENTED_MODULE_CODES) are enabled in
+// the snapshot. Planned modules are seeded but enabled=false so they are present for future
+// configuration without surfacing in nav. Customer PO and approval evidence are OPTIONAL in
+// this configuration — the Service PO & Approval configuration is the one that mandates them
+// (see service-po-approval.ts).
 //
 // The documentType values align with the Prisma DocumentType enum (QUOTATION | INVOICE)
 // so ConfigurationService.createDocumentWorkflowContext can match snapshot.workflows[]
@@ -33,7 +40,7 @@ import {
 import { IMPLEMENTED_MODULE_CODES, PLANNED_MODULE_CODES } from "./module-catalog.js";
 
 export const DEFAULT_ERP_TEMPLATE_CODE = "default-erp";
-export const DEFAULT_ERP_VERSION = "1.0.0";
+export const DEFAULT_ERP_VERSION = "1.1.0";
 
 export const DEFAULT_QUOTATION_WORKFLOW_CODE = "default-quotation-workflow";
 export const DEFAULT_QUOTATION_WORKFLOW_VERSION = "1.0.0";

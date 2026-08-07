@@ -4,12 +4,22 @@
 // this release. Drives nav visibility and which modules a configuration can expose.
 //
 // Implemented today (code exists in apps/api + apps/web):
-//   customers, quotations, purchase-orders, invoices
+//   customers, quotations, purchase-orders, invoices, payments, statements,
+//   sales-orders, delivery-service, credit-notes, inventory, projects, leads,
+//   opportunities, suppliers (master data only — see below)
 //
 // Planned but not yet implemented (seeded so configurations can reference them, but
 // `implemented=false` keeps them out of the active nav):
-//   sales-orders, delivery-service, payments, credit-notes, inventory, projects,
 //   supplier-purchases, supplier-bills, supplier-payments, supplier-rfq
+//   (`suppliers` covers only the supplier master directory; the transactional
+//   supplier-PO/bill/payment/RFQ workflows against DocumentType.SUPPLIER_* remain unbuilt)
+//
+// A change here that flips `implemented` changes what a *newly published* default-erp
+// configuration version enables (see default-erp.ts's buildDefaultErpModules(), which reads
+// IMPLEMENTED_MODULE_CODES/PLANNED_MODULE_CODES below). Published ConfigurationTemplateVersion
+// rows are immutable, so this never rewrites what a business already assigned to an older
+// version sees — bump DEFAULT_ERP_VERSION in default-erp.ts alongside catalog changes so the
+// new snapshot actually publishes as a new version.
 
 import type { SeedClient, SeedResult } from "./shared.js";
 import { emptySeedResult } from "./shared.js";
@@ -56,42 +66,70 @@ export const MODULE_CATALOG: readonly ModuleSeed[] = [
     name: "Sales Orders",
     description: "Convert accepted quotations into internal sales orders.",
     status: "ACTIVE",
-    implemented: false,
+    implemented: true,
   },
   {
     code: "delivery-service",
     name: "Delivery / Service Completion",
     description: "Record delivery or service completion before invoicing.",
     status: "ACTIVE",
-    implemented: false,
+    implemented: true,
   },
   {
     code: "payments",
     name: "Customer Payments",
     description: "Record customer payments and reconcile against invoices.",
     status: "ACTIVE",
-    implemented: false,
+    implemented: true,
+  },
+  {
+    code: "statements",
+    name: "Account Statements",
+    description: "Generate customer account statements with an aging breakdown.",
+    status: "ACTIVE",
+    implemented: true,
   },
   {
     code: "credit-notes",
     name: "Credit Notes",
     description: "Issue credit notes against invoices when refunds or corrections apply.",
     status: "ACTIVE",
-    implemented: false,
+    implemented: true,
   },
   {
     code: "inventory",
     name: "Inventory",
-    description: "Stock items, warehouses, and movement tracking.",
+    description: "Stock items master with SKUs, pricing, and reorder levels.",
     status: "ACTIVE",
-    implemented: false,
+    implemented: true,
   },
   {
     code: "projects",
     name: "Projects",
-    description: "Project tracking with milestones and deliverables.",
+    description: "Project tracking with budgets and status against a customer.",
     status: "ACTIVE",
-    implemented: false,
+    implemented: true,
+  },
+  {
+    code: "leads",
+    name: "Leads",
+    description: "Capture and qualify inbound leads before they become opportunities.",
+    status: "ACTIVE",
+    implemented: true,
+  },
+  {
+    code: "opportunities",
+    name: "Opportunities",
+    description: "Track deals through pipeline stages to a won or lost close.",
+    status: "ACTIVE",
+    implemented: true,
+  },
+  {
+    code: "suppliers",
+    name: "Suppliers",
+    description: "Supplier master directory: contacts, tax and bank details, payment terms.",
+    status: "ACTIVE",
+    implemented: true,
   },
   {
     code: "supplier-purchases",
