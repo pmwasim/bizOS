@@ -29,3 +29,5 @@ Rules:
   - Agent: claude-opus · Status: Complete
 - [2026-08-06 — Module 7 Payment Recording](2026-08-06-module-7-payment-recording.md)
   - Agent: c0d88fc3-7c6c-444b-b0db-afbe4013189f · Status: Completed
+- [2026-08-06 — Fix brace-expansion override conflict for CJS minimatch compatibility](2026-08-06-fix-brace-expansion-override-conflict-for-cjs-minimatch-comp.md)
+  - Agent: antigravity-agent · Status: Complete
