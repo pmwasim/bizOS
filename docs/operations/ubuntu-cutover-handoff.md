@@ -18,6 +18,21 @@ Ubuntu production process has been rebuilt or restarted.
 Before changing production, discover and record the actual Ubuntu runtime instead of assuming a
 checkout path, process manager, container name, port, or Cloudflare Tunnel target.
 
+## Release validation
+
+`.github/workflows/production-release-gate.yml` is the repository-side production **validation**
+workflow. It accepts an exact Git SHA and runs dependency audit, local test-database migrations,
+`pnpm check`, and desktop/mobile Playwright journeys.
+
+It deliberately has no production hosting credentials and performs no Ubuntu deployment or
+production database migration. A green release gate means a candidate is validated; it does not
+mean the candidate is live.
+
+After the Ubuntu deployment mechanism is identified, run `scripts/ops/release-readiness.mjs` against
+the local origin before public cutover and against the public host afterward. The probe requires the
+landing page, `/signin`, `/signup`, custom not-found page, API health, and unauthenticated API
+boundary to behave correctly.
+
 ## Production discovery
 
 Run these read-only checks on the Ubuntu production host:
@@ -85,32 +100,36 @@ curl -fsS -o /tmp/bizos-home.html -w '%{http_code}\n' http://127.0.0.1:<WEB_PORT
 curl -fsS -o /tmp/bizos-signin.html -w '%{http_code}\n' http://127.0.0.1:<WEB_PORT>/signin
 grep -q 'Welcome back' /tmp/bizos-signin.html
 curl -fsS -o /tmp/bizos-signup.html -w '%{http_code}\n' http://127.0.0.1:<WEB_PORT>/signup
+
+RELEASE_WEB_BASE=http://127.0.0.1:<WEB_PORT> \
+RELEASE_API_BASE=http://127.0.0.1:<API_PORT> \
+RELEASE_EXPECT_SHA=<DEPLOYED_SHA> \
+  node scripts/ops/release-readiness.mjs
 ```
 
-Expected: all three pages return HTTP `200`, and `/signin` contains the expected sign-in UI.
+Expected: all required release-readiness checks pass and `/signin` contains the expected sign-in UI.
 
 ## Public verification
 
 After the local origin is correct and Cloudflare is routing to that origin:
 
 ```bash
-curl -fsS -o /tmp/bizos-public-signin.html -w '%{http_code}\n' \
-  https://bizos.qloudihub.com/signin
-grep -q 'Welcome back' /tmp/bizos-public-signin.html
+RELEASE_EXPECT_SHA=<DEPLOYED_SHA> node scripts/ops/release-readiness.mjs
 ```
 
-Also verify `/` and `/signup` and complete a real browser sign-in with a designated QA account. Do
-not create or expose credentials in repository automation.
+Also complete a real browser sign-in with a designated QA account. Do not create or expose
+credentials in repository automation.
 
 ## Current incident
 
-GitHub issue `#65` tracks the production `/signin` 404. Source inspection confirmed that the route
+GitHub issue `#56` tracks the production `/signin` 404. Source inspection confirmed that the route
 already exists, including in the previously documented beta release. Therefore a live 404 should be
 treated first as deployment/runtime/origin drift, not as evidence that a new sign-in page must be
 created.
 
-PR `#64` adds desktop/mobile Playwright regression coverage that requires `/signin` to return HTTP
-200 and render the credentials form.
+PR `#64` was merged with desktop/mobile Playwright regression coverage requiring `/signin` to return
+HTTP 200 and render the credentials form. PR `#67` was merged with release-readiness checks for
+`/signin`, `/signup`, and the custom not-found route.
 
 ## Deployment acceptance record
 
@@ -139,6 +158,6 @@ application rollback is required.
 
 ## Follow-up
 
-Once the actual Ubuntu production mechanism is recovered during issue `#65`, replace the discovery
+Once the actual Ubuntu production mechanism is recovered during issue `#56`, replace the discovery
 placeholders in this document with the verified paths, unit/container names, ports, and safe
 restart/rollback commands. That information should become the authoritative production runbook.
