@@ -1,4 +1,5 @@
 import {
+  Banknote,
   FileText,
   Home,
   LogOut,
@@ -30,6 +31,7 @@ const MODULE_NAV: Record<string, { href: string; label: string; icon: LucideIcon
   quotations: { href: "/quotations", label: "Quotations", icon: FileText },
   "purchase-orders": { href: "/purchase-orders", label: "POs", icon: Receipt },
   invoices: { href: "/invoices", label: "Invoices", icon: ScrollText },
+  payments: { href: "/payments", label: "Payments", icon: Banknote },
 };
 
 function buildNavItems(modules: EnabledModuleSummary[]): NavItem[] {

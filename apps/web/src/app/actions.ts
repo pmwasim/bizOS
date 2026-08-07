@@ -16,6 +16,11 @@ import {
   updateInvoiceRequestSchema,
 } from "@bizo/contracts/invoices";
 import {
+  createCustomerPaymentRequestSchema,
+  type CustomerPayment,
+  voidCustomerPaymentRequestSchema,
+} from "@bizo/contracts/payments";
+import {
   createPurchaseOrderRequestSchema,
   type PurchaseOrder,
   updateApprovalStatusRequestSchema,
@@ -303,6 +308,54 @@ export async function archiveInvoiceAction(
       body: "{}",
     });
     redirect(`/b/${businessId}/invoices`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function recordPaymentAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = createCustomerPaymentRequestSchema.safeParse({
+    invoiceId: String(formData.get("invoiceId") ?? "").trim(),
+    amount: String(formData.get("amount") ?? "").trim(),
+    receivedOn: String(formData.get("receivedOn") ?? "").trim(),
+    method: String(formData.get("method") ?? "").trim(),
+    reference: String(formData.get("reference") ?? "").trim() || null,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    const payment = await apiJson<CustomerPayment>(`/businesses/${businessId}/payments`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/payments/${payment.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function voidPaymentAction(
+  businessId: string,
+  paymentId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = voidCustomerPaymentRequestSchema.safeParse({
+    reason: String(formData.get("reason") ?? "").trim() || null,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/payments/${paymentId}/void`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/payments/${paymentId}`);
   } catch (error) {
     return actionError(error);
   }

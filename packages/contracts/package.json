@@ -44,6 +44,10 @@
       "types": "./dist/invoices.d.ts",
       "default": "./dist/invoices.js"
     },
+    "./payments": {
+      "types": "./dist/payments.d.ts",
+      "default": "./dist/payments.js"
+    },
     "./configuration": {
       "types": "./dist/configuration.d.ts",
       "default": "./dist/configuration.js"
