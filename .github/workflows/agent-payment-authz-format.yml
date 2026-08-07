@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   format:
+    # Temporary same-repository workflow; remove after the formatting commit lands.
     if: >-
       github.actor != 'github-actions[bot]' &&
       github.head_ref == 'agent/payment-state-transition-authz'
