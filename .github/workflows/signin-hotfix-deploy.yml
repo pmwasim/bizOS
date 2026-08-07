@@ -1,0 +1,83 @@
+name: Sign-in hotfix deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/signin-hotfix-deploy.yml
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      HOTFIX_SHA: dbcfa78f8c6ef38c4065c884fe2024ddff6dc269
+      SIGNIN_URL: https://bizos.qloudihub.com/signin
+    steps:
+      - name: Require Render credentials
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
+        run: |
+          test -n "$RENDER_API_KEY"
+          test -n "$RENDER_WEB_SERVICE_ID"
+
+      - name: Deploy exact web hotfix commit
+        id: deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
+        run: |
+          response=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.render.com/v1/services/${RENDER_WEB_SERVICE_ID}/deploys" \
+            --header "Accept: application/json" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "{\"commitId\":\"${HOTFIX_SHA}\",\"clearCache\":\"do_not_clear\"}")
+          deploy_id=$(printf '%s' "$response" | jq -r '.id // .deploy.id // empty')
+          test -n "$deploy_id"
+          echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Render deploy
+        env:
+          DEPLOY_ID: ${{ steps.deploy.outputs.deploy_id }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
+        run: |
+          for attempt in {1..90}; do
+            response=$(curl --fail-with-body --silent --show-error \
+              --url "https://api.render.com/v1/services/${RENDER_WEB_SERVICE_ID}/deploys/${DEPLOY_ID}" \
+              --header "Accept: application/json" \
+              --header "Authorization: Bearer ${RENDER_API_KEY}")
+            status=$(printf '%s' "$response" | jq -r '.status // .deploy.status // empty')
+            echo "Render deploy status: ${status:-unknown}"
+            case "$status" in
+              live) exit 0 ;;
+              build_failed|update_failed|canceled|deactivated) exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for Render deploy."
+          exit 1
+
+      - name: Verify production sign-in page
+        run: |
+          for attempt in {1..30}; do
+            body=$(mktemp)
+            code=$(curl --silent --show-error --location \
+              --output "$body" --write-out '%{http_code}' "$SIGNIN_URL" || true)
+            if [ "$code" = "200" ] && grep -q "Sign in to bizOS" "$body"; then
+              echo "Production sign-in route is live and contains the expected form."
+              rm -f "$body"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $code; waiting for production route."
+            rm -f "$body"
+            sleep 5
+          done
+          echo "Production sign-in verification failed."
+          exit 1
