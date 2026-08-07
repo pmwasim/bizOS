@@ -57,6 +57,41 @@ package's `build` script and consumes the standard Next build output. These two 
 so the Render path keeps working during and after the trial — the safest shape is a distinct
 Cloudflare build script rather than changing the default `build`.
 
+### Resolved: `brace-expansion` / `minimatch@8` ESM conflict
+
+The throwaway build on the spike machine failed with:
+
+```text
+node_modules/.pnpm/minimatch@8.0.7/node_modules/minimatch/dist/mjs/index.js:1
+import expand from 'brace-expansion';
+SyntaxError: The requested module 'brace-expansion' does not provide an export named 'default'
+```
+
+**Root cause**: `@opennextjs/aws@4.1.0` → `@node-minify/core@^8.0.6` → `glob@9.3.5` →
+`minimatch@^8.0.2` → `brace-expansion@^2.0.1`. `minimatch@8` is a dual CJS/ESM package; its ESM
+entry (`dist/mjs/index.js`) does `import expand from 'brace-expansion'`. `brace-expansion@2.1.4` is
+CJS-only (`module.exports = expand`, no `"type": "module"`, no `exports` map). Node's ESM interop
+normally synthesises a default export for CJS modules, but on the throwaway copy pnpm hoisted
+`brace-expansion@5.0.9` (an ESM package with a proper `exports` map) into a position where
+`minimatch@8` resolved to it instead of the v2 it declared. v5's ESM entry provides a **named**
+default export, but its package structure differs from what `minimatch@8` expects at the CJS interop
+boundary.
+
+**Resolution**: The current `pnpm-workspace.yaml` overrides are correctly **version-ranged** (e.g.
+`"brace-expansion@>=2.0.0 <2.1.4": "2.1.4"`), not blanket. A clean `pnpm install` in the real repo
+resolves `minimatch@8`'s `brace-expansion@^2.0.1` to `2.1.4` correctly — the v5 override only
+applies to packages that already declare a v5 range.
+
+The throwaway copy's lockfile diverged because it was `pnpm install`-ed fresh with modified
+overrides and without the committed `pnpm-lock.yaml`. **No changes to `pnpm-workspace.yaml` are
+needed.** If a future `pnpm install` reproduces the error, add a scoped override:
+
+```yaml
+"minimatch@^8>brace-expansion": "2.1.4"
+```
+
+This forces `minimatch@8` to use v2 regardless of hoisting.
+
 ## Not yet done
 
 The build has not been run. It requires `pnpm install` with platform-native binaries, which was not

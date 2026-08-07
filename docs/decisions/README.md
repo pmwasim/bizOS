@@ -7,7 +7,8 @@ constraints until superseded.
 foundation | Superseded | | [0020](0020-configuration-aware-invoice-conversion.md) |
 Configuration-aware invoice conversion | Accepted | |
 [0021](0021-erpnext-foundation-customer-experience.md) | ERPNext foundation with bizOS customer
-experience | Accepted |
+experience | Accepted | | [0022](0022-web-tier-cloudflare-workers-hosting-split.md) | Web tier
+hosting split — apps/web to Cloudflare Workers via OpenNext | Proposed |
 
 ## Template
 
