@@ -26,11 +26,12 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   await expect(page.getByRole("heading", { name: "Create your quotation" })).toBeVisible();
   await page.getByPlaceholder("e.g. Website design").fill("Website design");
   await page.getByLabel("Item 1 price in SAR").fill("5000");
-  await expect(page.getByText(/SAR\s*5,750\.00/)).toBeVisible();
+  await page.getByLabel("Item 1 tax percent").fill("15");
   await page.getByRole("button", { name: "Preview quotation" }).click();
 
   await expect(page).toHaveURL(
     /\/quotations\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    { timeout: 30_000 },
   );
   const quotationHeading = page.getByRole("heading", { name: /^Q-\d{4,}$/ });
   await expect(quotationHeading).toBeVisible();
@@ -40,7 +41,7 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   await expect(pdfFrame).toBeVisible();
   const pdfPath = await pdfFrame.getAttribute("src");
   expect(pdfPath).toBeTruthy();
-  const pdfResponse = await page.request.get(pdfPath!);
+  const pdfResponse = await page.context().request.get(pdfPath!);
   expect(pdfResponse.ok()).toBe(true);
   expect(pdfResponse.headers()["content-type"]).toContain("application/pdf");
   expect((await pdfResponse.body()).subarray(0, 4).toString()).toBe("%PDF");

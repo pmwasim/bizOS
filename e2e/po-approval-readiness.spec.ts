@@ -25,11 +25,14 @@ test("records a customer PO through ready to invoice", async ({ page }, testInfo
   await page.getByLabel("Customer or company name").fill("Harbor Works");
   await page.locator('input[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Save and create quotation" }).click();
+  await expect(page).toHaveURL(/\/quotations\/new\?customer=/);
+  await expect(page.getByRole("heading", { name: "Create your quotation" })).toBeVisible();
 
   await page.getByPlaceholder("e.g. Website design").fill("Consulting");
   await page.getByLabel("Item 1 price in SAR").fill("1000");
   await page.getByRole("button", { name: "Preview quotation" }).click();
-  await expect(page.getByRole("heading", { name: /^Q-\d{4,}$/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/quotations\/[0-9a-f-]+$/, { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: /^Q-\d{4,}$/ })).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole("link", { name: "Add customer PO" }).click();
   await expect(page.getByRole("heading", { name: "Add a purchase order" })).toBeVisible();

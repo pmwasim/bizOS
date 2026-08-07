@@ -10,6 +10,7 @@ import { AppModule } from "./app.module.js";
 import { ProblemDetailsFilter } from "./common/problem-details.filter.js";
 
 async function bootstrap(): Promise<void> {
+  const startTime = performance.now();
   const environment = readApiEnvironment(process.env);
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
@@ -38,6 +39,9 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new ProblemDetailsFilter());
 
   await app.listen(environment.API_PORT, "0.0.0.0");
+
+  const logger = app.get(Logger);
+  logger.log(`API bootstrap completed in ${(performance.now() - startTime).toFixed(0)}ms`);
 }
 
 void bootstrap();

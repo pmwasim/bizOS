@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 
 import { readApiEnvironment } from "@bizo/config/api";
 import { createDatabaseClient, type DatabaseClient, type Prisma } from "@bizo/database";
@@ -10,6 +10,7 @@ export interface TrustedBusinessScope {
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(DatabaseService.name);
   readonly client: DatabaseClient;
 
   constructor() {
@@ -20,8 +21,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * Prisma connects lazily on the first query, so an eager `$connect()` here
+   * only blocks bootstrap while the TCP + TLS handshake completes (~2-5 s on
+   * remote PostgreSQL). Removing it lets the API accept health-check traffic
+   * immediately and pay the connection cost on the first real request instead.
+   */
   async onModuleInit(): Promise<void> {
-    await this.client.$connect();
+    this.logger.log("Database client initialised (connection deferred to first query)");
   }
 
   async onModuleDestroy(): Promise<void> {

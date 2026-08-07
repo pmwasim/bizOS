@@ -43,6 +43,7 @@
     "ops:n8n:notify": "node scripts/ops/n8n-notify.mjs",
     "ops:check:n8n": "bash scripts/ops/check-with-n8n-notify.sh",
     "ops:release-readiness": "node scripts/ops/release-readiness.mjs",
+    "ops:deploy:local": "bash scripts/ops/deploy-local.sh",
     "test": "turbo run test",
     "test:e2e": "playwright test",
     "test:coverage": "turbo run test:coverage",
@@ -70,7 +71,6 @@
     "vitest": "4.1.10"
   },
   "resolutions": {
-    "fast-uri": ">=3.1.5",
-    "brace-expansion": ">=5.0.9"
+    "fast-uri": ">=3.1.5"
   }
 }
