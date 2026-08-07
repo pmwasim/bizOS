@@ -75,6 +75,10 @@ type PurchaseOrderDetail = {
   }>;
 };
 
+function isPurchaseOrderStatus(value: string): value is PurchaseOrderStatus {
+  return (Object.values(PurchaseOrderStatus) as string[]).includes(value);
+}
+
 @Injectable()
 export class PurchaseOrdersService {
   constructor(
@@ -162,6 +166,27 @@ export class PurchaseOrdersService {
         where: { businessId: access.businessId, status: PurchaseOrderStatus.ACTIVE },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 200,
+        include: this.detailInclude(),
+      })) as PurchaseOrderDetail[];
+      return rows.map((row) => this.mapPurchaseOrder(row));
+    });
+  }
+
+  async listByStatus(
+    userPublicId: string,
+    businessPublicId: string,
+    status: string,
+  ): Promise<PurchaseOrder[]> {
+    if (!isPurchaseOrderStatus(status)) {
+      throw new BadRequestException(
+        `status must be one of: ${Object.values(PurchaseOrderStatus).join(", ")}`,
+      );
+    }
+    const access = await this.authorize(userPublicId, businessPublicId, "purchase_orders", "read");
+    return this.database.withScope(access, async (transaction) => {
+      const rows = (await transaction.purchaseOrder.findMany({
+        where: { businessId: access.businessId, status },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         include: this.detailInclude(),
       })) as PurchaseOrderDetail[];
       return rows.map((row) => this.mapPurchaseOrder(row));

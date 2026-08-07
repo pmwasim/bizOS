@@ -72,6 +72,15 @@ export class PurchaseOrdersController {
     return this.purchaseOrders.list(principal.userId, businessId);
   }
 
+  @Get("status/:status")
+  listByStatus(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("status") status: string,
+  ) {
+    return this.purchaseOrders.listByStatus(principal.userId, businessId, status);
+  }
+
   @Get(":purchaseOrderId")
   get(
     @Principal() principal: AuthenticatedPrincipal,

@@ -4,13 +4,21 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 
 import { ConfigurationModule } from "./configuration/configuration.module.js";
+import { CreditNotesModule } from "./credit-notes/credit-notes.module.js";
+import { CrmModule } from "./crm/crm.module.js";
 import { CustomizationModule } from "./customization/customization.module.js";
 import { DatabaseModule } from "./database/database.module.js";
+import { DeliveryNotesModule } from "./delivery-notes/delivery-notes.module.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { ErpnextModule } from "./erpnext/erpnext.module.js";
 import { CustomersModule } from "./customers/customers.module.js";
-import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module.js";
+import { InventoryModule } from "./inventory/inventory.module.js";
 import { PaymentsModule } from "./payments/payments.module.js";
+import { ProjectsModule } from "./projects/projects.module.js";
+import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module.js";
+import { SalesOrdersModule } from "./sales-orders/sales-orders.module.js";
+import { StatementsModule } from "./statements/statements.module.js";
+import { SuppliersModule } from "./suppliers/suppliers.module.js";
 import { KeepWarmMiddleware } from "./common/keep-warm.middleware.js";
 import { NoStoreInterceptor } from "./common/no-store.interceptor.js";
 import { HealthModule } from "./health/health.module.js";
@@ -55,9 +63,17 @@ import { SystemAdminModule } from "./system-admin/system-admin.module.js";
     CustomizationModule,
     SystemAdminModule,
     CustomersModule,
+    SuppliersModule,
     DocumentsModule,
+    SalesOrdersModule,
+    DeliveryNotesModule,
+    CreditNotesModule,
     PurchaseOrdersModule,
     PaymentsModule,
+    StatementsModule,
+    CrmModule,
+    ProjectsModule,
+    InventoryModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ClientAwareThrottlerGuard },

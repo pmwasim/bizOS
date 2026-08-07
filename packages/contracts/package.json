@@ -71,6 +71,38 @@
     "./payments": {
       "types": "./dist/payments.d.ts",
       "default": "./dist/payments.js"
+    },
+    "./statements": {
+      "types": "./dist/statements.d.ts",
+      "default": "./dist/statements.js"
+    },
+    "./sales-orders": {
+      "types": "./dist/sales-orders.d.ts",
+      "default": "./dist/sales-orders.js"
+    },
+    "./delivery-notes": {
+      "types": "./dist/delivery-notes.d.ts",
+      "default": "./dist/delivery-notes.js"
+    },
+    "./suppliers": {
+      "types": "./dist/suppliers.d.ts",
+      "default": "./dist/suppliers.js"
+    },
+    "./credit-notes": {
+      "types": "./dist/credit-notes.d.ts",
+      "default": "./dist/credit-notes.js"
+    },
+    "./crm": {
+      "types": "./dist/crm.d.ts",
+      "default": "./dist/crm.js"
+    },
+    "./projects": {
+      "types": "./dist/projects.d.ts",
+      "default": "./dist/projects.js"
+    },
+    "./inventory": {
+      "types": "./dist/inventory.d.ts",
+      "default": "./dist/inventory.js"
     }
   },
   "scripts": {
