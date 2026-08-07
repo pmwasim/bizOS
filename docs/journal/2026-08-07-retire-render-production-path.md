@@ -7,7 +7,7 @@ Agent: chatgpt-gpt-5.6-thinking
 Scope: production deployment workflow, Ubuntu operations documentation, hosting ADR, environment
 documentation
 
-Status: In progress — repository correction implemented; final CI pending
+Status: Complete — GitHub CI verified; live Ubuntu incident remains open
 
 Related:
 [Issue #56 — Production `/signin` returns a stale Next.js 404](https://github.com/pmwasim/bizOS/issues/56)
@@ -58,8 +58,6 @@ actual Ubuntu runtime and public hostname are independently verified.
 
 ## Verification
 
-Completed before final validation of this operations PR:
-
 ```text
 PR #64 dependency review             # passed
 PR #64 CodeQL                        # passed
@@ -72,10 +70,16 @@ PR #67 CodeQL                        # passed — run 31136229657
 PR #67 API/web container builds      # passed — run 31136229630
 PR #67 full CI and Playwright        # passed — run 31136229762
 PR #67 squash merge                  # 809d5715be42bc0684bef6dc968d0c749f1c4de2
+
+PR #66 dependency review             # passed — run 31136726919
+PR #66 CodeQL                        # passed — run 31136726901
+PR #66 API/web container builds      # passed — run 31136726957
+PR #66 full CI and Playwright        # passed — run 31136726930
 ```
 
-The operations retirement branch requires one final permanent-workflow pass after its generated
-agent metadata and journal index are refreshed with the validation-only release-gate workflow.
+PR #66 passed the repository foundation gate, dependency audit, test-database migrations, CodeQL,
+API/web container builds, and desktop/mobile Playwright on candidate head
+`0afd9fb1f33987aa36462a83c2cbd9f7532a6fd1` before this documentation-only evidence update.
 
 Production `/signin` has **not** been declared fixed. This ChatGPT environment has no authenticated
 shell/SSH execution channel to the Ubuntu production desktop, and the exact current checkout path,
