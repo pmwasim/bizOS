@@ -1,107 +1,144 @@
-# Private-beta cutover handoff (no secrets)
+# Ubuntu production handoff (no secrets)
 
-**Paused:** 2026-07-27T17:03Z (Mac Cursor)  
-**Resume:** Ubuntu Cursor on a local clone (not remote SSH into Mac)
+**Hosting authority:** Product-owner correction on 2026-08-07  
+**Production web:** `https://bizos.qloudihub.com`  
+**Production host:** Ubuntu desktop  
+**Source repository:** `pmwasim/bizOS`
 
-## Git / release
+> **Render is retired for bizOS production.** Historical Render service IDs, `onrender.com` origins,
+> `RENDER_*` secrets, and Render deployment instructions from earlier releases are obsolete and must
+> not be used for deploy, rollback, diagnosis, or recovery. The previous Render handoff remains
+> available in Git history only.
 
-| Item             | Value                                                        |
-| ---------------- | ------------------------------------------------------------ |
-| Repo             | https://github.com/pmwasim/bizOS                             |
-| `main` SHA       | `6340ebf2ed1d64fe0c10f49373226fcbd297f973`                   |
-| Release tag      | `v0.1.0-beta.1` → `aa8de955455ad085709a768db921acc76dbbbd62` |
-| Mac working tree | Clean, on `main`, synced with `origin/main`                  |
+## Current operating rule
 
-Merged this cutover: `#16` (Render git deploys), `#17` (Render custom-domain workflow), `#18`
-(tolerate existing domains), `#19` (Resend HTTPS mail for free-tier SMTP block).
+GitHub `main` is the application source of truth, but a merge to `main` does **not** prove that the
+Ubuntu production process has been rebuilt or restarted.
 
-Open / ignore: draft PR `#14` (superseded); Dependabot PRs `#1`–`#7` (not release-critical).
+Before changing production, discover and record the actual Ubuntu runtime instead of assuming a
+checkout path, process manager, container name, port, or Cloudflare Tunnel target.
 
-## Live endpoints
+## Production discovery
 
-- Web: https://bizos.qloudihub.com
-- API health: https://api.bizos.qloudihub.com/api/v1/health
-- Render web origin: https://bizos-web.onrender.com
-- Render API origin: https://bizos-api-3z63.onrender.com
+Run these read-only checks on the Ubuntu production host:
 
-At pause: both production hosts returned healthy HTTP responses. Cold starts on free tier are
-expected.
+```bash
+hostnamectl --static
 
-## Render (free tier)
+# Identify the live bizOS processes and listeners.
+ps -ef | grep -E '[n]ext|[n]ode .*server\.js|[p]npm.*bizo|[d]ocker.*bizo'
+ss -ltnp | grep -E ':3000|:3001' || true
 
-| Service        | ID                                 | Notes                                                                           |
-| -------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
-| Workspace      | `tea-d9jnqf2d0e5s7393ibug` (bizOS) | Free                                                                            |
-| bizos-api      | `srv-d9jo3murnols73951gd0`         | Docker from GitHub; Dockerfile `./apps/api/Dockerfile`; health `/api/v1/health` |
-| bizos-web      | `srv-d9jo3vv41pts73d0ts5g`         | Docker from GitHub; Dockerfile `./apps/web/Dockerfile`; health `/`              |
-| Custom domains | 2/2 free quota used                | `bizos.qloudihub.com`, `api.bizos.qloudihub.com`                                |
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}' 2>/dev/null || true
+systemctl --user --type=service --all | grep -Ei 'bizo|bizos' || true
+systemctl --type=service --all | grep -Ei 'bizo|bizos|cloudflared' || true
 
-Auto-deploy is off; deploy manually or via Production deploy workflow (git/Docker `commitId`, not
-private GHCR `imageUrl`).
+# Identify Cloudflare Tunnel / reverse-proxy configuration without printing credentials.
+ps -ef | grep '[c]loudflared' || true
+systemctl status cloudflared --no-pager 2>/dev/null || true
+```
 
-## Cloudflare DNS
+Do not print `.env` files, tokens, tunnel credentials, database URLs, Auth.js secrets, or private
+keys into terminal transcripts, GitHub issues, or chat.
 
-- Zone: `qloudihub.com` (pmwasim Cloudflare account)
-- `bizos.qloudihub.com` → CNAME `bizos-web.onrender.com` **DNS-only** (`proxied=false`)
-- `api.bizos.qloudihub.com` → CNAME `bizos-api-3z63.onrender.com` **DNS-only**
-- Do **not** orange-cloud these records (Cloudflare returns “DNS points to prohibited IP” for
-  onrender targets)
-- SSL Full (strict) + Always HTTPS already set in dashboard (API token may lack Zone Settings Edit)
+## Locate and verify the production checkout
 
-## SMTP / Resend
+After identifying the process working directory or deployment path:
 
-- Provider: Resend; domain `bizos.qloudihub.com` **Verified** (Ireland)
-- Sender: `quotations@bizos.qloudihub.com` (`SMTP_FROM`)
-- **Render free blocks outbound SMTP 25/465/587.** Fix merged in `#19`: when `SMTP_URL` host is
-  `smtp.resend.com`, API uses Resend **HTTPS** API.
-- At pause: email send was still stuck / Resend showed no deliveries **before** confirming API Live
-  on `6340ebf`. **First Ubuntu task: confirm API deploy of `6340ebf` is Live, then re-test send.**
+```bash
+cd <ACTUAL_BIZOS_CHECKOUT>
 
-## Smoke progress (partial)
+git remote -v
+git status --short
+git branch --show-current
+git rev-parse HEAD
+git fetch origin
+git rev-parse origin/main
+```
 
-Completed on production:
+A dirty production checkout must be investigated before pull/rebuild. Do not discard local changes
+blindly.
 
-- DNS + TLS for web and API
-- App load, signup, business setup, customer create
-- Quotation create `Q-0001`, tax total SAR 3,450.00 (2×1500 + 15% VAT)
-- PDF download (authenticated) OK
+## Build verification
 
-Not finished:
+The current web image/build uses the existing Next.js App Router application. The sign-in page lives
+at `apps/web/src/app/(auth)/signin/page.tsx`; the route group does not appear in the public URL, so it
+must resolve as `/signin`.
 
-- Quotation email send / delivery persistence / resend (blocked by SMTP until HTTPS deploy
-  confirmed)
-- Unauthorized PDF returned **500** (should be 401/403 — investigate)
-- Cross-tenant checks, mobile journey, QA data cleanup
-- Monitoring / Prisma backup evidence / Cloudflare token rotation
-- Final 21-point readiness report (do **not** claim ready until email + full smoke pass)
+Before restart or rollout:
 
-QA business path (cleanup after smoke):  
-`/b/a4ebfa34-be55-44aa-8886-6b69c9a760c1` — Deploy QA Business / Deploy QA Customer / quotation
-`288a8aaf-71f5-45c4-b94c-692f58dcbfae`
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter @bizo/web build
+```
 
-## Secrets
+If the Ubuntu deployment uses Docker, rebuild/recreate **using the existing production compose or
+container procedure after it has been identified**. If it uses systemd or another supervisor,
+restart only the actual bizOS unit. Do not invent a new supervisor during incident recovery.
 
-Prefer GitHub environment **`production`** (already populated: `DATABASE_URL`, `AUTH_SECRET`,
-`INTERNAL_AUTH_SECRET`, `SMTP_URL`, `RENDER_*`, `CLOUDFLARE_*`, `R2_*`, etc.).
+## Required local smoke checks
 
-Optional Mac copy (chmod 700, never commit): `~/.config/bizos-release/`  
-Ubuntu does not need this file if GitHub + provider dashboards are available.
+After starting the candidate build, test the origin locally before relying on the public hostname:
 
-## Constraints
+```bash
+curl -fsS -o /tmp/bizos-home.html -w '%{http_code}\n' http://127.0.0.1:<WEB_PORT>/
+curl -fsS -o /tmp/bizos-signin.html -w '%{http_code}\n' http://127.0.0.1:<WEB_PORT>/signin
+grep -q 'Welcome back' /tmp/bizos-signin.html
+curl -fsS -o /tmp/bizos-signup.html -w '%{http_code}\n' http://127.0.0.1:<WEB_PORT>/signup
+```
 
-- Free-tier / zero-budget default; escalate for paid always-on Render
-- No Redis / BullMQ / worker / extra storage for MVP
-- Ship on `cursor/<feature>` branches; draft PRs; merge when required checks green (ignore
-  non-required Prisma Compute Deploy failures)
-- Never print or commit secrets; rotate Cloudflare token after cutover (previously appeared in
-  automation logs)
+Expected: all three pages return HTTP `200`, and `/signin` contains the expected sign-in UI.
 
-## Resume checklist
+## Public verification
 
-1. `git fetch origin && git checkout main && git pull --ff-only` → expect `6340ebf…`
-2. Confirm Render **bizos-api** latest deploy commit is `6340ebf` and status **Live**; redeploy if
-   not
-3. Re-run quotation email send; verify Resend emails log + UI delivery state
-4. Finish remaining smoke items; delete Deploy QA data
-5. Monitoring + backup evidence + CF token rotation
-6. Emit final 21-point report with honest readiness verdict
+After the local origin is correct and Cloudflare is routing to that origin:
+
+```bash
+curl -fsS -o /tmp/bizos-public-signin.html -w '%{http_code}\n' \
+  https://bizos.qloudihub.com/signin
+grep -q 'Welcome back' /tmp/bizos-public-signin.html
+```
+
+Also verify `/` and `/signup` and complete a real browser sign-in with a designated QA account. Do
+not create or expose credentials in repository automation.
+
+## Current incident
+
+GitHub issue `#65` tracks the production `/signin` 404. Source inspection confirmed that the route
+already exists, including in the previously documented beta release. Therefore a live 404 should be
+treated first as deployment/runtime/origin drift, not as evidence that a new sign-in page must be
+created.
+
+PR `#64` adds desktop/mobile Playwright regression coverage that requires `/signin` to return HTTP
+200 and render the credentials form.
+
+## Deployment acceptance record
+
+For every Ubuntu production rollout, record at minimum:
+
+- deployed Git SHA;
+- prior rollback SHA;
+- Ubuntu host identity;
+- actual checkout/deployment path;
+- actual process manager/container names;
+- web/API local ports;
+- Cloudflare Tunnel or reverse-proxy origin mapping (without credentials);
+- build/check result;
+- migration result when applicable;
+- local smoke result;
+- public smoke result;
+- restart/rollback command used.
+
+Do not call a deployment successful until the public route is independently verified.
+
+## Rollback principle
+
+Rollback must use the previously recorded known-good application SHA and the **same established
+Ubuntu deployment mechanism**. Never reverse a database migration automatically solely because an
+application rollback is required.
+
+## Follow-up
+
+Once the actual Ubuntu production mechanism is recovered during issue `#65`, replace the discovery
+placeholders in this document with the verified paths, unit/container names, ports, and safe
+restart/rollback commands. That information should become the authoritative production runbook.
