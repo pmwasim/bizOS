@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 127,
-      "testFiles": 33,
+      "sourceFiles": 136,
+      "testFiles": 42,
       "areas": [
         {
           "name": "common",
@@ -81,14 +81,14 @@
         {
           "name": "credit-notes",
           "path": "apps/api/src/credit-notes",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "crm",
           "path": "apps/api/src/crm",
-          "sourceFiles": 4,
-          "testFiles": 0
+          "sourceFiles": 6,
+          "testFiles": 2
         },
         {
           "name": "customers",
@@ -111,8 +111,8 @@
         {
           "name": "delivery-notes",
           "path": "apps/api/src/delivery-notes",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "documents",
@@ -141,14 +141,14 @@
         {
           "name": "integration",
           "path": "apps/api/src/integration",
-          "sourceFiles": 7,
-          "testFiles": 7
+          "sourceFiles": 8,
+          "testFiles": 8
         },
         {
           "name": "inventory",
           "path": "apps/api/src/inventory",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "mail",
@@ -177,8 +177,8 @@
         {
           "name": "projects",
           "path": "apps/api/src/projects",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "purchase-orders",
@@ -189,8 +189,8 @@
         {
           "name": "sales-orders",
           "path": "apps/api/src/sales-orders",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "security",
@@ -213,8 +213,8 @@
         {
           "name": "suppliers",
           "path": "apps/api/src/suppliers",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "system-admin",

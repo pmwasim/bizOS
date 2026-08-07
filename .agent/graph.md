@@ -18,7 +18,7 @@ layer above it.
 
 | Workspace | Type | Path | Depends on | Depended on by | Source | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 127 | 33 |
+| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 136 | 42 |
 | `@bizo/authorization` | package | `packages/authorization` | — | `@bizo/api` | 2 | 1 |
 | `@bizo/config` | package | `packages/config` | — | `@bizo/api`, `@bizo/web` | 5 | 2 |
 | `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 38 | 13 |
@@ -37,29 +37,29 @@ First-level source areas. These are the natural units for a work claim
 
 - `apps/api/src/common` — 6 source files, 1 test file
 - `apps/api/src/configuration` — 7 source files, 3 test files
-- `apps/api/src/credit-notes` — 3 source files, 0 test files
-- `apps/api/src/crm` — 4 source files, 0 test files
+- `apps/api/src/credit-notes` — 4 source files, 1 test file
+- `apps/api/src/crm` — 6 source files, 2 test files
 - `apps/api/src/customers` — 3 source files, 0 test files
 - `apps/api/src/customization` — 7 source files, 3 test files
 - `apps/api/src/database` — 2 source files, 0 test files
-- `apps/api/src/delivery-notes` — 3 source files, 0 test files
+- `apps/api/src/delivery-notes` — 4 source files, 1 test file
 - `apps/api/src/documents` — 15 source files, 4 test files
 - `apps/api/src/erpnext` — 3 source files, 1 test file
 - `apps/api/src/health` — 3 source files, 1 test file
 - `apps/api/src/identity` — 3 source files, 0 test files
-- `apps/api/src/integration` — 7 source files, 7 test files
-- `apps/api/src/inventory` — 3 source files, 0 test files
+- `apps/api/src/integration` — 8 source files, 8 test files
+- `apps/api/src/inventory` — 4 source files, 1 test file
 - `apps/api/src/mail` — 3 source files, 1 test file
 - `apps/api/src/onboarding` — 7 source files, 2 test files
 - `apps/api/src/payments` — 3 source files, 0 test files
 - `apps/api/src/platform` — 4 source files, 1 test file
-- `apps/api/src/projects` — 3 source files, 0 test files
+- `apps/api/src/projects` — 4 source files, 1 test file
 - `apps/api/src/purchase-orders` — 4 source files, 1 test file
-- `apps/api/src/sales-orders` — 3 source files, 0 test files
+- `apps/api/src/sales-orders` — 4 source files, 1 test file
 - `apps/api/src/security` — 14 source files, 4 test files
 - `apps/api/src/statements` — 4 source files, 1 test file
 - `apps/api/src/storage` — 2 source files, 0 test files
-- `apps/api/src/suppliers` — 3 source files, 0 test files
+- `apps/api/src/suppliers` — 4 source files, 1 test file
 - `apps/api/src/system-admin` — 5 source files, 2 test files
 
 ### `@bizo/web`
