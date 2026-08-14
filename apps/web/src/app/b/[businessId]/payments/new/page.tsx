@@ -59,6 +59,7 @@ export default async function NewPaymentPage({
         invoiceId={invoice.id}
         defaultAmount={defaultAmount}
         currencyCode={invoice.currencyCode}
+        currencyScale={invoice.currencyScale}
       />
     </div>
   );

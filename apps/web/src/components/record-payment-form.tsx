@@ -2,24 +2,22 @@
 
 import { useActionState } from "react";
 
-import { paymentMethodLabel, type PaymentMethod } from "@bizo/contracts/payments";
-
 import { type ActionState, recordPaymentAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
 import { SubmitButton } from "@/components/submit-button";
-
-const METHODS: PaymentMethod[] = ["BANK_TRANSFER", "CASH", "CARD", "CHECK", "OTHER"];
 
 export function RecordPaymentForm({
   businessId,
   invoiceId,
   defaultAmount,
   currencyCode,
+  currencyScale,
 }: {
   businessId: string;
   invoiceId: string;
   defaultAmount: string;
   currencyCode: string;
+  currencyScale: number;
 }) {
   const action = recordPaymentAction.bind(null, businessId);
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
@@ -29,6 +27,8 @@ export function RecordPaymentForm({
     <form className="stack-form" action={formAction}>
       <ActionMessage error={state.error} />
       <input type="hidden" name="invoiceId" value={invoiceId} />
+      <input type="hidden" name="currencyCode" value={currencyCode} />
+      <input type="hidden" name="currencyScale" value={currencyScale} />
       <label>
         Amount ({currencyCode})
         <input
@@ -43,16 +43,11 @@ export function RecordPaymentForm({
         Received on
         <input name="receivedOn" type="date" defaultValue={today} required />
       </label>
-      <label>
-        Method
-        <select name="method" defaultValue="BANK_TRANSFER" required>
-          {METHODS.map((method) => (
-            <option key={method} value={method}>
-              {paymentMethodLabel(method)}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/*
+        No payment-method field: the deployed payments table has no method column, so anything
+        chosen here would be silently discarded on save. Restoring it needs a migration adding
+        the column plus the matching contract field.
+      */}
       <label>
         Reference
         <input name="reference" type="text" maxLength={120} placeholder="Optional bank reference" />

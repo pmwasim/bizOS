@@ -19,11 +19,8 @@ import {
   sendInvoiceRequestSchema,
   updateInvoiceRequestSchema,
 } from "@bizo/contracts/invoices";
-import {
-  createCustomerPaymentRequestSchema,
-  type CustomerPayment,
-  voidCustomerPaymentRequestSchema,
-} from "@bizo/contracts/payments";
+import { parseDecimalToScaledInteger } from "@bizo/contracts/money";
+import { type Payment, recordPaymentRequestSchema } from "@bizo/contracts/payments";
 import {
   createPurchaseOrderRequestSchema,
   type PurchaseOrder,
@@ -379,18 +376,33 @@ export async function recordPaymentAction(
   _state: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const parsed = createCustomerPaymentRequestSchema.safeParse({
-    invoiceId: String(formData.get("invoiceId") ?? "").trim(),
-    amount: String(formData.get("amount") ?? "").trim(),
-    receivedOn: String(formData.get("receivedOn") ?? "").trim(),
-    method: String(formData.get("method") ?? "").trim(),
+  const currencyCode = String(formData.get("currencyCode") ?? "").trim();
+  const invoiceId = String(formData.get("invoiceId") ?? "").trim();
+
+  // The form collects a decimal amount; the API takes minor units as a string.
+  let amountMinor: string;
+  try {
+    amountMinor = parseDecimalToScaledInteger(
+      String(formData.get("amount") ?? "").trim(),
+      Number(formData.get("currencyScale") ?? 2),
+    ).toString();
+  } catch {
+    return { error: "Enter the amount as a positive number, for example 1250.00." };
+  }
+
+  const parsed = recordPaymentRequestSchema.safeParse({
+    type: "INBOUND",
+    paymentDate: String(formData.get("receivedOn") ?? "").trim(),
+    amountMinor,
+    currencyCode,
     reference: String(formData.get("reference") ?? "").trim() || null,
     notes: String(formData.get("notes") ?? "").trim() || null,
+    allocations: [{ documentId: invoiceId, amountMinor }],
   });
   if (!parsed.success) return { error: validationMessage(parsed.error) };
 
   try {
-    const payment = await apiJson<CustomerPayment>(`/businesses/${businessId}/payments`, {
+    const payment = await apiJson<Payment>(`/businesses/${businessId}/payments`, {
       method: "POST",
       body: JSON.stringify(parsed.data),
     });
@@ -404,17 +416,13 @@ export async function voidPaymentAction(
   businessId: string,
   paymentId: string,
   _state: ActionState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<ActionState> {
-  const parsed = voidCustomerPaymentRequestSchema.safeParse({
-    reason: String(formData.get("reason") ?? "").trim() || null,
-  });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
-
+  // The API models undoing a payment as a status transition to REVERSED. There is no /void route
+  // and no stored reason, so the reason field is not sent.
   try {
-    await apiJson(`/businesses/${businessId}/payments/${paymentId}/void`, {
-      method: "POST",
-      body: JSON.stringify(parsed.data),
+    await apiJson(`/businesses/${businessId}/payments/${paymentId}/status/reverse`, {
+      method: "PATCH",
     });
     redirect(`/b/${businessId}/payments/${paymentId}`);
   } catch (error) {
