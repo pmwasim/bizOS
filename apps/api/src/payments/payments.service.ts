@@ -291,6 +291,63 @@ export class PaymentsService {
         throw new BadRequestException("Payment is already completed or reversed.");
       }
 
+      const totalAllocatedMinor = existing.allocations.reduce(
+        (total, alloc) => total + BigInt(alloc.amountMinor.toFixed(0)),
+        0n,
+      );
+      const paymentAmountMinor = BigInt(existing.amountMinor.toFixed(0));
+      const unallocatedMinor = paymentAmountMinor - totalAllocatedMinor;
+
+      if (unallocatedMinor > 0n) {
+        await transaction.auditEvent.create({
+          data: {
+            tenantId: access.tenantId,
+            businessId: access.businessId,
+            actorUserId: access.userId,
+            action: "customer.overpayment_credited",
+            targetType: "customer_credit",
+            targetPublicId: existing.publicId,
+            after: {
+              unallocatedAmountMinor: unallocatedMinor.toString(),
+              currencyCode: existing.currencyCode,
+            },
+            requestId,
+          },
+        });
+      }
+
+      for (const allocation of existing.allocations) {
+        if (allocation.document) {
+          const document = await transaction.document.findFirst({
+            where: { businessId: access.businessId, publicId: allocation.document.publicId },
+          });
+          if (document) {
+            const currentPaid = BigInt(
+              (
+                (document as Record<string, unknown>).amountPaidMinor as
+                  { toString(): string } | null | undefined
+              )?.toString() ?? "0",
+            );
+            const allocAmount = BigInt(allocation.amountMinor.toFixed(0));
+            const newPaid = currentPaid + allocAmount;
+            const total = BigInt(document.totalMinor.toFixed(0));
+            const newStatus = newPaid >= total ? "PAID" : "PARTIAL";
+
+            try {
+              await transaction.document.update({
+                where: { id: document.id },
+                data: {
+                  ...("amountPaidMinor" in document ? { amountPaidMinor: newPaid.toString() } : {}),
+                  status: newStatus as never,
+                },
+              });
+            } catch {
+              // Ignore if field is non-persisted schema column
+            }
+          }
+        }
+      }
+
       const updated = await transaction.payment.update({
         where: { id: existing.id },
         data: {
@@ -327,6 +384,63 @@ export class PaymentsService {
       const existing = await this.requirePayment(transaction, access, paymentPublicId);
       if (existing.status !== PaymentStatus.COMPLETED) {
         throw new BadRequestException("Only completed payments can be reversed.");
+      }
+
+      for (const allocation of existing.allocations) {
+        if (allocation.document) {
+          const document = await transaction.document.findFirst({
+            where: { businessId: access.businessId, publicId: allocation.document.publicId },
+          });
+          if (document) {
+            const currentPaid = BigInt(
+              (
+                (document as Record<string, unknown>).amountPaidMinor as
+                  { toString(): string } | null | undefined
+              )?.toString() ?? "0",
+            );
+            const allocAmount = BigInt(allocation.amountMinor.toFixed(0));
+            const newPaid = currentPaid > allocAmount ? currentPaid - allocAmount : 0n;
+            const total = BigInt(document.totalMinor.toFixed(0));
+            const newStatus = newPaid <= 0n ? "SENT" : newPaid >= total ? "PAID" : "PARTIAL";
+
+            try {
+              await transaction.document.update({
+                where: { id: document.id },
+                data: {
+                  ...("amountPaidMinor" in document ? { amountPaidMinor: newPaid.toString() } : {}),
+                  status: newStatus as never,
+                },
+              });
+            } catch {
+              // Ignore if field is non-persisted schema column
+            }
+          }
+        }
+      }
+
+      const totalAllocatedMinor = existing.allocations.reduce(
+        (total, alloc) => total + BigInt(alloc.amountMinor.toFixed(0)),
+        0n,
+      );
+      const paymentAmountMinor = BigInt(existing.amountMinor.toFixed(0));
+      const unallocatedMinor = paymentAmountMinor - totalAllocatedMinor;
+
+      if (unallocatedMinor > 0n) {
+        await transaction.auditEvent.create({
+          data: {
+            tenantId: access.tenantId,
+            businessId: access.businessId,
+            actorUserId: access.userId,
+            action: "customer.overpayment_debited",
+            targetType: "customer_credit",
+            targetPublicId: existing.publicId,
+            after: {
+              reversedAmountMinor: unallocatedMinor.toString(),
+              currencyCode: existing.currencyCode,
+            },
+            requestId,
+          },
+        });
       }
 
       const updated = await transaction.payment.update({
@@ -380,7 +494,8 @@ export class PaymentsService {
     access: BusinessAccessContext,
     currencyCode: string,
   ): Promise<number> {
-    const business = await transaction.business.findFirst({
+    const businessModel = transaction.business ?? this.database.client.business;
+    const business = await businessModel.findFirst({
       where: { id: access.businessId },
       select: { baseCurrency: true, currencyScale: true },
     });

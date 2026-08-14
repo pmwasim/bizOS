@@ -68,12 +68,16 @@ function valuesEqual(left: unknown, right: unknown): boolean {
   }
   // Coerce matching primitives across string/number boundaries (e.g. "15" vs 15)
   // so the DSL stays ergonomic for JSON-sourced values. Object/array values are
-  // never coerced — only primitive scalars.
+  // never coerced — only primitive non-empty scalars.
   if (typeof left === "number" && typeof right === "string") {
-    return Number(left) === Number(right);
+    if (right.trim() === "") return false;
+    const num = Number(right);
+    return !Number.isNaN(num) && left === num;
   }
   if (typeof left === "string" && typeof right === "number") {
-    return Number(left) === Number(right);
+    if (left.trim() === "") return false;
+    const num = Number(left);
+    return !Number.isNaN(num) && num === right;
   }
   return false;
 }
@@ -97,7 +101,20 @@ function evaluateCondition(
       if (typeof condition.value !== "number") {
         throw new TypeError(`Operator "${operator}" requires a numeric value.`);
       }
-      const numericActual = typeof actual === "number" ? actual : Number(actual);
+      if (actual === null || actual === undefined || typeof actual === "boolean") {
+        return false;
+      }
+      let numericActual: number;
+      if (typeof actual === "number") {
+        numericActual = actual;
+      } else if (typeof actual === "string") {
+        if (actual.trim() === "") {
+          return false;
+        }
+        numericActual = Number(actual);
+      } else {
+        return false;
+      }
       if (Number.isNaN(numericActual)) {
         return false;
       }

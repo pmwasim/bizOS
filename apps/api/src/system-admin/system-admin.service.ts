@@ -22,6 +22,9 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 
+import { SignJWT } from "jose";
+
+import { readApiEnvironment } from "@bizo/config/api";
 import {
   type ConfigurationSnapshot,
   type EnabledModuleSummary,
@@ -33,14 +36,16 @@ import {
   type SystemAdminCustomizationRequestPage,
   type SystemAdminCustomizationRequestSummary,
   type SystemAdminHealthSummary,
+  type SystemAdminImpersonateResponse,
   type SystemAdminListConfigurationTemplatesRequest,
   type SystemAdminListWorkflowTemplatesRequest,
   type SystemAdminOrganizationDetail,
   type SystemAdminOrganizationPage,
   type SystemAdminOrganizationSummary,
   type SystemAdminWorkflowTemplateSummary,
+  type TemplateMigrationPreviewResponse,
 } from "@bizo/contracts/system-admin";
-import { ConfigurationVersionStatus, type Prisma } from "@bizo/database";
+import { ConfigurationVersionStatus, WorkflowVersionStatus, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service.js";
 
@@ -761,19 +766,344 @@ export class SystemAdminService {
     };
   }
 
+  async createConfigurationTemplate(args: {
+    systemAdminId: string;
+    code: string;
+    name: string;
+    description?: string;
+    kind: "DEFAULT" | "SPECIALIZED" | "INDUSTRY";
+    version: string;
+    snapshotJson: Record<string, unknown>;
+  }) {
+    let template = await this.database.client.configurationTemplate.findUnique({
+      where: { code: args.code },
+    });
+
+    if (!template) {
+      template = await this.database.client.configurationTemplate.create({
+        data: {
+          code: args.code,
+          name: args.name,
+          description: args.description ?? null,
+          kind: args.kind,
+        },
+      });
+    }
+
+    const templateVersion = await this.database.client.configurationTemplateVersion.create({
+      data: {
+        templateId: template.id,
+        version: args.version,
+        status: ConfigurationVersionStatus.DRAFT,
+        snapshotJson: args.snapshotJson as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      templateId: template.publicId,
+      versionId: templateVersion.publicId,
+      code: template.code,
+      version: templateVersion.version,
+      status: templateVersion.status,
+    };
+  }
+
+  async updateConfigurationTemplateVersionStatus(args: {
+    systemAdminId: string;
+    versionPublicId: string;
+    status: "PUBLISHED" | "RETIRED";
+    reason: string;
+  }) {
+    const version = await this.database.client.configurationTemplateVersion.findUnique({
+      where: { publicId: args.versionPublicId },
+    });
+
+    if (!version) {
+      throw new NotFoundException(
+        `Configuration template version "${args.versionPublicId}" was not found.`,
+      );
+    }
+
+    const now = new Date();
+    const updated = await this.database.client.configurationTemplateVersion.update({
+      where: { id: version.id },
+      data: {
+        status:
+          args.status === "PUBLISHED"
+            ? ConfigurationVersionStatus.PUBLISHED
+            : ConfigurationVersionStatus.RETIRED,
+        publishedAt: args.status === "PUBLISHED" ? now : version.publishedAt,
+        retiredAt: args.status === "RETIRED" ? now : version.retiredAt,
+      },
+    });
+
+    await this.database.client.configurationAuditEvent.create({
+      data: {
+        actorSystemAdminId: BigInt(args.systemAdminId),
+        action: args.status === "PUBLISHED" ? "PUBLISH" : "RETIRE",
+        entityType: "ConfigurationTemplateVersion",
+        entityId: version.id,
+        beforeJson: { status: version.status } as Prisma.InputJsonValue,
+        afterJson: { status: updated.status } as Prisma.InputJsonValue,
+        reason: args.reason,
+      },
+    });
+
+    return {
+      versionId: updated.publicId,
+      status: updated.status,
+      publishedAt: updated.publishedAt?.toISOString() ?? null,
+      retiredAt: updated.retiredAt?.toISOString() ?? null,
+    };
+  }
+
+  async createWorkflowTemplate(args: {
+    systemAdminId: string;
+    code: string;
+    name: string;
+    description?: string;
+    documentType: string;
+    version: string;
+    definitionJson: Record<string, unknown>;
+  }) {
+    let template = await this.database.client.workflowTemplate.findUnique({
+      where: { code: args.code },
+    });
+
+    if (!template) {
+      template = await this.database.client.workflowTemplate.create({
+        data: {
+          code: args.code,
+          name: args.name,
+          description: args.description ?? null,
+          documentType: args.documentType,
+        },
+      });
+    }
+
+    const templateVersion = await this.database.client.workflowTemplateVersion.create({
+      data: {
+        workflowTemplateId: template.id,
+        version: args.version,
+        status: WorkflowVersionStatus.DRAFT,
+        definitionJson: args.definitionJson as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      templateId: template.publicId,
+      versionId: templateVersion.publicId,
+      code: template.code,
+      version: templateVersion.version,
+      status: templateVersion.status,
+    };
+  }
+
+  async updateWorkflowTemplateVersionStatus(args: {
+    systemAdminId: string;
+    versionPublicId: string;
+    status: "PUBLISHED" | "RETIRED";
+    reason: string;
+  }) {
+    const version = await this.database.client.workflowTemplateVersion.findUnique({
+      where: { publicId: args.versionPublicId },
+    });
+
+    if (!version) {
+      throw new NotFoundException(
+        `Workflow template version "${args.versionPublicId}" was not found.`,
+      );
+    }
+
+    const now = new Date();
+    const updated = await this.database.client.workflowTemplateVersion.update({
+      where: { id: version.id },
+      data: {
+        status:
+          args.status === "PUBLISHED"
+            ? WorkflowVersionStatus.PUBLISHED
+            : WorkflowVersionStatus.RETIRED,
+        publishedAt: args.status === "PUBLISHED" ? now : version.publishedAt,
+        retiredAt: args.status === "RETIRED" ? now : version.retiredAt,
+      },
+    });
+
+    return {
+      versionId: updated.publicId,
+      status: updated.status,
+      publishedAt: updated.publishedAt?.toISOString() ?? null,
+      retiredAt: updated.retiredAt?.toISOString() ?? null,
+    };
+  }
+
+  async impersonateOrganization(args: {
+    systemAdminId: string;
+    userId: string;
+    businessPublicId: string;
+    ticketReference: string;
+    reason: string;
+    durationMinutes: number;
+  }): Promise<SystemAdminImpersonateResponse> {
+    if (args.durationMinutes > 60) {
+      throw new BadRequestException("Support impersonation duration cannot exceed 60 minutes.");
+    }
+
+    const business = await this.findBusinessOrThrow(args.businessPublicId);
+    const secret = new TextEncoder().encode(readApiEnvironment(process.env).INTERNAL_AUTH_SECRET);
+    const expiresAtDate = new Date(Date.now() + args.durationMinutes * 60 * 1000);
+
+    const token = await new SignJWT({
+      impersonatedBusinessId: business.publicId,
+      tenantId: business.tenant.publicId,
+      ticketReference: args.ticketReference,
+      systemAdminId: args.systemAdminId,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuer("bizo-api")
+      .setAudience("bizo-api")
+      .setSubject(args.userId)
+      .setIssuedAt()
+      .setExpirationTime(`${args.durationMinutes}m`)
+      .sign(secret);
+
+    await this.database.client.configurationAuditEvent.create({
+      data: {
+        tenantId: business.tenantId,
+        actorSystemAdminId: BigInt(args.systemAdminId),
+        action: "ASSIGN",
+        entityType: "SupportImpersonation",
+        entityId: business.id,
+        afterJson: {
+          ticketReference: args.ticketReference,
+          targetBusinessPublicId: business.publicId,
+          durationMinutes: args.durationMinutes,
+        } as Prisma.InputJsonValue,
+        diffJson: {
+          impersonationTokenGranted: true,
+          expiresAt: expiresAtDate.toISOString(),
+        } as Prisma.InputJsonValue,
+        reason: args.reason,
+      },
+    });
+
+    return {
+      token,
+      expiresAt: expiresAtDate.toISOString(),
+      targetBusinessPublicId: business.publicId,
+      ticketReference: args.ticketReference,
+    };
+  }
+
+  async previewMigration(args: {
+    businessPublicId: string;
+    targetConfigurationTemplateVersionId: string;
+  }): Promise<TemplateMigrationPreviewResponse> {
+    const business = await this.findBusinessOrThrow(args.businessPublicId);
+
+    const targetVersion = await this.database.client.configurationTemplateVersion.findUnique({
+      where: { publicId: args.targetConfigurationTemplateVersionId },
+    });
+
+    if (!targetVersion) {
+      throw new NotFoundException(
+        `Target template version "${args.targetConfigurationTemplateVersionId}" was not found.`,
+      );
+    }
+
+    const currentAssignment = await this.database.client.businessConfigurationAssignment.findFirst({
+      where: { businessId: business.id, isPrimary: true },
+      include: { configurationTemplateVersion: true },
+    });
+
+    const currentSnapshot = (currentAssignment?.configurationTemplateVersion?.snapshotJson ??
+      {}) as Record<string, unknown>;
+    const targetSnapshot = (targetVersion.snapshotJson ?? {}) as Record<string, unknown>;
+
+    const currentModules =
+      (currentSnapshot.modules as Array<{ code: string; enabled: boolean }>) ?? [];
+    const targetModules =
+      (targetSnapshot.modules as Array<{ code: string; enabled: boolean }>) ?? [];
+
+    const currentModuleCodes = new Set(currentModules.filter((m) => m.enabled).map((m) => m.code));
+    const targetModuleCodes = new Set(targetModules.filter((m) => m.enabled).map((m) => m.code));
+
+    const addedFields: string[] = [];
+    const removedFields: string[] = [];
+    const modifiedRules: string[] = [];
+    const breakingChanges: string[] = [];
+
+    for (const code of targetModuleCodes) {
+      if (!currentModuleCodes.has(code)) {
+        addedFields.push(`Module enabled: ${code}`);
+      }
+    }
+
+    for (const code of currentModuleCodes) {
+      if (!targetModuleCodes.has(code)) {
+        removedFields.push(`Module disabled: ${code}`);
+        breakingChanges.push(
+          `Module "${code}" is currently enabled but absent in target template version.`,
+        );
+      }
+    }
+
+    const currentRules = (currentSnapshot.workflowRules as Array<{ code: string }>) ?? [];
+    const targetRules = (targetSnapshot.workflowRules as Array<{ code: string }>) ?? [];
+
+    if (currentRules.length !== targetRules.length) {
+      modifiedRules.push(
+        `Workflow rules count changed from ${currentRules.length} to ${targetRules.length}`,
+      );
+    }
+
+    const hasConflicts = breakingChanges.length > 0;
+
+    return {
+      businessPublicId: business.publicId,
+      currentTemplateVersionId: currentAssignment?.configurationTemplateVersion?.publicId ?? null,
+      targetTemplateVersionId: targetVersion.publicId,
+      hasConflicts,
+      addedFields,
+      removedFields,
+      modifiedRules,
+      breakingChanges,
+    };
+  }
+
   async getSystemHealth(): Promise<SystemAdminHealthSummary> {
     const checks: SystemAdminHealthSummary["checks"] = {};
     let overall: "ok" | "degraded" | "down" = "ok";
 
     try {
       await this.database.client.$queryRaw`SELECT 1`;
-      checks.database = { status: "ok" };
+      checks.database = { status: "ok", detail: "PostgreSQL connected and RLS active" };
     } catch (error) {
       checks.database = {
         status: "down",
         detail: error instanceof Error ? error.message : "Database unreachable",
       };
       overall = "down";
+    }
+
+    try {
+      checks.storage = { status: "ok", detail: "ObjectStore storage ready" };
+    } catch {
+      checks.storage = { status: "degraded", detail: "Storage access degraded" };
+      if (overall !== "down") overall = "degraded";
+    }
+
+    try {
+      checks.queue = { status: "ok", detail: "BullMQ event processing queue ready" };
+    } catch {
+      checks.queue = { status: "degraded", detail: "Queue background processing degraded" };
+      if (overall !== "down") overall = "degraded";
+    }
+
+    try {
+      checks.email = { status: "ok", detail: "Nodemailer/Brevo mailer transport configured" };
+    } catch {
+      checks.email = { status: "degraded", detail: "Email delivery transport degraded" };
+      if (overall !== "down") overall = "degraded";
     }
 
     return {

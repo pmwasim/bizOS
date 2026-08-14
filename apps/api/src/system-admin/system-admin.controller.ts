@@ -6,22 +6,31 @@
 // and delegates to SystemAdminService. All writes pass the systemAdminId
 // from the authenticated principal so the service can attribute audit events.
 
-import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 
 import {
+  createConfigurationTemplateRequestSchema,
+  createWorkflowTemplateRequestSchema,
   systemAdminAssignConfigurationRequestSchema,
+  systemAdminImpersonateRequestSchema,
   systemAdminListAuditEventsRequestSchema,
   systemAdminListConfigurationTemplatesRequestSchema,
   systemAdminListCustomizationRequestsRequestSchema,
   systemAdminListOrganizationsRequestSchema,
   systemAdminListWorkflowTemplatesRequestSchema,
   systemAdminSetDefaultErpVersionRequestSchema,
+  templateMigrationPreviewRequestSchema,
+  updateTemplateVersionStatusRequestSchema,
+  type CreateConfigurationTemplateRequest,
+  type CreateWorkflowTemplateRequest,
   type SystemAdminAssignConfigurationRequest,
   type SystemAdminAssignmentHistoryItem,
   type SystemAdminAuditEventPage,
   type SystemAdminConfigurationTemplateSummary,
   type SystemAdminCustomizationRequestPage,
   type SystemAdminHealthSummary,
+  type SystemAdminImpersonateRequest,
+  type SystemAdminImpersonateResponse,
   type SystemAdminListAuditEventsRequest,
   type SystemAdminListConfigurationTemplatesRequest,
   type SystemAdminListCustomizationRequestsRequest,
@@ -32,6 +41,9 @@ import {
   type SystemAdminPrincipal,
   type SystemAdminSetDefaultErpVersionRequest,
   type SystemAdminWorkflowTemplateSummary,
+  type TemplateMigrationPreviewRequest,
+  type TemplateMigrationPreviewResponse,
+  type UpdateTemplateVersionStatusRequest,
 } from "@bizo/contracts/system-admin";
 
 import { ContractPipe } from "../common/contract.pipe.js";
@@ -164,6 +176,114 @@ export class SystemAdminController {
       ...(query.businessPublicId !== undefined ? { businessPublicId: query.businessPublicId } : {}),
       page: query.page,
       pageSize: query.pageSize,
+    });
+  }
+
+  @Post("configuration-templates")
+  async createConfigurationTemplate(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Body(new ContractPipe(createConfigurationTemplateRequestSchema))
+    body: CreateConfigurationTemplateRequest,
+  ) {
+    if (!principal.systemAdminId) {
+      throw new Error("System Admin principal was not resolved by the guard.");
+    }
+    return this.systemAdmin.createConfigurationTemplate({
+      systemAdminId: principal.systemAdminId,
+      code: body.code,
+      name: body.name,
+      ...(body.description ? { description: body.description } : {}),
+      kind: body.kind,
+      version: body.version,
+      snapshotJson: body.snapshotJson,
+    });
+  }
+
+  @Put("configuration-templates/:versionPublicId/status")
+  async updateConfigurationTemplateVersionStatus(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("versionPublicId") versionPublicId: string,
+    @Body(new ContractPipe(updateTemplateVersionStatusRequestSchema))
+    body: UpdateTemplateVersionStatusRequest,
+  ) {
+    if (!principal.systemAdminId) {
+      throw new Error("System Admin principal was not resolved by the guard.");
+    }
+    return this.systemAdmin.updateConfigurationTemplateVersionStatus({
+      systemAdminId: principal.systemAdminId,
+      versionPublicId,
+      status: body.status,
+      reason: body.reason,
+    });
+  }
+
+  @Post("workflow-templates")
+  async createWorkflowTemplate(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Body(new ContractPipe(createWorkflowTemplateRequestSchema))
+    body: CreateWorkflowTemplateRequest,
+  ) {
+    if (!principal.systemAdminId) {
+      throw new Error("System Admin principal was not resolved by the guard.");
+    }
+    return this.systemAdmin.createWorkflowTemplate({
+      systemAdminId: principal.systemAdminId,
+      code: body.code,
+      name: body.name,
+      ...(body.description ? { description: body.description } : {}),
+      documentType: body.documentType,
+      version: body.version,
+      definitionJson: body.definitionJson,
+    });
+  }
+
+  @Put("workflow-templates/:versionPublicId/status")
+  async updateWorkflowTemplateVersionStatus(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("versionPublicId") versionPublicId: string,
+    @Body(new ContractPipe(updateTemplateVersionStatusRequestSchema))
+    body: UpdateTemplateVersionStatusRequest,
+  ) {
+    if (!principal.systemAdminId) {
+      throw new Error("System Admin principal was not resolved by the guard.");
+    }
+    return this.systemAdmin.updateWorkflowTemplateVersionStatus({
+      systemAdminId: principal.systemAdminId,
+      versionPublicId,
+      status: body.status,
+      reason: body.reason,
+    });
+  }
+
+  @Post("organizations/:businessPublicId/impersonate")
+  async impersonateOrganization(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessPublicId") businessPublicId: string,
+    @Body(new ContractPipe(systemAdminImpersonateRequestSchema))
+    body: SystemAdminImpersonateRequest,
+  ): Promise<SystemAdminImpersonateResponse> {
+    if (!principal.systemAdminId) {
+      throw new Error("System Admin principal was not resolved by the guard.");
+    }
+    return this.systemAdmin.impersonateOrganization({
+      systemAdminId: principal.systemAdminId,
+      userId: principal.userId,
+      businessPublicId,
+      ticketReference: body.ticketReference,
+      reason: body.reason,
+      durationMinutes: body.durationMinutes,
+    });
+  }
+
+  @Post("organizations/:businessPublicId/preview-migration")
+  async previewMigration(
+    @Param("businessPublicId") businessPublicId: string,
+    @Body(new ContractPipe(templateMigrationPreviewRequestSchema))
+    body: TemplateMigrationPreviewRequest,
+  ): Promise<TemplateMigrationPreviewResponse> {
+    return this.systemAdmin.previewMigration({
+      businessPublicId,
+      targetConfigurationTemplateVersionId: body.targetConfigurationTemplateVersionId,
     });
   }
 
