@@ -34,7 +34,7 @@ describe("AiController", () => {
       queryText: "ACME",
     });
     expect(results).toHaveLength(1);
-    expect(results[0].documentId).toBe("doc-101");
+    expect(results[0]?.documentId).toBe("doc-101");
   });
 
   it("handles OCR parse endpoint requests", () => {
@@ -72,7 +72,7 @@ describe("AiController", () => {
     });
     expect(anomalies).toHaveLength(1);
 
-    const dismissed = controller.anomalyDismiss(anomalies[0].id, { userId: "user-admin-1" });
+    const dismissed = controller.anomalyDismiss(anomalies[0]!.id, { userId: "user-admin-1" });
     expect(dismissed.status).toBe("DISMISSED");
     expect(dismissed.dismissedByUserId).toBe("user-admin-1");
   });

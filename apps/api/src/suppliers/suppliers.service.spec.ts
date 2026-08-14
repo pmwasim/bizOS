@@ -31,7 +31,7 @@ describe("SuppliersService", () => {
   const buildDatabase = (): DatabaseService => {
     const transaction = {
       supplier: {
-        create: vi.fn().mockImplementation(async (args: Record<string, unknown>) => ({
+        create: vi.fn().mockImplementation(async (args: { data: Record<string, unknown> }) => ({
           publicId: "sup-001",
           createdAt: new Date(),
           updatedAt: new Date(),

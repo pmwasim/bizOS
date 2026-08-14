@@ -92,9 +92,11 @@ describe("EMPIRICAL STRESS TEST SUITE: bizOS Domain Logic", () => {
       expect(taxResult.zatcaTlvQrBase64).toBeDefined();
       expect(taxResult.zatcaTlvQrBase64).toBe(expectedTlvQr);
 
-      // Decoded bytes should start with Tag 1 (seller name), Tag 2 (TRN), etc.
-      const rawBuffer = Buffer.from(taxResult.zatcaTlvQrBase64!, "base64");
-      expect(rawBuffer[0]).toBe(1); // Tag 1: Seller Name
+      // Raw TLV bytes should start with Tag 1 (seller name), Tag 2 (TRN), etc.
+      // Asserted via buildZatcaPhase1Tlv rather than base64-decoding, so this package
+      // stays free of Node-only globals like Buffer.
+      const rawTlv = buildZatcaPhase1Tlv(inv);
+      expect(rawTlv[0]).toBe(1); // Tag 1: Seller Name
     });
 
     it("Stress 2.2: Indian GST CGST/SGST symmetrical tax split", () => {
