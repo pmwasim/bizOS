@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 22,
-    "handbookDocumentCount": 81
+    "adrCount": 24,
+    "handbookDocumentCount": 83
   },
   "buildOrder": [
     {
@@ -63,9 +63,15 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 101,
-      "testFiles": 33,
+      "sourceFiles": 158,
+      "testFiles": 42,
       "areas": [
+        {
+          "name": "ai",
+          "path": "apps/api/src/ai",
+          "sourceFiles": 7,
+          "testFiles": 1
+        },
         {
           "name": "common",
           "path": "apps/api/src/common",
@@ -75,8 +81,20 @@
         {
           "name": "configuration",
           "path": "apps/api/src/configuration",
-          "sourceFiles": 7,
-          "testFiles": 3
+          "sourceFiles": 8,
+          "testFiles": 4
+        },
+        {
+          "name": "credit-notes",
+          "path": "apps/api/src/credit-notes",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
+          "name": "crm",
+          "path": "apps/api/src/crm",
+          "sourceFiles": 4,
+          "testFiles": 0
         },
         {
           "name": "customers",
@@ -87,8 +105,8 @@
         {
           "name": "customization",
           "path": "apps/api/src/customization",
-          "sourceFiles": 7,
-          "testFiles": 3
+          "sourceFiles": 10,
+          "testFiles": 4
         },
         {
           "name": "database",
@@ -97,9 +115,15 @@
           "testFiles": 0
         },
         {
+          "name": "delivery-notes",
+          "path": "apps/api/src/delivery-notes",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
           "name": "documents",
           "path": "apps/api/src/documents",
-          "sourceFiles": 14,
+          "sourceFiles": 15,
           "testFiles": 4
         },
         {
@@ -127,6 +151,12 @@
           "testFiles": 7
         },
         {
+          "name": "inventory",
+          "path": "apps/api/src/inventory",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
           "name": "mail",
           "path": "apps/api/src/mail",
           "sourceFiles": 3,
@@ -141,8 +171,8 @@
         {
           "name": "payments",
           "path": "apps/api/src/payments",
-          "sourceFiles": 4,
-          "testFiles": 1
+          "sourceFiles": 5,
+          "testFiles": 2
         },
         {
           "name": "platform",
@@ -151,16 +181,52 @@
           "testFiles": 1
         },
         {
+          "name": "procurement",
+          "path": "apps/api/src/procurement",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "products",
+          "path": "apps/api/src/products",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "projects",
+          "path": "apps/api/src/projects",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "public-api",
+          "path": "apps/api/src/public-api",
+          "sourceFiles": 4,
+          "testFiles": 0
+        },
+        {
           "name": "purchase-orders",
           "path": "apps/api/src/purchase-orders",
           "sourceFiles": 4,
           "testFiles": 1
         },
         {
+          "name": "sales-orders",
+          "path": "apps/api/src/sales-orders",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
           "name": "security",
           "path": "apps/api/src/security",
-          "sourceFiles": 14,
-          "testFiles": 4
+          "sourceFiles": 15,
+          "testFiles": 5
+        },
+        {
+          "name": "statements",
+          "path": "apps/api/src/statements",
+          "sourceFiles": 3,
+          "testFiles": 0
         },
         {
           "name": "storage",
@@ -169,10 +235,22 @@
           "testFiles": 0
         },
         {
+          "name": "suppliers",
+          "path": "apps/api/src/suppliers",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
           "name": "system-admin",
           "path": "apps/api/src/system-admin",
           "sourceFiles": 5,
           "testFiles": 2
+        },
+        {
+          "name": "webhooks",
+          "path": "apps/api/src/webhooks",
+          "sourceFiles": 4,
+          "testFiles": 0
         }
       ],
       "governingDocs": [
@@ -270,8 +348,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 30,
-      "testFiles": 13,
+      "sourceFiles": 37,
+      "testFiles": 15,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -441,19 +519,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 73,
+      "sourceFiles": 97,
       "testFiles": 4,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 43,
+          "sourceFiles": 56,
           "testFiles": 2
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 19,
+          "sourceFiles": 30,
           "testFiles": 0
         },
         {
@@ -671,10 +749,24 @@
     },
     {
       "id": "0021",
+      "title": "ADR-0021: Customer payment and invoice allocation slice",
+      "status": "Accepted",
+      "date": "2026-07-28",
+      "path": "docs/decisions/0021-customer-payment-allocation-slice.md"
+    },
+    {
+      "id": "0021",
       "title": "ADR-0020: ERPNext foundation with a bizOS customer experience",
       "status": "Accepted",
       "date": "2026-07-28",
       "path": "docs/decisions/0021-erpnext-foundation-customer-experience.md"
+    },
+    {
+      "id": "0022",
+      "title": "ADR-0022: Signed client-IP forwarding for throttling",
+      "status": "Accepted Date: 2026-07-28 Deciders: Platform",
+      "date": null,
+      "path": "docs/decisions/0022-signed-client-ip-forwarding.md"
     },
     {
       "id": "0022",
