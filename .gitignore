@@ -27,5 +27,11 @@ packages/database/prisma/migrations/**/migration_lock.toml
 # Runtime object-store data must never be committed.
 apps/api/.data/
 
+# Agent scratch space is per-run working state, not source.
+.agents/
+
+# Cloudflare local dev secrets.
+apps/web/.dev.vars
+
 *.log
 tmp/
