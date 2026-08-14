@@ -42,7 +42,13 @@ import { SystemAdminModule } from "./system-admin/system-admin.module.js";
         },
       },
     }),
-    ThrottlerModule.forRoot([{ limit: 100, ttl: 60_000 }]),
+    ThrottlerModule.forRoot([
+      { limit: 100, ttl: 60_000 },
+      // BIZ-003: a strict per-account throttle for the public credential
+      // endpoints, keyed on the account email (see ClientAwareThrottlerGuard),
+      // so distributed/IP-rotated brute force against one account is bounded.
+      { name: "perAccount", limit: 5, ttl: 60_000 },
+    ]),
     DatabaseModule,
     ErpnextModule,
     MailModule,

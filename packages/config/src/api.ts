@@ -18,6 +18,7 @@ const apiEnvironmentSchema = z
     FRAPPE_BASE_URL: z.url().optional(),
     KEEP_WARM_URL: z.url().optional(),
     KEEP_WARM_SECRET: z.string().min(16).optional(),
+    CLIENT_IP_SIGNATURE_SECRET: z.string().min(16).optional(),
   })
   .superRefine((value, context) => {
     const configured = [
