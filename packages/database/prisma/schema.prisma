@@ -24,6 +24,15 @@ enum RoleCode {
 enum DocumentType {
   QUOTATION
   INVOICE
+  SALES_ORDER
+  DELIVERY_NOTE
+  SERVICE_COMPLETION
+  SUPPLIER_QUOTATION
+  SUPPLIER_PURCHASE_ORDER
+  SUPPLIER_BILL
+  GOODS_RECEIPT_NOTE
+  CREDIT_NOTE
+  DEBIT_NOTE
 }
 
 enum PaymentType {
@@ -66,6 +75,10 @@ enum InvoiceApprovalStatus {
 enum StoredObjectKind {
   PURCHASE_ORDER
   APPROVAL_EVIDENCE
+  SUPPLIER_PO
+  SUPPLIER_BILL
+  GOODS_RECEIPT
+  PROJECT_EVIDENCE
 }
 
 enum ModuleStatus {
@@ -271,6 +284,12 @@ model Business {
    apiKeys                  ApiKey[]
    products                 Product[]
    webhookSubscriptions     WebhookSubscription[]
+   suppliers                Supplier[]
+   leads                    Lead[]
+   opportunities            Opportunity[]
+   projects                 Project[]
+   inventoryItems           InventoryItem[]
+   creditNoteAllocations    CreditNoteAllocation[]
 
    @@unique([tenantId, id])
   @@index([tenantId, name])
@@ -305,6 +324,20 @@ model BusinessSettings {
   invoiceDueDays        Int      @default(30) @map("invoice_due_days") @db.SmallInt
   paymentPrefix         String   @default("PAY") @map("payment_prefix") @db.VarChar(12)
   nextPaymentNumber     Int      @default(1) @map("next_payment_number")
+
+  salesOrderPrefix        String @default("SO") @map("sales_order_prefix") @db.VarChar(12)
+  nextSalesOrderNumber    Int    @default(1) @map("next_sales_order_number")
+  deliveryNotePrefix      String @default("DN") @map("delivery_note_prefix") @db.VarChar(12)
+  nextDeliveryNoteNumber  Int    @default(1) @map("next_delivery_note_number")
+  creditNotePrefix        String @default("CN") @map("credit_note_prefix") @db.VarChar(12)
+  nextCreditNoteNumber    Int    @default(1) @map("next_credit_note_number")
+  purchaseOrderPrefix     String @default("PO") @map("purchase_order_prefix") @db.VarChar(12)
+  nextPurchaseOrderNumber Int    @default(1) @map("next_purchase_order_number")
+  supplierPoPrefix        String @default("SPO") @map("supplier_po_prefix") @db.VarChar(12)
+  nextSupplierPoNumber    Int    @default(1) @map("next_supplier_po_number")
+  supplierBillPrefix      String @default("BILL") @map("supplier_bill_prefix") @db.VarChar(12)
+  nextSupplierBillNumber  Int    @default(1) @map("next_supplier_bill_number")
+
   defaultMessage        String?  @map("default_message") @db.VarChar(1000)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -351,6 +384,7 @@ model Customer {
   business         Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   documents        Document[]
   purchaseOrders   PurchaseOrder[]
+  projects         Project[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, name])
@@ -362,14 +396,22 @@ model Document {
   publicId              String         @unique @default(uuid()) @map("public_id") @db.Uuid
   tenantId              BigInt         @map("tenant_id")
   businessId            BigInt         @map("business_id")
-  customerId            BigInt         @map("customer_id")
+  // Nullable since 20260807031700: supplier-facing types (SUPPLIER_QUOTATION,
+  // SUPPLIER_PURCHASE_ORDER, SUPPLIER_BILL, GOODS_RECEIPT_NOTE) have a supplier on the other side
+  // of the transaction, not a customer.
+  customerId            BigInt?        @map("customer_id")
+  supplierId            BigInt?        @map("supplier_id")
   type                  DocumentType
   status                DocumentStatus @default(DRAFT)
   number                String         @db.VarChar(40)
   issueDate             DateTime       @map("issue_date") @db.Date
   validUntil            DateTime       @map("valid_until") @db.Date
   dueDate               DateTime?      @map("due_date") @db.Date
+  deliveryDate          DateTime?      @map("delivery_date") @db.Date
+  receivedAt            DateTime?      @map("received_at") @db.Timestamptz(3)
   sourceQuotationId     BigInt?        @map("source_quotation_id")
+  sourceDocumentId      BigInt?        @map("source_document_id")
+  referenceDocumentId   BigInt?        @map("reference_document_id")
   purchaseOrderId       BigInt?        @map("purchase_order_id")
   projectReference      String?        @map("project_reference") @db.VarChar(120)
   poNumberSnapshot      String?        @map("po_number_snapshot") @db.VarChar(80)
@@ -387,21 +429,32 @@ model Document {
   updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business            Business                 @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer            Customer                 @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  customer            Customer?                @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  supplier            Supplier?                @relation(fields: [tenantId, businessId, supplierId], references: [tenantId, businessId, id], onDelete: Restrict)
   sourceQuotation     Document?                @relation("DocumentSourceQuotation", fields: [tenantId, businessId, sourceQuotationId], references: [tenantId, businessId, id], onDelete: Restrict)
   derivedInvoices     Document[]               @relation("DocumentSourceQuotation")
+  sourceDocument      Document?                @relation("DocumentSourceDocument", fields: [tenantId, businessId, sourceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  derivedDocuments    Document[]               @relation("DocumentSourceDocument")
+  referenceDocument   Document?                @relation("DocumentReferenceDocument", fields: [tenantId, businessId, referenceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  referencingDocuments Document[]              @relation("DocumentReferenceDocument")
   linkedPurchaseOrder PurchaseOrder?           @relation("DocumentLinkedPurchaseOrder", fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
   lines               DocumentLine[]
   versions            DocumentVersion[]
   creator             Membership               @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
   paymentAllocations  PaymentAllocation[]
   purchaseOrders      PurchaseOrder[]          @relation("PurchaseOrderQuotation")
+  opportunities       Opportunity[]            @relation("OpportunityQuotation")
+  creditNoteAllocationsAsCreditNote CreditNoteAllocation[] @relation("CreditNoteAllocationCreditNote")
+  creditNoteAllocationsAsInvoice    CreditNoteAllocation[] @relation("CreditNoteAllocationInvoice")
    workflowContext     DocumentWorkflowContext?
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, type, number])
   @@index([tenantId, businessId, type, status, createdAt])
   @@index([tenantId, businessId, sourceQuotationId])
+  @@index([tenantId, businessId, sourceDocumentId])
+  @@index([tenantId, businessId, referenceDocumentId])
+  @@index([tenantId, businessId, supplierId])
   @@index([tenantId, businessId, purchaseOrderId])
   @@map("documents")
 }
@@ -413,6 +466,172 @@ model Document {
 /// does not exist in the database. The live `payment_allocations` table, created by
 /// 20260806152655_add_payment_module, has `document_id` and `purchase_order_id` and its
 /// `payment_id` references `payments`. The definition below matches the deployed table.
+// Phase 1 sales, procurement, CRM, and inventory entities. These tables are created by
+// 20260807000000_phase1_sales_procurement_crm and are queried by the services in
+// apps/api/src/{suppliers,crm,projects,inventory,credit-notes}, but were never declared here, so
+// the generated client had no accessors for them and every one of those queries failed at runtime.
+
+model Supplier {
+  id            BigInt   @id @default(autoincrement())
+  publicId      String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId      BigInt   @map("tenant_id")
+  businessId    BigInt   @map("business_id")
+  name          String   @db.VarChar(200)
+  contactName   String?  @map("contact_name") @db.VarChar(120)
+  email         String?  @db.VarChar(320)
+  phone         String?  @db.VarChar(40)
+  addressLine1  String?  @map("address_line_1") @db.VarChar(200)
+  addressLine2  String?  @map("address_line_2") @db.VarChar(200)
+  city          String?  @db.VarChar(120)
+  postalCode    String?  @map("postal_code") @db.VarChar(32)
+  countryCode   String?  @map("country_code") @db.Char(2)
+  taxId         String?  @map("tax_id") @db.VarChar(80)
+  taxName       String?  @map("tax_name") @db.VarChar(80)
+  bankName      String?  @map("bank_name") @db.VarChar(120)
+  iban          String?  @db.VarChar(34)
+  swiftCode     String?  @map("swift_code") @db.VarChar(11)
+  paymentTerms  Int?     @map("payment_terms") @db.SmallInt
+  notes         String?  @db.VarChar(2000)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  documents      Document[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, name])
+  @@index([tenantId, businessId, taxId])
+  @@map("suppliers")
+}
+
+model Lead {
+  id                     BigInt    @id @default(autoincrement())
+  publicId               String    @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId               BigInt    @map("tenant_id")
+  businessId             BigInt    @map("business_id")
+  name                   String    @db.VarChar(200)
+  company                String?   @db.VarChar(200)
+  email                  String?   @db.VarChar(320)
+  phone                  String?   @db.VarChar(40)
+  source                 String?   @db.VarChar(80)
+  status                 String    @default("NEW") @db.VarChar(40)
+  estimatedValue         Decimal?  @map("estimated_value") @db.Decimal(38, 0)
+  currencyCode           String?   @map("currency_code") @db.Char(3)
+  notes                  String?   @db.VarChar(2000)
+  assignedToMembershipId BigInt?   @map("assigned_to_membership_id")
+  convertedAt            DateTime? @map("converted_at") @db.Timestamptz(3)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business      Business      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  opportunities Opportunity[]
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status])
+  @@map("leads")
+}
+
+model Opportunity {
+  id                     BigInt    @id @default(autoincrement())
+  publicId               String    @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId               BigInt    @map("tenant_id")
+  businessId             BigInt    @map("business_id")
+  leadId                 BigInt?   @map("lead_id")
+  quotationId            BigInt?   @map("quotation_id")
+  name                   String    @db.VarChar(200)
+  stage                  String    @default("PROSPECTING") @db.VarChar(40)
+  probability            Int?      @db.SmallInt
+  amountMinor            Decimal?  @map("amount_minor") @db.Decimal(38, 0)
+  currencyCode           String?   @map("currency_code") @db.Char(3)
+  expectedCloseDate      DateTime? @map("expected_close_date") @db.Date
+  actualCloseDate        DateTime? @map("actual_close_date") @db.Date
+  notes                  String?   @db.VarChar(2000)
+  assignedToMembershipId BigInt?   @map("assigned_to_membership_id")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business  Business  @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  lead      Lead?     @relation(fields: [tenantId, businessId, leadId], references: [tenantId, businessId, id], onDelete: SetNull)
+  quotation Document? @relation("OpportunityQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: SetNull)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, stage])
+  @@map("opportunities")
+}
+
+model Project {
+  id           BigInt    @id @default(autoincrement())
+  publicId     String    @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId     BigInt    @map("tenant_id")
+  businessId   BigInt    @map("business_id")
+  name         String    @db.VarChar(200)
+  description  String?   @db.VarChar(2000)
+  status       String    @default("ACTIVE") @db.VarChar(40)
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  budgetMinor  Decimal?  @map("budget_minor") @db.Decimal(38, 0)
+  currencyCode String?   @map("currency_code") @db.Char(3)
+  customerId   BigInt?   @map("customer_id")
+  notes        String?   @db.VarChar(2000)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business  @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer Customer? @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: SetNull)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, status])
+  @@map("projects")
+}
+
+model InventoryItem {
+  id                BigInt   @id @default(autoincrement())
+  publicId          String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId          BigInt   @map("tenant_id")
+  businessId        BigInt   @map("business_id")
+  sku               String   @db.VarChar(60)
+  name              String   @db.VarChar(200)
+  description       String?  @db.VarChar(500)
+  itemType          String   @default("INVENTORY") @map("item_type") @db.VarChar(20)
+  unit              String?  @db.VarChar(20)
+  costPriceMinor    Decimal? @map("cost_price_minor") @db.Decimal(38, 0)
+  sellingPriceMinor Decimal? @map("selling_price_minor") @db.Decimal(38, 0)
+  ratePpm           Int      @default(0) @map("rate_ppm")
+  reorderLevel      Int?     @map("reorder_level")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, sku])
+  @@index([tenantId, businessId, name])
+  @@map("inventory_items")
+}
+
+model CreditNoteAllocation {
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId     BigInt   @map("tenant_id")
+  businessId   BigInt   @map("business_id")
+  creditNoteId BigInt   @map("credit_note_id")
+  invoiceId    BigInt   @map("invoice_id")
+  amountMinor  Decimal  @map("amount_minor") @db.Decimal(38, 0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business   Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  creditNote Document @relation("CreditNoteAllocationCreditNote", fields: [tenantId, businessId, creditNoteId], references: [tenantId, businessId, id], onDelete: Cascade, map: "credit_note_allocations_tenant_id_business_id_credit_note_id_fk")
+  invoice    Document @relation("CreditNoteAllocationInvoice", fields: [tenantId, businessId, invoiceId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, creditNoteId], map: "credit_note_allocations_tenant_id_business_id_credit_note_id_id")
+  @@index([tenantId, businessId, invoiceId])
+  @@map("credit_note_allocations")
+}
+
 model PaymentAllocation {
   id              BigInt   @id @default(autoincrement())
   publicId        String   @unique @default(uuid()) @map("public_id") @db.Uuid
@@ -431,6 +650,7 @@ model PaymentAllocation {
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, documentId])
+  @@index([tenantId, businessId, purchaseOrderId])
   @@index([tenantId, businessId, paymentId])
   @@map("payment_allocations")
 }
@@ -441,6 +661,7 @@ model PurchaseOrder {
   tenantId                BigInt                @map("tenant_id")
   businessId              BigInt                @map("business_id")
   customerId              BigInt                @map("customer_id")
+  supplierId              BigInt?               @map("supplier_id")
   quotationId             BigInt?               @map("quotation_id")
   poNumber                String                @map("po_number") @db.VarChar(80)
   poDate                  DateTime?             @map("po_date") @db.Date
@@ -461,6 +682,7 @@ model PurchaseOrder {
   business              Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   customer              Customer            @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
   quotation             Document?           @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  supplier              Supplier?           @relation(fields: [tenantId, businessId, supplierId], references: [tenantId, businessId, id], onDelete: Restrict)
   creator               Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
    approvalChangedByUser User?               @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
    storedObjects         StoredObject[]
@@ -470,6 +692,7 @@ model PurchaseOrder {
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status, createdAt])
   @@index([tenantId, businessId, customerId])
+  @@index([tenantId, businessId, supplierId])
   @@index([tenantId, businessId, quotationId])
   @@map("purchase_orders")
 }
