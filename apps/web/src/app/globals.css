@@ -460,6 +460,15 @@ textarea:focus {
   padding: 0.85rem 1rem;
 }
 
+.form-success {
+  background: var(--success-bg);
+  border: 1px solid #b7e3cb;
+  border-radius: var(--radius);
+  color: var(--success);
+  font-size: 0.86rem;
+  padding: 0.85rem 1rem;
+}
+
 .form-switch {
   color: var(--muted-foreground);
   font-size: 0.84rem;

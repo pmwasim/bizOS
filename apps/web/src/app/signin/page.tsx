@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { type FormEvent, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { type FormEvent, Suspense, useState } from "react";
 
 function safeCallbackUrl(value: string | null) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/start";
 }
 
-export default function SignInPage() {
+function SignInView() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const justReset = useSearchParams().get("reset") === "1";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,6 +60,12 @@ export default function SignInPage() {
         </div>
 
         <form className="form-stack" onSubmit={handleSubmit}>
+          {justReset ? (
+            <div className="form-success" role="status" aria-live="polite">
+              Your password has been updated. Sign in with your new password.
+            </div>
+          ) : null}
+
           {error ? (
             <div className="form-error" role="alert" aria-live="polite">
               {error}
@@ -94,9 +102,21 @@ export default function SignInPage() {
         </form>
 
         <p className="auth-note">
+          <Link href="/forgot-password">Forgot your password?</Link>
+        </p>
+
+        <p className="auth-note">
           Access is limited to accounts already enabled for the private beta.
         </p>
       </section>
     </main>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInView />
+    </Suspense>
   );
 }

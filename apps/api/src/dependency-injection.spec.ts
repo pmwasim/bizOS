@@ -21,6 +21,14 @@ describe("Nest dependency injection", () => {
   });
 
   it("resolves application services from explicit runtime tokens", async () => {
+    // IdentityService is instantiated for real here and validates the API environment at
+    // construction, so the reset-link origin and its siblings must be present.
+    vi.stubEnv("APP_BASE_URL", "https://bizos.example.test");
+    vi.stubEnv("DATABASE_URL", "postgresql://bizo:test@localhost:5432/bizo");
+    vi.stubEnv("INTERNAL_AUTH_SECRET", "test-secret-that-is-at-least-32-characters");
+    vi.stubEnv("SMTP_FROM", "quotes@example.test");
+    vi.stubEnv("SMTP_URL", "smtp://localhost:1025");
+
     const database = { client: {}, withScope: () => undefined };
     const access = { resolve: () => undefined, assertAllowed: () => undefined };
     const pdf = { renderQuotation: () => undefined };

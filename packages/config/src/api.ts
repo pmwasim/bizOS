@@ -19,6 +19,8 @@ const apiEnvironmentSchema = z
     KEEP_WARM_URL: z.url().optional(),
     KEEP_WARM_SECRET: z.string().min(16).optional(),
     CLIENT_IP_SIGNATURE_SECRET: z.string().min(16).optional(),
+    /** Public origin used to build password reset links in outbound email. */
+    APP_BASE_URL: z.url().default("http://localhost:3000"),
   })
   .superRefine((value, context) => {
     const configured = [

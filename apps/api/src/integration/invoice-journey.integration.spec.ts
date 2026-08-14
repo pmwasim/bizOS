@@ -32,7 +32,9 @@ describe.runIf(databaseEnabled)("invoice journey with PostgreSQL boundaries", ()
     await database.onModuleInit();
     const access = new BusinessAccessService(database);
     const configuration = new ConfigurationService(database, access);
-    identity = new IdentityService(database);
+    identity = new IdentityService(database, {
+      sendPasswordReset: async () => "test-message-id",
+    } as never);
     platform = new PlatformService(database, access, configuration);
     customers = new CustomersService(database, access, { isConfigured: () => false } as never);
     mail = {

@@ -3,7 +3,11 @@
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 
-import { signUpRequestSchema } from "@bizo/contracts/auth";
+import {
+  confirmPasswordResetRequestSchema,
+  requestPasswordResetRequestSchema,
+  signUpRequestSchema,
+} from "@bizo/contracts/auth";
 import { createCustomerRequestSchema, type Customer } from "@bizo/contracts/customers";
 import {
   createCustomizationRequestSchema,
@@ -92,6 +96,63 @@ export async function signInAction(_state: ActionState, formData: FormData): Pro
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/" });
+}
+
+export interface PasswordResetState extends ActionState {
+  sent?: boolean;
+}
+
+/**
+ * Reports the same outcome for known and unknown addresses. Surfacing "no such account" here would
+ * let anyone test whether an email is registered.
+ */
+export async function requestPasswordResetAction(
+  _state: PasswordResetState,
+  formData: FormData,
+): Promise<PasswordResetState> {
+  const parsed = requestPasswordResetRequestSchema.safeParse({
+    email: formData.get("email"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  const response = await publicApiFetch("/auth/password-reset/request", {
+    method: "POST",
+    body: JSON.stringify(parsed.data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      return { error: "Too many reset requests. Wait a minute and try again." };
+    }
+    return { error: "We could not start the reset. Please try again." };
+  }
+
+  return { sent: true };
+}
+
+export async function confirmPasswordResetAction(
+  _state: PasswordResetState,
+  formData: FormData,
+): Promise<PasswordResetState> {
+  const parsed = confirmPasswordResetRequestSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  const response = await publicApiFetch("/auth/password-reset/confirm", {
+    method: "POST",
+    body: JSON.stringify(parsed.data),
+  });
+
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as { detail?: string };
+    return {
+      error: problem.detail ?? "That reset link is no longer valid. Request a new one.",
+    };
+  }
+
+  redirect("/signin?reset=1");
 }
 
 export async function createBusinessAction(

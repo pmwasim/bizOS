@@ -15,6 +15,7 @@ describe("readApiEnvironment", () => {
       }),
     ).toEqual({
       API_PORT: 4000,
+      APP_BASE_URL: "http://localhost:3000",
       DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
       INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
       NODE_ENV: "test",

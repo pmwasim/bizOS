@@ -2,6 +2,10 @@ import { Body, Controller, Get, Inject, Post } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 
 import {
+  confirmPasswordResetRequestSchema,
+  type ConfirmPasswordResetRequest,
+  requestPasswordResetRequestSchema,
+  type RequestPasswordResetRequest,
   signUpRequestSchema,
   type SignUpRequest,
   verifyCredentialsRequestSchema,
@@ -32,6 +36,24 @@ export class IdentityController {
     @Body(new ContractPipe(verifyCredentialsRequestSchema)) input: VerifyCredentialsRequest,
   ) {
     return this.identity.verifyCredentials(input);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 }, perAccount: { limit: 3, ttl: 60_000 } })
+  @Post("auth/password-reset/request")
+  requestPasswordReset(
+    @Body(new ContractPipe(requestPasswordResetRequestSchema)) input: RequestPasswordResetRequest,
+  ) {
+    return this.identity.requestPasswordReset(input);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 }, perAccount: { limit: 5, ttl: 60_000 } })
+  @Post("auth/password-reset/confirm")
+  confirmPasswordReset(
+    @Body(new ContractPipe(confirmPasswordResetRequestSchema)) input: ConfirmPasswordResetRequest,
+  ) {
+    return this.identity.confirmPasswordReset(input);
   }
 
   @Get("me")
