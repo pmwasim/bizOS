@@ -73,9 +73,39 @@ export const customizationRequestSchema = z.strictObject({
   updatedAt: z.iso.datetime(),
 });
 
+export const createCustomFieldDefinitionSchema = z.strictObject({
+  documentType: z.string().trim().min(1).max(40),
+  fieldKey: z
+    .string()
+    .trim()
+    .min(2)
+    .max(60)
+    .regex(
+      /^[a-z0-9_]{2,60}$/,
+      "Field key must contain only lowercase letters, numbers, and underscores.",
+    ),
+  label: z.string().trim().min(1).max(120),
+  fieldType: customFieldTypeSchema,
+  config: customFieldConfigSchema.optional().default({ required: false }),
+});
+
+export const updateCustomFieldDefinitionSchema = z.strictObject({
+  label: z.string().trim().min(1).max(120).optional(),
+  config: customFieldConfigSchema.optional(),
+});
+
+export const listCustomFieldDefinitionsResponseSchema = z.strictObject({
+  items: z.array(customFieldDefinitionSchema),
+});
+
 export type CustomFieldType = z.infer<typeof customFieldTypeSchema>;
 export type CustomFieldConfig = z.infer<typeof customFieldConfigSchema>;
 export type CustomFieldDefinition = z.infer<typeof customFieldDefinitionSchema>;
+export type CreateCustomFieldDefinition = z.infer<typeof createCustomFieldDefinitionSchema>;
+export type UpdateCustomFieldDefinition = z.infer<typeof updateCustomFieldDefinitionSchema>;
+export type ListCustomFieldDefinitionsResponse = z.infer<
+  typeof listCustomFieldDefinitionsResponseSchema
+>;
 export type FeatureFlag = z.infer<typeof featureFlagSchema>;
 export const createCustomizationRequestSchema = z.strictObject({
   statedProcess: z.string().trim().min(1).max(5000),

@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tax-engine": {
+      "types": "./dist/tax-engine.d.ts",
+      "default": "./dist/tax-engine.js"
+    },
     "./auth": {
       "types": "./dist/auth.d.ts",
       "default": "./dist/auth.js"
@@ -75,6 +83,46 @@
     "./payments": {
       "types": "./dist/payments.d.ts",
       "default": "./dist/payments.js"
+    },
+    "./sales-orders": {
+      "types": "./dist/sales-orders.d.ts",
+      "default": "./dist/sales-orders.js"
+    },
+    "./delivery-notes": {
+      "types": "./dist/delivery-notes.d.ts",
+      "default": "./dist/delivery-notes.js"
+    },
+    "./suppliers": {
+      "types": "./dist/suppliers.d.ts",
+      "default": "./dist/suppliers.js"
+    },
+    "./credit-notes": {
+      "types": "./dist/credit-notes.d.ts",
+      "default": "./dist/credit-notes.js"
+    },
+    "./crm": {
+      "types": "./dist/crm.d.ts",
+      "default": "./dist/crm.js"
+    },
+    "./projects": {
+      "types": "./dist/projects.d.ts",
+      "default": "./dist/projects.js"
+    },
+    "./inventory": {
+      "types": "./dist/inventory.d.ts",
+      "default": "./dist/inventory.js"
+    },
+    "./products": {
+      "types": "./dist/products.d.ts",
+      "default": "./dist/products.js"
+    },
+    "./supplier-pos": {
+      "types": "./dist/supplier-pos.d.ts",
+      "default": "./dist/supplier-pos.js"
+    },
+    "./supplier-bills": {
+      "types": "./dist/supplier-bills.d.ts",
+      "default": "./dist/supplier-bills.js"
     }
   },
   "scripts": {

@@ -205,6 +205,71 @@ export const systemAdminCustomizationRequestPageSchema = paginatedSchema(
 
 export const systemAdminAuditEventPageSchema = paginatedSchema(systemAdminAuditEventSummarySchema);
 
+export const createConfigurationTemplateRequestSchema = z.strictObject({
+  code: z.string().trim().min(2).max(40),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(500).optional(),
+  kind: z.enum(["DEFAULT", "SPECIALIZED", "INDUSTRY"]),
+  version: z.string().trim().min(1).max(20),
+  snapshotJson: z.record(z.string(), z.unknown()),
+});
+
+export const updateTemplateVersionStatusRequestSchema = z.strictObject({
+  status: z.enum(["PUBLISHED", "RETIRED"]),
+  reason: z.string().trim().min(1).max(500),
+});
+
+export const createWorkflowTemplateRequestSchema = z.strictObject({
+  code: z.string().trim().min(2).max(40),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(500).optional(),
+  documentType: z.string().trim().min(1).max(40),
+  version: z.string().trim().min(1).max(20),
+  definitionJson: z.record(z.string(), z.unknown()),
+});
+
+export const systemAdminImpersonateRequestSchema = z.strictObject({
+  ticketReference: z.string().trim().min(1, "Ticket reference is required.").max(100),
+  reason: z.string().trim().min(1, "Reason is required.").max(500),
+  durationMinutes: z.coerce.number().int().min(1).max(60).default(60),
+});
+
+export const systemAdminImpersonateResponseSchema = z.strictObject({
+  token: z.string(),
+  expiresAt: z.iso.datetime(),
+  targetBusinessPublicId: z.uuid(),
+  ticketReference: z.string(),
+});
+
+export const templateMigrationPreviewRequestSchema = z.strictObject({
+  targetConfigurationTemplateVersionId: z.uuid(),
+});
+
+export const templateMigrationPreviewResponseSchema = z.strictObject({
+  businessPublicId: z.uuid(),
+  currentTemplateVersionId: z.uuid().nullable(),
+  targetTemplateVersionId: z.uuid(),
+  hasConflicts: z.boolean(),
+  addedFields: z.array(z.string()),
+  removedFields: z.array(z.string()),
+  modifiedRules: z.array(z.string()),
+  breakingChanges: z.array(z.string()),
+});
+
+export type CreateConfigurationTemplateRequest = z.infer<
+  typeof createConfigurationTemplateRequestSchema
+>;
+export type UpdateTemplateVersionStatusRequest = z.infer<
+  typeof updateTemplateVersionStatusRequestSchema
+>;
+export type CreateWorkflowTemplateRequest = z.infer<typeof createWorkflowTemplateRequestSchema>;
+export type SystemAdminImpersonateRequest = z.infer<typeof systemAdminImpersonateRequestSchema>;
+export type SystemAdminImpersonateResponse = z.infer<typeof systemAdminImpersonateResponseSchema>;
+export type TemplateMigrationPreviewRequest = z.infer<typeof templateMigrationPreviewRequestSchema>;
+export type TemplateMigrationPreviewResponse = z.infer<
+  typeof templateMigrationPreviewResponseSchema
+>;
+
 export type PlatformSystemAdminStatus = z.infer<typeof platformSystemAdminStatusSchema>;
 export type SystemAdminPrincipal = z.infer<typeof systemAdminPrincipalSchema>;
 export type SystemAdminOrganizationSummary = z.infer<typeof systemAdminOrganizationSummarySchema>;

@@ -74,9 +74,69 @@ export const paymentSchema = z.strictObject({
   updatedAt: z.string().datetime(),
 });
 
+export const paymentMethodSchema = z.enum(["CASH", "BANK_TRANSFER", "CHECK", "CARD", "OTHER"]);
+
+export const paymentMethodLabelByCode = {
+  CASH: "Cash",
+  BANK_TRANSFER: "Bank transfer",
+  CHECK: "Check",
+  CARD: "Card",
+  OTHER: "Other",
+} as const satisfies Record<z.infer<typeof paymentMethodSchema>, string>;
+
+export function paymentMethodLabel(method: z.infer<typeof paymentMethodSchema>): string {
+  return paymentMethodLabelByCode[method];
+}
+
+export const createCustomerPaymentRequestSchema = z.strictObject({
+  invoiceId: z.uuid(),
+  paymentDate: z.string().date(),
+  amountMinor: positiveMinorUnitValueSchema,
+  currencyCode: z.string().regex(/^[A-Z]{3}$/),
+  method: paymentMethodSchema,
+  reference: z.string().trim().max(120).nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+});
+
+export const voidCustomerPaymentRequestSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(500),
+});
+
+export const invoicePaymentSummarySchema = z.strictObject({
+  id: z.uuid(),
+  number: z.string(),
+  totalMinor: minorUnitValueSchema,
+  paidMinor: minorUnitValueSchema,
+  outstandingMinor: minorUnitValueSchema,
+  currencyCode: z.string().regex(/^[A-Z]{3}$/),
+  currencyScale: z.number().int().min(0).max(4),
+});
+
+export const customerPaymentSchema = z.strictObject({
+  id: z.uuid(),
+  number: z.string(),
+  status: z.enum(["RECORDED", "VOIDED"]),
+  receivedOn: z.string().date(),
+  method: paymentMethodSchema,
+  reference: z.string().nullable(),
+  notes: z.string().nullable(),
+  currencyCode: z.string().regex(/^[A-Z]{3}$/),
+  currencyScale: z.number().int().min(0).max(4),
+  amountMinor: minorUnitValueSchema,
+  voidedAt: z.string().datetime().nullable(),
+  voidReason: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
 export type PaymentType = z.infer<typeof paymentTypeSchema>;
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 export type PaymentAllocationInput = z.infer<typeof paymentAllocationInputSchema>;
 export type RecordPaymentRequest = z.infer<typeof recordPaymentRequestSchema>;
 export type PaymentAllocation = z.infer<typeof paymentAllocationSchema>;
 export type Payment = z.infer<typeof paymentSchema>;
+export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
+export type CreateCustomerPaymentRequest = z.infer<typeof createCustomerPaymentRequestSchema>;
+export type VoidCustomerPaymentRequest = z.infer<typeof voidCustomerPaymentRequestSchema>;
+export type InvoicePaymentSummary = z.infer<typeof invoicePaymentSummarySchema>;
+export type CustomerPayment = z.infer<typeof customerPaymentSchema>;
