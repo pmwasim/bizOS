@@ -41,6 +41,9 @@ describe("FEAT-04: PostgreSQL RLS Data Isolation Specification", () => {
     "outbox_events",
     "custom_field_definitions",
     "feature_flags",
+    // Added late: products was created after the bulk RLS migration in sort order and so was
+    // missed by it. See 20260814100000_enable_rls_products.
+    "products",
   ];
 
   // ==========================================

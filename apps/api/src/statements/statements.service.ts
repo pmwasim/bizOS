@@ -1,4 +1,6 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+
+import { type CustomerStatement, type StatementLineItem } from "@bizo/contracts/statements";
 
 import { DatabaseService } from "../database/database.service";
 import {
@@ -7,22 +9,35 @@ import {
   BusinessAccessService,
 } from "../security/business-access.service";
 
-interface StatementLine {
-  date: string;
-  description: string;
-  debitMinor: string | null;
-  creditMinor: string | null;
-  balanceMinor: string;
+/**
+ * Minimal row shapes for the two ledger sources. The `where` clauses cast enum values through
+ * `never`, which collapses Prisma's inference on the result, so the fields used here are named
+ * explicitly rather than left implicitly `any`.
+ */
+interface InvoiceRow {
+  publicId: string;
+  number: string;
+  issueDate: Date;
+  totalMinor: { toString(): string };
 }
 
-interface CustomerStatement {
-  customerId: string;
-  customerName: string;
-  currencyCode: string;
-  currencyScale: number;
-  openingBalanceMinor: string;
-  closingBalanceMinor: string;
-  lines: StatementLine[];
+interface CustomerPaymentRow {
+  publicId: string;
+  number: string;
+  receivedOn: Date;
+  amountMinor: { toString(): string };
+  reference: string | null;
+}
+
+/** A ledger entry before the running balance is applied. */
+interface PendingLine {
+  id: string;
+  date: string;
+  type: StatementLineItem["type"];
+  referenceNumber: string;
+  description: string;
+  debitMinor: bigint;
+  creditMinor: bigint;
 }
 
 @Injectable()
@@ -43,60 +58,100 @@ export class StatementsService {
       const customer = await transaction.customer.findFirst({
         where: { businessId: access.businessId, publicId: customerPublicId },
       });
-      if (!customer) throw new Error("Customer not found");
+      if (!customer) {
+        throw new NotFoundException({
+          code: "CUSTOMER_NOT_FOUND",
+          detail: "That customer does not exist in this business.",
+        });
+      }
 
       const invoices = await transaction.document.findMany({
-        where: { businessId: access.businessId, customerId: customer.id, type: "INVOICE" as never },
-        include: { lines: true },
+        where: {
+          businessId: access.businessId,
+          customerId: customer.id,
+          type: "INVOICE" as never,
+        },
         orderBy: { issueDate: "asc" },
       });
 
-      const payments = await transaction.payment.findMany({
+      // Payments live on CustomerPayment, which is the model that actually carries customerId.
+      // Scoping by customer here is what keeps one customer's statement from showing another's
+      // payments, and VOIDED rows are excluded because a voided receipt never settled anything.
+      const payments = await transaction.customerPayment.findMany({
         where: {
           businessId: access.businessId,
-          type: "INBOUND" as never,
-          status: "COMPLETED" as never,
+          customerId: customer.id,
+          status: "RECORDED" as never,
         },
-        orderBy: { paymentDate: "asc" },
+        orderBy: { receivedOn: "asc" },
       });
 
-      const lines: StatementLine[] = [];
-      let balance = 0n;
-      const currencyCode = customer.currencyCode ?? "USD";
-      const currencyScale = 2;
-
-      for (const invoice of invoices) {
-        const totalMinor = BigInt(invoice.totalMinor.toString());
-        balance += totalMinor;
-        lines.push({
+      const pending: PendingLine[] = [
+        ...(invoices as InvoiceRow[]).map((invoice) => ({
+          id: invoice.publicId,
           date: invoice.issueDate.toISOString().slice(0, 10),
+          type: "INVOICE" as const,
+          referenceNumber: invoice.number,
           description: `Invoice ${invoice.number}`,
-          debitMinor: totalMinor.toString(),
-          creditMinor: null,
-          balanceMinor: balance.toString(),
-        });
-      }
+          debitMinor: BigInt(invoice.totalMinor.toString()),
+          creditMinor: 0n,
+        })),
+        ...(payments as CustomerPaymentRow[]).map((payment) => ({
+          id: payment.publicId,
+          date: payment.receivedOn.toISOString().slice(0, 10),
+          type: "PAYMENT" as const,
+          referenceNumber: payment.number,
+          description: payment.reference
+            ? `Payment ${payment.number} (${payment.reference})`
+            : `Payment ${payment.number}`,
+          debitMinor: 0n,
+          creditMinor: BigInt(payment.amountMinor.toString()),
+        })),
+      ];
 
-      for (const payment of payments) {
-        const amountMinor = BigInt(payment.amountMinor.toString());
-        balance -= amountMinor;
-        lines.push({
-          date: payment.paymentDate.toISOString().slice(0, 10),
-          description: `Payment ${payment.reference ?? payment.number}`,
-          debitMinor: null,
-          creditMinor: amountMinor.toString(),
-          balanceMinor: balance.toString(),
-        });
-      }
+      // Invoices and payments are fetched separately but form one ledger, so they have to be
+      // interleaved by date before the running balance means anything. Ties settle invoice-first,
+      // so a payment received the same day it was invoiced does not read as paying a debt that
+      // does not exist yet.
+      pending.sort((left, right) => {
+        if (left.date !== right.date) return left.date < right.date ? -1 : 1;
+        if (left.type === right.type) return 0;
+        return left.type === "INVOICE" ? -1 : 1;
+      });
+
+      const currency = customer.currencyCode ?? "USD";
+      let balance = 0n;
+      let totalInvoiced = 0n;
+      let totalPaid = 0n;
+
+      const items: StatementLineItem[] = pending.map((line) => {
+        balance += line.debitMinor - line.creditMinor;
+        totalInvoiced += line.debitMinor;
+        totalPaid += line.creditMinor;
+        return {
+          id: line.id,
+          date: line.date,
+          type: line.type,
+          referenceNumber: line.referenceNumber,
+          description: line.description,
+          debitMinor: Number(line.debitMinor),
+          creditMinor: Number(line.creditMinor),
+          balanceMinor: Number(balance),
+          currency,
+        };
+      });
 
       return {
         customerId: customer.publicId,
         customerName: customer.name,
-        currencyCode,
-        currencyScale,
-        openingBalanceMinor: "0",
-        closingBalanceMinor: balance.toString(),
-        lines,
+        currency,
+        // Every invoice and receipt for the customer is included, so the statement starts at zero
+        // rather than carrying a balance forward from an earlier period.
+        openingBalanceMinor: 0,
+        totalInvoicedMinor: Number(totalInvoiced),
+        totalPaidMinor: Number(totalPaid),
+        closingBalanceMinor: Number(balance),
+        items,
       };
     });
   }

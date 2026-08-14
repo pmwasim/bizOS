@@ -382,16 +382,20 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
         document: {
           findMany: vi.fn().mockResolvedValue([
             {
+              publicId: "d1111111-1111-4111-8111-111111111111",
               issueDate: new Date("2026-08-01T00:00:00Z"),
               number: "INV-0001",
               totalMinor: "100000",
             },
           ]),
         },
-        payment: {
+        // Receipts come from CustomerPayment, the model that carries customerId; the older
+        // Payment model has no customer link and could not be scoped per statement.
+        customerPayment: {
           findMany: vi.fn().mockResolvedValue([
             {
-              paymentDate: new Date("2026-08-05T00:00:00Z"),
+              publicId: "p1111111-1111-4111-8111-111111111111",
+              receivedOn: new Date("2026-08-05T00:00:00Z"),
               number: "PAY-0001",
               reference: "TRX-1",
               amountMinor: "40000",
@@ -418,7 +422,12 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
       );
 
       expect(statement.customerName).toBe("Acme Industrial KSA");
-      expect(statement.closingBalanceMinor).toBe("60000"); // 100000 - 40000
+      expect(statement.closingBalanceMinor).toBe(60000); // 100000 - 40000
+      expect(statement.totalInvoicedMinor).toBe(100000);
+      expect(statement.totalPaidMinor).toBe(40000);
+      expect(statement.items.map((item) => item.referenceNumber)).toEqual(["INV-0001", "PAY-0001"]);
+      // Scoped to this customer only; an unscoped query would pull in other customers' receipts.
+      expect(mockTx.customerPayment.findMany.mock.calls[0][0].where.customerId).toBe(50n);
     });
 
     it("Tier 2: handles customer statement with zero transactions and verifies cross-tenant isolation", async () => {
@@ -445,7 +454,7 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
           mockAccessTenant2.businessPublicId,
           "c5555555-5555-4555-8555-555555555555",
         ),
-      ).rejects.toThrow("Customer not found");
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("Tier 3: categorizes accounts receivable into aging buckets (Current, 1-30, 31-60, 61-90, 90+)", () => {
