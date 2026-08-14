@@ -68,19 +68,6 @@ enum StoredObjectKind {
   APPROVAL_EVIDENCE
 }
 
-enum CustomerPaymentStatus {
-  RECORDED
-  VOIDED
-}
-
-enum PaymentMethod {
-  BANK_TRANSFER
-  CASH
-  CARD
-  CHEQUE
-  OTHER
-}
-
 enum ModuleStatus {
   ACTIVE
   INACTIVE
@@ -216,7 +203,6 @@ model Membership {
   documents                Document[]
   createdPayments          Payment[]
   purchaseOrders           PurchaseOrder[]
-  customerPayments         CustomerPayment[]
   auditEvents              ConfigurationAuditEvent[]
   configurationAssignments BusinessConfigurationAssignment[]
   customizationRequests    CustomizationRequest[]
@@ -282,7 +268,6 @@ model Business {
   customFieldDefinitions   CustomFieldDefinition[]
    featureFlags             FeatureFlag[]
    customizationRequests    CustomizationRequest[]
-   customerPayments         CustomerPayment[]
    apiKeys                  ApiKey[]
    products                 Product[]
    webhookSubscriptions     WebhookSubscription[]
@@ -366,7 +351,6 @@ model Customer {
   business         Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   documents        Document[]
   purchaseOrders   PurchaseOrder[]
-  customerPayments CustomerPayment[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, name])
@@ -422,56 +406,31 @@ model Document {
   @@map("documents")
 }
 
-model CustomerPayment {
-  id                    BigInt                @id @default(autoincrement())
-  publicId              String                @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId              BigInt                @map("tenant_id")
-  businessId            BigInt                @map("business_id")
-  customerId            BigInt                @map("customer_id")
-  number                String                @db.VarChar(40)
-  status                CustomerPaymentStatus @default(RECORDED)
-  receivedOn            DateTime              @map("received_on") @db.Date
-  method                PaymentMethod
-  reference             String?               @db.VarChar(120)
-  notes                 String?               @db.VarChar(2000)
-  currencyCode          String                @map("currency_code") @db.Char(3)
-  currencyScale         Int                   @map("currency_scale") @db.SmallInt
-  amountMinor           Decimal               @map("amount_minor") @db.Decimal(38, 0)
-  voidedAt              DateTime?             @map("voided_at") @db.Timestamptz(3)
-  voidReason            String?               @map("void_reason") @db.VarChar(500)
-  createdByMembershipId BigInt                @map("created_by_membership_id")
-  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
-
-  business    Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer    Customer            @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
-  creator     Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
-  allocations PaymentAllocation[]
-
-  @@unique([tenantId, businessId, id])
-  @@unique([tenantId, businessId, number])
-  @@index([tenantId, businessId, status, receivedOn])
-  @@index([tenantId, businessId, customerId])
-  @@map("customer_payments")
-}
-
+/// Allocation of a Payment against an invoice document or a purchase order.
+///
+/// This model previously described a second, never-deployed payment design: it declared
+/// `invoice_document_id` and related to a `CustomerPayment` model whose `customer_payments` table
+/// does not exist in the database. The live `payment_allocations` table, created by
+/// 20260806152655_add_payment_module, has `document_id` and `purchase_order_id` and its
+/// `payment_id` references `payments`. The definition below matches the deployed table.
 model PaymentAllocation {
-  id                BigInt   @id @default(autoincrement())
-  publicId          String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId          BigInt   @map("tenant_id")
-  businessId        BigInt   @map("business_id")
-  paymentId         BigInt   @map("payment_id")
-  invoiceDocumentId BigInt   @map("invoice_document_id")
-  amountMinor       Decimal  @map("amount_minor") @db.Decimal(38, 0)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id              BigInt   @id @default(autoincrement())
+  publicId        String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt   @map("tenant_id")
+  businessId      BigInt   @map("business_id")
+  paymentId       BigInt   @map("payment_id")
+  documentId      BigInt?  @map("document_id")
+  purchaseOrderId BigInt?  @map("purchase_order_id")
+  amountMinor     Decimal  @map("amount_minor") @db.Decimal(38, 0)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  business Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  payment  CustomerPayment @relation(fields: [tenantId, businessId, paymentId], references: [tenantId, businessId, id], onDelete: Restrict)
-  invoice  Document        @relation(fields: [tenantId, businessId, invoiceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  business      Business       @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  payment       Payment        @relation(fields: [tenantId, businessId, paymentId], references: [tenantId, businessId, id], onDelete: Cascade)
+  document      Document?      @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  purchaseOrder PurchaseOrder? @relation(fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
 
   @@unique([tenantId, businessId, id])
-  @@unique([tenantId, businessId, paymentId, invoiceDocumentId])
-  @@index([tenantId, businessId, invoiceDocumentId])
+  @@index([tenantId, businessId, documentId])
   @@index([tenantId, businessId, paymentId])
   @@map("payment_allocations")
 }
@@ -506,6 +465,7 @@ model PurchaseOrder {
    approvalChangedByUser User?               @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
    storedObjects         StoredObject[]
    linkedInvoices        Document[]          @relation("DocumentLinkedPurchaseOrder")
+   paymentAllocations    PaymentAllocation[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status, createdAt])
@@ -663,12 +623,13 @@ model Payment {
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-   business    Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-   creator     Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  business    Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  creator     Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  allocations PaymentAllocation[]
 
   @@unique([tenantId, businessId, id])
-   @@index([tenantId, businessId, status, createdAt])
-   @@map("payments")
+  @@index([tenantId, businessId, status, createdAt])
+  @@map("payments")
 }
 
 // Phase 4 — Configuration architecture. Platform-level catalog of ERP modules, versioned

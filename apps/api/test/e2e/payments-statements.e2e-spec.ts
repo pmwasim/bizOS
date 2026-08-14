@@ -389,16 +389,18 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
             },
           ]),
         },
-        // Receipts come from CustomerPayment, the model that carries customerId; the older
-        // Payment model has no customer link and could not be scoped per statement.
-        customerPayment: {
+        // Payment has no customer column, so a receipt reaches this statement only through its
+        // allocation against one of the customer's invoices.
+        paymentAllocation: {
           findMany: vi.fn().mockResolvedValue([
             {
-              publicId: "p1111111-1111-4111-8111-111111111111",
-              receivedOn: new Date("2026-08-05T00:00:00Z"),
-              number: "PAY-0001",
-              reference: "TRX-1",
+              publicId: "a1111111-1111-4111-8111-111111111111",
               amountMinor: "40000",
+              payment: {
+                publicId: "p1111111-1111-4111-8111-111111111111",
+                paymentDate: new Date("2026-08-05T00:00:00Z"),
+                reference: "TRX-1",
+              },
             },
           ]),
         },
@@ -425,9 +427,11 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
       expect(statement.closingBalanceMinor).toBe(60000); // 100000 - 40000
       expect(statement.totalInvoicedMinor).toBe(100000);
       expect(statement.totalPaidMinor).toBe(40000);
-      expect(statement.items.map((item) => item.referenceNumber)).toEqual(["INV-0001", "PAY-0001"]);
+      expect(statement.items.map((item) => item.referenceNumber)).toEqual(["INV-0001", "TRX-1"]);
       // Scoped to this customer only; an unscoped query would pull in other customers' receipts.
-      expect(mockTx.customerPayment.findMany.mock.calls[0][0].where.customerId).toBe(50n);
+      expect(mockTx.paymentAllocation.findMany.mock.calls[0][0].where.document.customerId).toBe(
+        50n,
+      );
     });
 
     it("Tier 2: handles customer statement with zero transactions and verifies cross-tenant isolation", async () => {

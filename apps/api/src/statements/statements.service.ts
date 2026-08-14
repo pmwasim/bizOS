@@ -21,12 +21,14 @@ interface InvoiceRow {
   totalMinor: { toString(): string };
 }
 
-interface CustomerPaymentRow {
+interface AllocationRow {
   publicId: string;
-  number: string;
-  receivedOn: Date;
   amountMinor: { toString(): string };
-  reference: string | null;
+  payment: {
+    publicId: string;
+    paymentDate: Date;
+    reference: string | null;
+  };
 }
 
 /** A ledger entry before the running balance is applied. */
@@ -74,16 +76,18 @@ export class StatementsService {
         orderBy: { issueDate: "asc" },
       });
 
-      // Payments live on CustomerPayment, which is the model that actually carries customerId.
-      // Scoping by customer here is what keeps one customer's statement from showing another's
-      // payments, and VOIDED rows are excluded because a voided receipt never settled anything.
-      const payments = await transaction.customerPayment.findMany({
+      // Payment carries no customer, so the only link from a receipt to this customer is the
+      // allocation against one of their invoices. Reading allocations rather than payments is
+      // also what keeps one customer's statement from crediting another customer's money, and it
+      // credits only the portion actually applied here when a payment spans several invoices.
+      // REVERSED payments are excluded because a reversed receipt settled nothing.
+      const allocations = await transaction.paymentAllocation.findMany({
         where: {
           businessId: access.businessId,
-          customerId: customer.id,
-          status: "RECORDED" as never,
+          document: { customerId: customer.id, type: "INVOICE" as never },
+          payment: { status: "COMPLETED" as never },
         },
-        orderBy: { receivedOn: "asc" },
+        include: { payment: true },
       });
 
       const pending: PendingLine[] = [
@@ -96,16 +100,16 @@ export class StatementsService {
           debitMinor: BigInt(invoice.totalMinor.toString()),
           creditMinor: 0n,
         })),
-        ...(payments as CustomerPaymentRow[]).map((payment) => ({
-          id: payment.publicId,
-          date: payment.receivedOn.toISOString().slice(0, 10),
+        ...(allocations as AllocationRow[]).map((allocation) => ({
+          id: allocation.publicId,
+          date: allocation.payment.paymentDate.toISOString().slice(0, 10),
           type: "PAYMENT" as const,
-          referenceNumber: payment.number,
-          description: payment.reference
-            ? `Payment ${payment.number} (${payment.reference})`
-            : `Payment ${payment.number}`,
+          referenceNumber: allocation.payment.reference ?? allocation.payment.publicId,
+          description: allocation.payment.reference
+            ? `Payment ${allocation.payment.reference}`
+            : "Payment",
           debitMinor: 0n,
-          creditMinor: BigInt(payment.amountMinor.toString()),
+          creditMinor: BigInt(allocation.amountMinor.toString()),
         })),
       ];
 

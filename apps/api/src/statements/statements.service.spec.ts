@@ -18,7 +18,7 @@ function buildService(options: {
   payments?: unknown[];
 }) {
   const documentFindMany = vi.fn().mockResolvedValue(options.invoices ?? []);
-  const customerPaymentFindMany = vi.fn().mockResolvedValue(options.payments ?? []);
+  const allocationFindMany = vi.fn().mockResolvedValue(options.payments ?? []);
 
   const transaction = {
     customer: {
@@ -27,7 +27,7 @@ function buildService(options: {
         .mockResolvedValue(options.customer === undefined ? CUSTOMER : options.customer),
     },
     document: { findMany: documentFindMany },
-    customerPayment: { findMany: customerPaymentFindMany },
+    paymentAllocation: { findMany: allocationFindMany },
   };
 
   const database = {
@@ -46,7 +46,7 @@ function buildService(options: {
     database as unknown as DatabaseService,
     access as unknown as BusinessAccessService,
   );
-  return { service, documentFindMany, customerPaymentFindMany };
+  return { service, documentFindMany, allocationFindMany };
 }
 
 function invoice(publicId: string, number: string, date: string, totalMinor: string) {
@@ -58,29 +58,31 @@ function invoice(publicId: string, number: string, date: string, totalMinor: str
   };
 }
 
-function payment(publicId: string, number: string, date: string, amountMinor: string) {
+function payment(publicId: string, reference: string, date: string, amountMinor: string) {
   return {
-    publicId,
-    number,
-    receivedOn: new Date(`${date}T00:00:00.000Z`),
+    publicId: `alloc-${publicId}`,
     amountMinor: { toString: () => amountMinor },
-    reference: null,
+    payment: {
+      publicId,
+      paymentDate: new Date(`${date}T00:00:00.000Z`),
+      reference,
+    },
   };
 }
 
 describe("StatementsService.customer", () => {
   it("scopes payments to the requested customer", async () => {
-    const { service, customerPaymentFindMany } = buildService({ customer: CUSTOMER });
+    const { service, allocationFindMany } = buildService({ customer: CUSTOMER });
 
     await service.customer("user-1", "biz-1", CUSTOMER.publicId);
 
     // Without customerId in this filter every customer's statement shows every other customer's
     // receipts, and the closing balance is wrong for all of them.
-    expect(customerPaymentFindMany).toHaveBeenCalledTimes(1);
-    const where = customerPaymentFindMany.mock.calls[0]![0].where as Record<string, unknown>;
-    expect(where.customerId).toBe(CUSTOMER.id);
+    expect(allocationFindMany).toHaveBeenCalledTimes(1);
+    const where = allocationFindMany.mock.calls[0]![0].where as Record<string, unknown>;
+    expect((where.document as Record<string, unknown>).customerId).toBe(CUSTOMER.id);
     expect(where.businessId).toBe(2n);
-    expect(where.status).toBe("RECORDED");
+    expect((where.payment as Record<string, unknown>).status).toBe("COMPLETED");
   });
 
   it("interleaves invoices and payments by date with a running balance", async () => {
