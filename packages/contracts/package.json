@@ -96,6 +96,10 @@
       "types": "./dist/suppliers.d.ts",
       "default": "./dist/suppliers.js"
     },
+    "./statements": {
+      "types": "./dist/statements.d.ts",
+      "default": "./dist/statements.js"
+    },
     "./credit-notes": {
       "types": "./dist/credit-notes.d.ts",
       "default": "./dist/credit-notes.js"
