@@ -8,7 +8,7 @@ import { type ActionState, recordPaymentAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
 import { SubmitButton } from "@/components/submit-button";
 
-const METHODS: PaymentMethod[] = ["BANK_TRANSFER", "CASH", "CARD", "CHEQUE", "OTHER"];
+const METHODS: PaymentMethod[] = ["BANK_TRANSFER", "CASH", "CARD", "CHECK", "OTHER"];
 
 export function RecordPaymentForm({
   businessId,

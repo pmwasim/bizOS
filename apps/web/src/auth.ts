@@ -42,9 +42,16 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user) {
         token.userId = user.id;
+        const u = user as { tenantId?: string; businessId?: string };
+        if (u.tenantId) token.tenantId = u.tenantId;
+        if (u.businessId) token.businessId = u.businessId;
+      }
+      if (trigger === "update" && session) {
+        if (session.tenantId !== undefined) token.tenantId = session.tenantId;
+        if (session.businessId !== undefined) token.businessId = session.businessId;
       }
       return token;
     },
@@ -52,9 +59,17 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       if (session.user && typeof token.userId === "string") {
         session.user.id = token.userId;
       }
+      const s = session as unknown as Record<string, unknown>;
+      if (typeof token.tenantId === "string") {
+        s.tenantId = token.tenantId;
+      }
+      if (typeof token.businessId === "string") {
+        s.businessId = token.businessId;
+      }
       return session;
     },
   },
+  useSecureCookies: process.env.NODE_ENV === "production",
   session: {
     strategy: "jwt",
     maxAge: 60 * 60 * 12,

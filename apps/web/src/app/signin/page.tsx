@@ -33,7 +33,9 @@ export default function SignInPage() {
         return;
       }
 
-      const callbackUrl = safeCallbackUrl(new URLSearchParams(window.location.search).get("callbackUrl"));
+      const callbackUrl = safeCallbackUrl(
+        new URLSearchParams(window.location.search).get("callbackUrl"),
+      );
       window.location.assign(callbackUrl);
     } catch {
       setError("Sign in is temporarily unavailable. Please try again.");

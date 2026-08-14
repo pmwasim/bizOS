@@ -50,6 +50,9 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   const env = environment();
   const clientIp = await clientIpHeaders();
   const userId = session.user.id;
+  const customSession = session as unknown as { tenantId?: string; businessId?: string };
+  const tenantId = customSession.tenantId;
+  const businessId = customSession.businessId;
 
   // Minted per attempt: the assertion lives 2 minutes, and retrying through a cold start can
   // outlast a token signed once up front.
@@ -67,6 +70,12 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     headers.set("authorization", `Bearer ${assertion}`);
     for (const [key, value] of Object.entries(clientIp)) {
       headers.set(key, value);
+    }
+    if (tenantId && !headers.has("x-tenant-id")) {
+      headers.set("x-tenant-id", tenantId);
+    }
+    if (businessId && !headers.has("x-business-id")) {
+      headers.set("x-business-id", businessId);
     }
     if (!(init?.body instanceof FormData) && !headers.has("content-type")) {
       headers.set("content-type", "application/json");
