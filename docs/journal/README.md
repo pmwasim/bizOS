@@ -15,6 +15,8 @@ Rules:
 
 ## Entries
 
+- [2026-08-15 — Stabilize PR81 for production release](2026-08-15-stabilize-pr81-for-production-release.md)
+  - Agent: claude-cowork · Status: In progress
 - [2026-08-07 — Retire obsolete Render production path](2026-08-07-retire-render-production-path.md)
   - Agent: chatgpt-gpt-5.6-thinking · Status: Complete — GitHub CI verified; live Ubuntu incident
     remains open

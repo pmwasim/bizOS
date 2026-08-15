@@ -41,7 +41,11 @@ audit evidence. Availability matters, but a fast cross-tenant response is a secu
 - No raw HTML injection, string-to-code execution, shell interpolation, arbitrary redirects, or
   unrestricted outbound URL fetching.
 - CORS off by default; credentials never paired with broad origins.
-- Rate limits at edge and application for authentication and expensive commands.
+- Rate limits at edge and application for authentication and expensive commands. Limits are declared
+  in code (`apps/api/src/security/throttle-policy.ts`) and are the shipped behaviour.
+  `THROTTLE_SCALE` widens every limit by a fixed factor so an automated harness can drive the whole
+  product from one source address; it is ignored when `NODE_ENV=production`, and `@bizo/config`
+  refuses to boot a production process that sets it to anything but `1`. Nothing may narrow a limit.
 
 ### Data and files
 

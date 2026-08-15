@@ -26,6 +26,7 @@ import { RequestId } from "../common/request-id.decorator.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
 import { InvoicesService } from "./invoices.service.js";
+import { scaledThrottle } from "../security/throttle-policy.js";
 
 @Controller("businesses/:businessId/invoices")
 export class InvoicesController {
@@ -100,7 +101,7 @@ export class InvoicesController {
     return new StreamableFile(result.buffer);
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(scaledThrottle({ default: { limit: 10, ttl: 60_000 } }))
   @Post(":invoiceId/send")
   send(
     @Principal() principal: AuthenticatedPrincipal,

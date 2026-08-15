@@ -30,6 +30,10 @@ jobs:
       RUN_REDIS_TESTS: "true"
       SMTP_FROM: quotes@example.test
       SMTP_URL: smtp://localhost:1025
+      # The whole e2e suite drives the product from one source address, so it shares a single
+      # throttle bucket that a real user never approaches. Widen it for the harness only; the API
+      # refuses any value but 1 when NODE_ENV=production (see security/throttle-policy.ts).
+      THROTTLE_SCALE: "40"
       TURBO_TELEMETRY_DISABLED: "1"
     services:
       postgres:

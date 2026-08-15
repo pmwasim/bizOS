@@ -16,6 +16,79 @@ export interface OcrExtractionResult {
   currency?: string | null;
 }
 
+export interface OcrLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+/** Longest OCR line we attempt to parse; anything beyond this is noise, not a line item. */
+const MAX_LINE_LENGTH = 512;
+const DESCRIPTION_TOKEN = /^[A-Za-z0-9]+$/;
+const INTEGER_TOKEN = /^\d{1,12}$/;
+const DECIMAL_TOKEN = /^\d{1,15}(?:\.\d{1,6})?$/;
+
+/**
+ * Parse `<description> <qty> [x] <unit price> [=|total] <line total>` from a single OCR line.
+ *
+ * Tokenised rather than matched with `^([A-Za-z0-9\s]+?)\s+(\d+)\s+...$`: that pattern is a
+ * polynomial-ReDoS vector on attacker-supplied document text (CodeQL js/polynomial-redos), because
+ * the lazy `[A-Za-z0-9\s]+?` and the following `\s+` both match spaces. Splitting on whitespace
+ * once and reading fixed positions from the end is linear and easier to reason about.
+ */
+export function parseLineItem(line: string): OcrLineItem | null {
+  if (line.length > MAX_LINE_LENGTH) {
+    return null;
+  }
+
+  const tokens = line.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 4) {
+    return null;
+  }
+
+  // Trailing token is always the line total; an optional "=" or "total" separator precedes it.
+  const totalToken = tokens[tokens.length - 1] as string;
+  let cursor = tokens.length - 2;
+  const separator = tokens[cursor];
+  if (separator === "=" || separator?.toLowerCase() === "total") {
+    cursor -= 1;
+  }
+
+  // An "x" multiplier may precede the unit price, either as its own token or glued to it ("x50").
+  let unitPriceToken = tokens[cursor];
+  if (unitPriceToken && /^x/i.test(unitPriceToken)) {
+    unitPriceToken = unitPriceToken.slice(1);
+  }
+  cursor -= 1;
+
+  let quantityToken = tokens[cursor];
+  if (quantityToken?.toLowerCase() === "x") {
+    cursor -= 1;
+    quantityToken = tokens[cursor];
+  }
+
+  const descriptionTokens = tokens.slice(0, cursor);
+  if (
+    descriptionTokens.length === 0 ||
+    !quantityToken ||
+    !unitPriceToken ||
+    !INTEGER_TOKEN.test(quantityToken) ||
+    !DECIMAL_TOKEN.test(unitPriceToken) ||
+    !DECIMAL_TOKEN.test(totalToken) ||
+    !descriptionTokens.every((token) => DESCRIPTION_TOKEN.test(token))
+  ) {
+    return null;
+  }
+
+  return {
+    description: descriptionTokens.join(" "),
+    quantity: Number.parseInt(quantityToken, 10),
+    unitPrice: Number.parseFloat(unitPriceToken),
+    total: Number.parseFloat(totalToken),
+  };
+}
+
 @Injectable()
 export class OcrExtractorService {
   public extractFromBuffer(buffer: Buffer, mimeType: string): OcrExtractionResult {
@@ -109,17 +182,9 @@ export class OcrExtractorService {
 
     const lines = content.split(/\r?\n/);
     for (const line of lines) {
-      const lineMatch = line.match(
-        /^([A-Za-z0-9\s]+?)\s+(\d+)\s+(?:x\s*)?([\d.]+)\s+(=|total)?\s*([\d.]+)$/i,
-      );
-      if (lineMatch && lineMatch[1] && lineMatch[2] && lineMatch[3] && lineMatch[5]) {
-        const description = lineMatch[1].trim();
-        const quantity = parseInt(lineMatch[2], 10);
-        const unitPrice = parseFloat(lineMatch[3]);
-        const total = parseFloat(lineMatch[5]);
-        if (description && !isNaN(quantity) && !isNaN(unitPrice) && !isNaN(total)) {
-          extractedLines.push({ description, quantity, unitPrice, total });
-        }
+      const parsed = parseLineItem(line);
+      if (parsed) {
+        extractedLines.push(parsed);
       }
     }
 

@@ -23,6 +23,24 @@ export interface IndexedDocument {
   title?: string;
 }
 
+const PROMPT_INJECTION_MARKER = "system prompt:";
+
+/**
+ * Remove an injected "System prompt:" instruction and the rest of the line it sits on.
+ *
+ * Deliberately index-based rather than `/System prompt:.*$/i`: that pattern is a polynomial-ReDoS
+ * vector on attacker-controlled query text (CodeQL js/polynomial-redos). Scanning with
+ * `indexOf`/`indexOf("\n")` is linear in the input length and behaves identically.
+ */
+export function stripPromptInjectionMarker(value: string): string {
+  const start = value.toLowerCase().indexOf(PROMPT_INJECTION_MARKER);
+  if (start === -1) {
+    return value;
+  }
+  const lineEnd = value.indexOf("\n", start);
+  return lineEnd === -1 ? value.slice(0, start) : value.slice(0, start) + value.slice(lineEnd);
+}
+
 @Injectable()
 export class RagSearchEngine {
   private indexedDocs: IndexedDocument[] = [
@@ -67,7 +85,7 @@ export class RagSearchEngine {
       throw new Error("400 Bad Request: Query maxTokens limit exceeded");
     }
 
-    const sanitized = query.queryText.replace(/System prompt:.*$/i, "").trim();
+    const sanitized = stripPromptInjectionMarker(query.queryText).trim();
     if (!sanitized) {
       return [];
     }

@@ -5,8 +5,30 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useState } from "react";
 
-function safeCallbackUrl(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/start";
+const DEFAULT_CALLBACK_PATH = "/start";
+
+/**
+ * Resolve the post-sign-in destination to a URL that is provably on this origin.
+ *
+ * `callbackUrl` arrives from the query string, so it is attacker-controlled: a bare
+ * `startsWith("/")` check is not enough (`/\evil.com`, `/\/evil.com` and backslash variants are
+ * normalised to another origin by some browsers). Parsing against `window.location.origin` and
+ * then rejecting anything whose resolved origin differs closes that open-redirect
+ * (CodeQL js/client-side-unvalidated-url-redirection).
+ */
+function safeCallbackUrl(value: string | null, origin: string): string {
+  const fallback = new URL(DEFAULT_CALLBACK_PATH, origin).href;
+
+  if (!value || !/^\/[^/\\]/.test(value)) {
+    return fallback;
+  }
+
+  try {
+    const resolved = new URL(value, origin);
+    return resolved.origin === origin ? resolved.href : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function SignInView() {
@@ -35,10 +57,12 @@ function SignInView() {
         return;
       }
 
-      const callbackUrl = safeCallbackUrl(
-        new URLSearchParams(window.location.search).get("callbackUrl"),
+      window.location.assign(
+        safeCallbackUrl(
+          new URLSearchParams(window.location.search).get("callbackUrl"),
+          window.location.origin,
+        ),
       );
-      window.location.assign(callbackUrl);
     } catch {
       setError("Sign in is temporarily unavailable. Please try again.");
     } finally {

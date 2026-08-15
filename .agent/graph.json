@@ -8,7 +8,7 @@
     "packageCount": 7,
     "edgeCount": 10,
     "adrCount": 24,
-    "handbookDocumentCount": 83
+    "handbookDocumentCount": 84
   },
   "buildOrder": [
     {
@@ -63,14 +63,14 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 158,
-      "testFiles": 42,
+      "sourceFiles": 164,
+      "testFiles": 47,
       "areas": [
         {
           "name": "ai",
           "path": "apps/api/src/ai",
-          "sourceFiles": 7,
-          "testFiles": 1
+          "sourceFiles": 9,
+          "testFiles": 3
         },
         {
           "name": "common",
@@ -141,8 +141,8 @@
         {
           "name": "identity",
           "path": "apps/api/src/identity",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "integration",
@@ -219,14 +219,14 @@
         {
           "name": "security",
           "path": "apps/api/src/security",
-          "sourceFiles": 15,
-          "testFiles": 5
+          "sourceFiles": 17,
+          "testFiles": 6
         },
         {
           "name": "statements",
           "path": "apps/api/src/statements",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "storage",
@@ -264,6 +264,8 @@
         "docs/operations/n8n-integration-policy.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
+        "docs/operations/ubuntu-production-cutover.md",
+        "docs/security.md",
         "docs/spikes/opennext-cloudflare-web.md"
       ]
     },
@@ -322,7 +324,8 @@
       "governingDocs": [
         "docs/architecture.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/operations/local-test-evaluation-2026-08-06.md"
+        "docs/operations/local-test-evaluation-2026-08-06.md",
+        "docs/security.md"
       ]
     },
     {
@@ -348,8 +351,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 37,
-      "testFiles": 15,
+      "sourceFiles": 46,
+      "testFiles": 16,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -359,7 +362,8 @@
         "docs/multi-agent-protocol.md",
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/phase4-configuration-architecture-design.md"
+        "docs/operations/phase4-configuration-architecture-design.md",
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -401,7 +405,8 @@
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
-        "docs/operations/production-runbook.md"
+        "docs/operations/production-runbook.md",
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -519,13 +524,13 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 97,
+      "sourceFiles": 99,
       "testFiles": 4,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 56,
+          "sourceFiles": 58,
           "testFiles": 2
         },
         {
@@ -550,6 +555,7 @@
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-cutover-handoff.md",
+        "docs/operations/ubuntu-production-cutover.md",
         "docs/spikes/opennext-cloudflare-web.md"
       ]
     }

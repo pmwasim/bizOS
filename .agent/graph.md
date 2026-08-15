@@ -18,15 +18,15 @@ layer above it.
 
 | Workspace | Type | Path | Depends on | Depended on by | Source | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 158 | 42 |
+| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 164 | 47 |
 | `@bizo/authorization` | package | `packages/authorization` | — | `@bizo/api` | 2 | 1 |
 | `@bizo/config` | package | `packages/config` | — | `@bizo/api`, `@bizo/web` | 5 | 2 |
-| `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 37 | 15 |
+| `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 46 | 16 |
 | `@bizo/database` | package | `packages/database` | `@bizo/contracts` | `@bizo/api` | 2 | 1 |
 | `@bizo/queue` | package | `packages/queue` | `@bizo/contracts` | — | 2 | 1 |
 | `@bizo/storage` | package | `packages/storage` | — | `@bizo/api` | 3 | 1 |
 | `@bizo/ui` | package | `packages/ui` | — | `@bizo/web` | 2 | 0 |
-| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 97 | 4 |
+| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 99 | 4 |
 
 ## Claimable areas
 
@@ -35,7 +35,7 @@ First-level source areas. These are the natural units for a work claim
 
 ### `@bizo/api`
 
-- `apps/api/src/ai` — 7 source files, 1 test file
+- `apps/api/src/ai` — 9 source files, 3 test files
 - `apps/api/src/common` — 6 source files, 1 test file
 - `apps/api/src/configuration` — 8 source files, 4 test files
 - `apps/api/src/credit-notes` — 4 source files, 1 test file
@@ -47,7 +47,7 @@ First-level source areas. These are the natural units for a work claim
 - `apps/api/src/documents` — 15 source files, 4 test files
 - `apps/api/src/erpnext` — 3 source files, 1 test file
 - `apps/api/src/health` — 3 source files, 1 test file
-- `apps/api/src/identity` — 3 source files, 0 test files
+- `apps/api/src/identity` — 4 source files, 1 test file
 - `apps/api/src/integration` — 7 source files, 7 test files
 - `apps/api/src/inventory` — 4 source files, 1 test file
 - `apps/api/src/mail` — 3 source files, 1 test file
@@ -60,8 +60,8 @@ First-level source areas. These are the natural units for a work claim
 - `apps/api/src/public-api` — 4 source files, 0 test files
 - `apps/api/src/purchase-orders` — 4 source files, 1 test file
 - `apps/api/src/sales-orders` — 4 source files, 1 test file
-- `apps/api/src/security` — 15 source files, 5 test files
-- `apps/api/src/statements` — 3 source files, 0 test files
+- `apps/api/src/security` — 17 source files, 6 test files
+- `apps/api/src/statements` — 4 source files, 1 test file
 - `apps/api/src/storage` — 2 source files, 0 test files
 - `apps/api/src/suppliers` — 4 source files, 1 test file
 - `apps/api/src/system-admin` — 5 source files, 2 test files
@@ -69,7 +69,7 @@ First-level source areas. These are the natural units for a work claim
 
 ### `@bizo/web`
 
-- `apps/web/src/app` — 56 source files, 2 test files
+- `apps/web/src/app` — 58 source files, 2 test files
 - `apps/web/src/components` — 30 source files, 0 test files
 - `apps/web/src/lib` — 9 source files, 2 test files
 
@@ -115,12 +115,12 @@ First-level source areas. These are the natural units for a work claim
 Handbook documents that name each workspace. Update them in the same change that
 invalidates them.
 
-- `@bizo/api`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/document-templates-plan.md`, `docs/multi-agent-protocol.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/n8n-integration-policy.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/spikes/opennext-cloudflare-web.md`
+- `@bizo/api`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/document-templates-plan.md`, `docs/multi-agent-protocol.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/n8n-integration-policy.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/security.md`, `docs/spikes/opennext-cloudflare-web.md`
 - `@bizo/authorization`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`
-- `@bizo/config`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/local-test-evaluation-2026-08-06.md`
-- `@bizo/contracts`: `docs/api-guidelines.md`, `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/document-templates-plan.md`, `docs/multi-agent-protocol.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`
-- `@bizo/database`: `docs/architecture.md`, `docs/database-strategy.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/production-runbook.md`
+- `@bizo/config`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/security.md`
+- `@bizo/contracts`: `docs/api-guidelines.md`, `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/document-templates-plan.md`, `docs/multi-agent-protocol.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/ubuntu-production-cutover.md`
+- `@bizo/database`: `docs/architecture.md`, `docs/database-strategy.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/production-runbook.md`, `docs/operations/ubuntu-production-cutover.md`
 - `@bizo/queue`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`
 - `@bizo/storage`: `docs/architecture.md`, `docs/decisions/0017-po-object-storage.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/r2-object-storage.md`
 - `@bizo/ui`: `docs/architecture.md`, `docs/coding-standards.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`
-- `@bizo/web`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-cutover-handoff.md`, `docs/spikes/opennext-cloudflare-web.md`
+- `@bizo/web`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-cutover-handoff.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/spikes/opennext-cloudflare-web.md`
