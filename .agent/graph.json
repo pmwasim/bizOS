@@ -8,7 +8,7 @@
     "packageCount": 7,
     "edgeCount": 10,
     "adrCount": 25,
-    "handbookDocumentCount": 85
+    "handbookDocumentCount": 86
   },
   "buildOrder": [
     {
@@ -261,6 +261,7 @@
         "docs/deployment-handoff-cursor.md",
         "docs/document-templates-plan.md",
         "docs/multi-agent-protocol.md",
+        "docs/operations/issue-60-object-store-blob-audit.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/n8n-integration-policy.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",

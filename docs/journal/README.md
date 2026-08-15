@@ -27,6 +27,8 @@ Rules:
   - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Branch audit: recover unmerged phase-1 work and fix three broken document write paths](2026-08-15-branch-audit-recover-unmerged-phase-1-work-and-fix-three-bro.md)
   - Agent: claude-cowork · Status: Complete
+- [2026-08-15 — Audit issue 60 blobs and close the payment void gap](2026-08-15-audit-issue-60-blobs-and-close-the-payment-void-gap.md)
+  - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Address PR94 review feedback: sales-order link to delivery notes, supplier deactivation, and minor-unit forms](2026-08-15-address-pr94-review-feedback-sales-order-link-to-delivery-no.md)
   - Agent: antigravity · Status: Complete
 - [2026-08-15 — Add public pricing page with multi-currency country selector and billing toggle](2026-08-15-add-public-pricing-page-with-multi-currency-country-selector.md)
