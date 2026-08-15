@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 164,
-      "testFiles": 47,
+      "sourceFiles": 169,
+      "testFiles": 52,
       "areas": [
         {
           "name": "ai",
@@ -93,8 +93,8 @@
         {
           "name": "crm",
           "path": "apps/api/src/crm",
-          "sourceFiles": 4,
-          "testFiles": 0
+          "sourceFiles": 6,
+          "testFiles": 2
         },
         {
           "name": "customers",
@@ -117,8 +117,8 @@
         {
           "name": "delivery-notes",
           "path": "apps/api/src/delivery-notes",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "documents",
@@ -147,8 +147,8 @@
         {
           "name": "integration",
           "path": "apps/api/src/integration",
-          "sourceFiles": 7,
-          "testFiles": 7
+          "sourceFiles": 8,
+          "testFiles": 8
         },
         {
           "name": "inventory",
@@ -195,8 +195,8 @@
         {
           "name": "projects",
           "path": "apps/api/src/projects",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "public-api",
