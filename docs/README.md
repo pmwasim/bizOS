@@ -46,6 +46,8 @@ a handbook statement must update the relevant document in the same pull request.
 - [Cursor deployment handoff](deployment-handoff-cursor.md)
 - [Observability](observability.md)
 - [Security](security.md)
+- [Issue #60: historical object-store blob audit](operations/issue-60-object-store-blob-audit.md)
+- [Ubuntu production cutover](operations/ubuntu-production-cutover.md)
 - [GitHub governance](github-governance.md)
 - [Multi-agent working protocol](multi-agent-protocol.md)
 - [Development journal](journal/README.md)
