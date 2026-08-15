@@ -24,6 +24,31 @@ export const verifyCredentialsRequestSchema = z.strictObject({
   password: z.string().min(1).max(128),
 });
 
+/**
+ * 32 random bytes, base64url-encoded, so 43 characters with no padding. The API only ever stores
+ * the SHA-256 hash of this value; the raw token exists in the reset email and nowhere else.
+ */
+export const passwordResetTokenSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{43}$/, "That password reset link is not valid.");
+
+export const requestPasswordResetRequestSchema = z.strictObject({
+  email: normalizedEmailSchema,
+});
+
+export const confirmPasswordResetRequestSchema = z.strictObject({
+  token: passwordResetTokenSchema,
+  password: passwordSchema,
+});
+
+/**
+ * Requesting a reset always reports the same result whether or not the address has an account, so
+ * the endpoint cannot be used to discover which emails are registered.
+ */
+export const passwordResetAcceptedSchema = z.strictObject({
+  status: z.literal("accepted"),
+});
+
 export const authenticatedUserSchema = z.strictObject({
   id: z.uuid(),
   displayName: z.string(),
@@ -32,5 +57,8 @@ export const authenticatedUserSchema = z.strictObject({
 });
 
 export type AuthenticatedUser = z.infer<typeof authenticatedUserSchema>;
+export type ConfirmPasswordResetRequest = z.infer<typeof confirmPasswordResetRequestSchema>;
+export type PasswordResetAccepted = z.infer<typeof passwordResetAcceptedSchema>;
+export type RequestPasswordResetRequest = z.infer<typeof requestPasswordResetRequestSchema>;
 export type SignUpRequest = z.infer<typeof signUpRequestSchema>;
 export type VerifyCredentialsRequest = z.infer<typeof verifyCredentialsRequestSchema>;

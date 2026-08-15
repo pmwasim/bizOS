@@ -9,6 +9,10 @@ export function formatMoney(
   );
 }
 
+export function formatMinor(amountMinor: string | number, scale = 2, currency = "USD"): string {
+  return formatMoney(String(amountMinor), currency, scale);
+}
+
 export function estimateQuotationTotal(
   lines: ReadonlyArray<{
     quantity: string;

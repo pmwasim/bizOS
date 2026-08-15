@@ -38,6 +38,7 @@ const IMPLEMENTED_MODULE_CODES: ReadonlySet<string> = new Set([
   "quotations",
   "purchase-orders",
   "invoices",
+  "payments",
 ]);
 
 // Default-erp workflow refs (matches the seed snapshot).
@@ -152,6 +153,7 @@ export function recommendConfiguration(args: {
       reason: customerPo === "disabled" ? "Customer POs disabled by answer." : undefined,
     },
     { code: "invoices", enabled: true, reason: "Invoicing is always enabled." },
+    { code: "payments", enabled: true, reason: "Customer payments are available in this release." },
   ];
 
   // Unimplemented modules: surface them as disabled flags so the UI can show
@@ -163,7 +165,6 @@ export function recommendConfiguration(args: {
       enabled: false,
       reason: "Not implemented in this release.",
     },
-    { code: "payments", enabled: false, reason: "Not implemented in this release." },
     { code: "credit-notes", enabled: false, reason: "Not implemented in this release." },
     { code: "inventory", enabled: false, reason: "Not implemented in this release." },
     { code: "projects", enabled: false, reason: "Not implemented in this release." },

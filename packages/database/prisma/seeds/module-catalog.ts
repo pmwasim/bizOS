@@ -4,11 +4,11 @@
 // this release. Drives nav visibility and which modules a configuration can expose.
 //
 // Implemented today (code exists in apps/api + apps/web):
-//   customers, quotations, purchase-orders, invoices
+//   customers, quotations, purchase-orders, invoices, payments
 //
 // Planned but not yet implemented (seeded so configurations can reference them, but
 // `implemented=false` keeps them out of the active nav):
-//   sales-orders, delivery-service, payments, credit-notes, inventory, projects,
+//   sales-orders, delivery-service, credit-notes, inventory, projects,
 //   supplier-purchases, supplier-bills, supplier-payments, supplier-rfq
 
 import type { SeedClient, SeedResult } from "./shared.js";
@@ -70,7 +70,7 @@ export const MODULE_CATALOG: readonly ModuleSeed[] = [
     name: "Customer Payments",
     description: "Record customer payments and reconcile against invoices.",
     status: "ACTIVE",
-    implemented: false,
+    implemented: true,
   },
   {
     code: "credit-notes",

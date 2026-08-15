@@ -1,0 +1,22 @@
+---
+description: bizOS agent operating protocol — read AGENTS.md before editing
+alwaysApply: true
+---
+
+The operating instructions for every AI agent working on bizOS live in one place: `AGENTS.md` at
+the repository root. Read it in full before touching the repository. The rationale is in
+`docs/multi-agent-protocol.md`.
+
+This rule is a pointer, not a copy. Two sets of instructions drift.
+
+Assume you are not alone in this repository:
+
+- `pnpm graph && pnpm agent:status && pnpm journal:latest` before proposing an approach.
+- `pnpm agent:claim -- --agent <id> --task "<one line>" --scope <path>` before editing.
+- `pnpm journal:new -- --title "<summary>" --agent <id> --scope <path>` when work starts, not when
+  it finishes.
+- `pnpm agent:release -- --agent <id>` when done.
+
+Do not merge to `main`, tag, deploy to production, handle credentials, run destructive database
+operations on shared environments, or mark an ADR `Accepted` without a human. Escalate those in the
+journal entry's **Follow-ups** with the exact command required.

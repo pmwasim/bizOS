@@ -40,10 +40,24 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   await expect(pdfFrame).toBeVisible();
   const pdfPath = await pdfFrame.getAttribute("src");
   expect(pdfPath).toBeTruthy();
-  const pdfResponse = await page.request.get(pdfPath!);
-  expect(pdfResponse.ok()).toBe(true);
-  expect(pdfResponse.headers()["content-type"]).toContain("application/pdf");
-  expect((await pdfResponse.body()).subarray(0, 4).toString()).toBe("%PDF");
+  // Fetched inside the page, not through `page.request`. The session cookie is
+  // `__Secure-authjs.session-token` (auth.ts sets `useSecureCookies` in production, which `next
+  // start` is). Chromium treats http://127.0.0.1 as a trustworthy origin and sends it; Playwright's
+  // Node-side APIRequestContext applies the `__Secure-` prefix rule by scheme and withholds it over
+  // plain http, so that request arrives anonymous and the BFF correctly answers 401. The iframe
+  // itself loads fine — the discrepancy was the harness, not the product.
+  const pdf = await page.evaluate(async (source) => {
+    const response = await fetch(source, { credentials: "include" });
+    const head = new Uint8Array((await response.arrayBuffer()).slice(0, 4));
+    return {
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      magic: String.fromCharCode(...head),
+    };
+  }, pdfPath!);
+  expect(pdf.status, JSON.stringify(pdf)).toBe(200);
+  expect(pdf.contentType).toContain("application/pdf");
+  expect(pdf.magic).toBe("%PDF");
 
   await page.getByRole("button", { name: "Send quotation" }).click();
   await expect(page.getByRole("status")).toContainText("Quotation sent");

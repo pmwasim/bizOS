@@ -30,6 +30,10 @@ jobs:
       RUN_REDIS_TESTS: "true"
       SMTP_FROM: quotes@example.test
       SMTP_URL: smtp://localhost:1025
+      # The whole e2e suite drives the product from one source address, so it shares a single
+      # throttle bucket that a real user never approaches. Widen it for the harness only; the API
+      # refuses any value but 1 when NODE_ENV=production (see security/throttle-policy.ts).
+      THROTTLE_SCALE: "40"
       TURBO_TELEMETRY_DISABLED: "1"
     services:
       postgres:
@@ -95,7 +99,7 @@ jobs:
         run: pnpm test:e2e
       - name: Upload Playwright failure evidence
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-failure-evidence
           path: test-results

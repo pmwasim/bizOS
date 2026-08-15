@@ -27,7 +27,9 @@ describe.runIf(databaseEnabled)("System Admin authorization boundary with Postgr
     await database.onModuleInit();
     const access = new BusinessAccessService(database);
     configuration = new ConfigurationService(database, access);
-    identity = new IdentityService(database);
+    identity = new IdentityService(database, {
+      sendPasswordReset: async () => "test-message-id",
+    } as never);
     platform = new PlatformService(database, access, configuration);
     systemAdminService = new SystemAdminService(database);
     guard = new SystemAdminGuard(database);

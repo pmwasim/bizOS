@@ -3,7 +3,11 @@
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 
-import { signUpRequestSchema } from "@bizo/contracts/auth";
+import {
+  confirmPasswordResetRequestSchema,
+  requestPasswordResetRequestSchema,
+  signUpRequestSchema,
+} from "@bizo/contracts/auth";
 import { createCustomerRequestSchema, type Customer } from "@bizo/contracts/customers";
 import {
   createCustomizationRequestSchema,
@@ -15,6 +19,8 @@ import {
   sendInvoiceRequestSchema,
   updateInvoiceRequestSchema,
 } from "@bizo/contracts/invoices";
+import { parseDecimalToScaledInteger } from "@bizo/contracts/money";
+import { type Payment, recordPaymentRequestSchema } from "@bizo/contracts/payments";
 import {
   createPurchaseOrderRequestSchema,
   type PurchaseOrder,
@@ -87,6 +93,63 @@ export async function signInAction(_state: ActionState, formData: FormData): Pro
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/" });
+}
+
+export interface PasswordResetState extends ActionState {
+  sent?: boolean;
+}
+
+/**
+ * Reports the same outcome for known and unknown addresses. Surfacing "no such account" here would
+ * let anyone test whether an email is registered.
+ */
+export async function requestPasswordResetAction(
+  _state: PasswordResetState,
+  formData: FormData,
+): Promise<PasswordResetState> {
+  const parsed = requestPasswordResetRequestSchema.safeParse({
+    email: formData.get("email"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  const response = await publicApiFetch("/auth/password-reset/request", {
+    method: "POST",
+    body: JSON.stringify(parsed.data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      return { error: "Too many reset requests. Wait a minute and try again." };
+    }
+    return { error: "We could not start the reset. Please try again." };
+  }
+
+  return { sent: true };
+}
+
+export async function confirmPasswordResetAction(
+  _state: PasswordResetState,
+  formData: FormData,
+): Promise<PasswordResetState> {
+  const parsed = confirmPasswordResetRequestSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  const response = await publicApiFetch("/auth/password-reset/confirm", {
+    method: "POST",
+    body: JSON.stringify(parsed.data),
+  });
+
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as { detail?: string };
+    return {
+      error: problem.detail ?? "That reset link is no longer valid. Request a new one.",
+    };
+  }
+
+  redirect("/signin?reset=1");
 }
 
 export async function createBusinessAction(
@@ -303,6 +366,65 @@ export async function archiveInvoiceAction(
       body: "{}",
     });
     redirect(`/b/${businessId}/invoices`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function recordPaymentAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const currencyCode = String(formData.get("currencyCode") ?? "").trim();
+  const invoiceId = String(formData.get("invoiceId") ?? "").trim();
+
+  // The form collects a decimal amount; the API takes minor units as a string.
+  let amountMinor: string;
+  try {
+    amountMinor = parseDecimalToScaledInteger(
+      String(formData.get("amount") ?? "").trim(),
+      Number(formData.get("currencyScale") ?? 2),
+    ).toString();
+  } catch {
+    return { error: "Enter the amount as a positive number, for example 1250.00." };
+  }
+
+  const parsed = recordPaymentRequestSchema.safeParse({
+    type: "INBOUND",
+    paymentDate: String(formData.get("receivedOn") ?? "").trim(),
+    amountMinor,
+    currencyCode,
+    reference: String(formData.get("reference") ?? "").trim() || null,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+    allocations: [{ documentId: invoiceId, amountMinor }],
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    const payment = await apiJson<Payment>(`/businesses/${businessId}/payments`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/payments/${payment.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function voidPaymentAction(
+  businessId: string,
+  paymentId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  // The API models undoing a payment as a status transition to REVERSED. There is no /void route
+  // and no stored reason, so the reason field is not sent.
+  try {
+    await apiJson(`/businesses/${businessId}/payments/${paymentId}/status/reverse`, {
+      method: "PATCH",
+    });
+    redirect(`/b/${businessId}/payments/${paymentId}`);
   } catch (error) {
     return actionError(error);
   }

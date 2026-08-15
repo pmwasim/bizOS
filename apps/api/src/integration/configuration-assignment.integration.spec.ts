@@ -28,7 +28,9 @@ describe.runIf(databaseEnabled)("configuration assignment integration with Postg
     database = new DatabaseService();
     await database.onModuleInit();
     const access = new BusinessAccessService(database);
-    identity = new IdentityService(database);
+    identity = new IdentityService(database, {
+      sendPasswordReset: async () => "test-message-id",
+    } as never);
     configuration = new ConfigurationService(database, access);
     platform = new PlatformService(database, access, configuration);
     customers = new CustomersService(database, access, { isConfigured: () => false } as never);

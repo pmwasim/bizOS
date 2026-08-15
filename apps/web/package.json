@@ -16,8 +16,8 @@
     "@bizo/config": "workspace:*",
     "@bizo/contracts": "workspace:*",
     "@bizo/ui": "workspace:*",
-    "jose": "6.2.4",
-    "lucide-react": "1.27.0",
+    "jose": "6.2.8",
+    "lucide-react": "1.28.0",
     "next": "16.2.12",
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
@@ -26,9 +26,9 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
-    "@types/node": "26.1.1",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
+    "@types/node": "26.1.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
     "tailwindcss": "4.3.3",
     "typescript": "catalog:",
     "vitest": "catalog:"

@@ -42,6 +42,7 @@ export default async function BusinessLayout({
     <AppShell
       businessId={business.id}
       businessName={business.name}
+      businesses={workspace.businesses}
       modules={modules}
       isSystemAdmin={isSystemAdmin}
     >

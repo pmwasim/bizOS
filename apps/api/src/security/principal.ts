@@ -8,6 +8,8 @@ export interface AuthenticatedPrincipal {
   // require this to be set; endpoints that don't use the guard see `undefined`.
   systemAdminId?: string;
   isSystemAdmin?: boolean;
+  impersonatedBusinessId?: string;
+  ticketReference?: string;
 }
 
 type PrincipalRequest = Request & { principal?: AuthenticatedPrincipal };

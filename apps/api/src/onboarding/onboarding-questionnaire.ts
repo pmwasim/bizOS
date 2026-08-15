@@ -191,7 +191,7 @@ export const ONBOARDING_QUESTIONNAIRE: OnboardingQuestionnaire =
             id: "partialPayments",
             type: "boolean",
             prompt: "Allow partial payments on an invoice?",
-            helpText: "Partial payments are not yet implemented.",
+            helpText: "You can record partial or full payments against a sent invoice.",
             options: [
               { value: "true", label: "Yes" },
               { value: "false", label: "No" },

@@ -31,6 +31,13 @@ export interface InvoiceMessage {
   recipient: string;
 }
 
+export interface PasswordResetMessage {
+  displayName: string;
+  expiresInMinutes: number;
+  recipient: string;
+  resetUrl: string;
+}
+
 type MailTransport =
   | {
       kind: "smtp";
@@ -102,6 +109,74 @@ export class MailService implements OnModuleDestroy {
       documentNumber: message.invoiceNumber,
       recipient: message.recipient,
     });
+  }
+
+  async sendPasswordReset(message: PasswordResetMessage): Promise<string> {
+    const subject = "Reset your bizOS password";
+    const text = [
+      `Hi ${message.displayName},`,
+      "",
+      "Use the link below to choose a new bizOS password:",
+      message.resetUrl,
+      "",
+      `This link works once and expires in ${message.expiresInMinutes} minutes.`,
+      "If you did not ask to reset your password, you can ignore this email — your current password still works.",
+    ].join("\n");
+
+    if (this.transport.kind === "resend-https") {
+      return this.sendTextViaResendHttps({
+        apiKey: this.transport.apiKey,
+        recipient: message.recipient,
+        subject,
+        text,
+      });
+    }
+
+    const result = await this.transport.transporter.sendMail({
+      from: this.from,
+      to: message.recipient,
+      subject,
+      text,
+    });
+    return String(result.messageId);
+  }
+
+  private async sendTextViaResendHttps(input: {
+    apiKey: string;
+    recipient: string;
+    subject: string;
+    text: string;
+  }): Promise<string> {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${input.apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        from: this.from,
+        to: [input.recipient],
+        subject: input.subject,
+        text: input.text,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => null)) as {
+      id?: string;
+      message?: string;
+      name?: string;
+    } | null;
+
+    if (!response.ok) {
+      const detail = payload?.message ?? payload?.name ?? `http=${response.status}`;
+      throw new Error(`Resend HTTPS send failed: ${detail}`);
+    }
+
+    if (!payload?.id) {
+      throw new Error("Resend HTTPS send failed: missing message id.");
+    }
+
+    return payload.id;
   }
 
   private async sendAttachmentEmail(message: AttachmentEmailMessage): Promise<string> {

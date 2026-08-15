@@ -27,7 +27,7 @@ reverse financial state transitions.
   payments while OWNER and ADMIN can.
 - Added payment-service tests proving the correct transition-specific actions are requested.
 
-## Decision
+## Decisions and trade-offs
 
 Draft editing and financial finalization are separate capabilities. MEMBER and STAFF keep existing
 payment create/read/update access, but completion and reversal require OWNER or ADMIN authority.

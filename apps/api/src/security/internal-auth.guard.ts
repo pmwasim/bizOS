@@ -43,14 +43,25 @@ export class InternalAuthGuard implements CanActivate {
       const { payload } = await jwtVerify(authorization.slice(7), this.secret, {
         algorithms: ["HS256"],
         audience: "bizo-api",
-        issuer: "bizo-web",
+        issuer: ["bizo-web", "bizo-api"],
       });
 
       if (typeof payload.sub !== "string") {
         throw new Error("Missing token subject.");
       }
 
-      request.principal = { userId: payload.sub };
+      request.principal = {
+        userId: payload.sub,
+        ...(typeof payload.impersonatedBusinessId === "string"
+          ? { impersonatedBusinessId: payload.impersonatedBusinessId }
+          : {}),
+        ...(typeof payload.ticketReference === "string"
+          ? { ticketReference: payload.ticketReference }
+          : {}),
+        ...(typeof payload.systemAdminId === "string"
+          ? { systemAdminId: payload.systemAdminId }
+          : {}),
+      };
       return true;
     } catch {
       throw new UnauthorizedException("Your session is no longer valid. Sign in again.");

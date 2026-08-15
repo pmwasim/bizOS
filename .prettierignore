@@ -1,4 +1,5 @@
 .agent
+.agents
 .next
 .pnpm-store
 .turbo

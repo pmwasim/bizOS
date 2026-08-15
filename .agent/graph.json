@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 22,
-    "handbookDocumentCount": 81
+    "adrCount": 25,
+    "handbookDocumentCount": 85
   },
   "buildOrder": [
     {
@@ -63,9 +63,15 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 101,
-      "testFiles": 33,
+      "sourceFiles": 164,
+      "testFiles": 47,
       "areas": [
+        {
+          "name": "ai",
+          "path": "apps/api/src/ai",
+          "sourceFiles": 9,
+          "testFiles": 3
+        },
         {
           "name": "common",
           "path": "apps/api/src/common",
@@ -75,8 +81,20 @@
         {
           "name": "configuration",
           "path": "apps/api/src/configuration",
-          "sourceFiles": 7,
-          "testFiles": 3
+          "sourceFiles": 8,
+          "testFiles": 4
+        },
+        {
+          "name": "credit-notes",
+          "path": "apps/api/src/credit-notes",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
+          "name": "crm",
+          "path": "apps/api/src/crm",
+          "sourceFiles": 4,
+          "testFiles": 0
         },
         {
           "name": "customers",
@@ -87,8 +105,8 @@
         {
           "name": "customization",
           "path": "apps/api/src/customization",
-          "sourceFiles": 7,
-          "testFiles": 3
+          "sourceFiles": 10,
+          "testFiles": 4
         },
         {
           "name": "database",
@@ -97,9 +115,15 @@
           "testFiles": 0
         },
         {
+          "name": "delivery-notes",
+          "path": "apps/api/src/delivery-notes",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
           "name": "documents",
           "path": "apps/api/src/documents",
-          "sourceFiles": 14,
+          "sourceFiles": 15,
           "testFiles": 4
         },
         {
@@ -117,14 +141,20 @@
         {
           "name": "identity",
           "path": "apps/api/src/identity",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "integration",
           "path": "apps/api/src/integration",
           "sourceFiles": 7,
           "testFiles": 7
+        },
+        {
+          "name": "inventory",
+          "path": "apps/api/src/inventory",
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "mail",
@@ -141,8 +171,8 @@
         {
           "name": "payments",
           "path": "apps/api/src/payments",
-          "sourceFiles": 4,
-          "testFiles": 1
+          "sourceFiles": 5,
+          "testFiles": 2
         },
         {
           "name": "platform",
@@ -151,16 +181,52 @@
           "testFiles": 1
         },
         {
+          "name": "procurement",
+          "path": "apps/api/src/procurement",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "products",
+          "path": "apps/api/src/products",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "projects",
+          "path": "apps/api/src/projects",
+          "sourceFiles": 3,
+          "testFiles": 0
+        },
+        {
+          "name": "public-api",
+          "path": "apps/api/src/public-api",
+          "sourceFiles": 4,
+          "testFiles": 0
+        },
+        {
           "name": "purchase-orders",
           "path": "apps/api/src/purchase-orders",
           "sourceFiles": 4,
           "testFiles": 1
         },
         {
+          "name": "sales-orders",
+          "path": "apps/api/src/sales-orders",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
           "name": "security",
           "path": "apps/api/src/security",
-          "sourceFiles": 14,
-          "testFiles": 4
+          "sourceFiles": 17,
+          "testFiles": 6
+        },
+        {
+          "name": "statements",
+          "path": "apps/api/src/statements",
+          "sourceFiles": 4,
+          "testFiles": 1
         },
         {
           "name": "storage",
@@ -169,16 +235,29 @@
           "testFiles": 0
         },
         {
+          "name": "suppliers",
+          "path": "apps/api/src/suppliers",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
           "name": "system-admin",
           "path": "apps/api/src/system-admin",
           "sourceFiles": 5,
           "testFiles": 2
+        },
+        {
+          "name": "webhooks",
+          "path": "apps/api/src/webhooks",
+          "sourceFiles": 4,
+          "testFiles": 0
         }
       ],
       "governingDocs": [
         "docs/architecture.md",
         "docs/decisions/0015-managed-hosting-behind-cloudflare.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/decisions/0023-invoice-settlement-is-derived.md",
         "docs/deployment-handoff-cursor.md",
         "docs/document-templates-plan.md",
         "docs/multi-agent-protocol.md",
@@ -186,6 +265,8 @@
         "docs/operations/n8n-integration-policy.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
+        "docs/operations/ubuntu-production-cutover.md",
+        "docs/security.md",
         "docs/spikes/opennext-cloudflare-web.md"
       ]
     },
@@ -244,7 +325,8 @@
       "governingDocs": [
         "docs/architecture.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/operations/local-test-evaluation-2026-08-06.md"
+        "docs/operations/local-test-evaluation-2026-08-06.md",
+        "docs/security.md"
       ]
     },
     {
@@ -270,8 +352,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 30,
-      "testFiles": 13,
+      "sourceFiles": 46,
+      "testFiles": 16,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -281,7 +363,8 @@
         "docs/multi-agent-protocol.md",
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/phase4-configuration-architecture-design.md"
+        "docs/operations/phase4-configuration-architecture-design.md",
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -323,7 +406,8 @@
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
-        "docs/operations/production-runbook.md"
+        "docs/operations/production-runbook.md",
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -441,19 +525,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 73,
+      "sourceFiles": 99,
       "testFiles": 4,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 43,
+          "sourceFiles": 58,
           "testFiles": 2
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 19,
+          "sourceFiles": 30,
           "testFiles": 0
         },
         {
@@ -472,6 +556,7 @@
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-cutover-handoff.md",
+        "docs/operations/ubuntu-production-cutover.md",
         "docs/spikes/opennext-cloudflare-web.md"
       ]
     }
@@ -671,6 +756,13 @@
     },
     {
       "id": "0021",
+      "title": "ADR-0021: Customer payment and invoice allocation slice",
+      "status": "Accepted",
+      "date": "2026-07-28",
+      "path": "docs/decisions/0021-customer-payment-allocation-slice.md"
+    },
+    {
+      "id": "0021",
       "title": "ADR-0020: ERPNext foundation with a bizOS customer experience",
       "status": "Accepted",
       "date": "2026-07-28",
@@ -678,10 +770,24 @@
     },
     {
       "id": "0022",
+      "title": "ADR-0022: Signed client-IP forwarding for throttling",
+      "status": "Accepted Date: 2026-07-28 Deciders: Platform",
+      "date": null,
+      "path": "docs/decisions/0022-signed-client-ip-forwarding.md"
+    },
+    {
+      "id": "0022",
       "title": "ADR-0022: Ubuntu production hosting",
       "status": "Accepted",
       "date": "2026-08-07",
       "path": "docs/decisions/0022-ubuntu-production-hosting.md"
+    },
+    {
+      "id": "0023",
+      "title": "ADR-0023: Invoice settlement is derived, not stored",
+      "status": "Proposed",
+      "date": "2026-08-15",
+      "path": "docs/decisions/0023-invoice-settlement-is-derived.md"
     }
   ],
   "rootCommands": [

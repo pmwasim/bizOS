@@ -44,7 +44,7 @@ therefore a production Ubuntu runtime/origin drift problem rather than a missing
   synced onto this branch so final validation covers the same tree that will result after merge.
 - Closed stale draft PR #57 as superseded by #67.
 
-## Decision
+## Decisions and trade-offs
 
 Production operations must follow the actual Ubuntu host. Historical provider configuration may
 remain in Git history for audit, but a retired provider must not remain an executable production

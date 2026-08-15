@@ -34,7 +34,13 @@ import { runAllSeeds } from "./seeds/index.js";
 describe("seed module catalog", () => {
   it("marks exactly the implemented modules as implemented", () => {
     const implemented = MODULE_CATALOG.filter((m) => m.implemented).map((m) => m.code);
-    expect(implemented).toEqual(["customers", "quotations", "purchase-orders", "invoices"]);
+    expect(implemented).toEqual([
+      "customers",
+      "quotations",
+      "purchase-orders",
+      "invoices",
+      "payments",
+    ]);
   });
 
   it("marks all planned modules as not implemented", () => {
@@ -42,7 +48,6 @@ describe("seed module catalog", () => {
     expect(planned).toEqual([
       "sales-orders",
       "delivery-service",
-      "payments",
       "credit-notes",
       "inventory",
       "projects",

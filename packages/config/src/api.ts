@@ -18,6 +18,16 @@ const apiEnvironmentSchema = z
     FRAPPE_BASE_URL: z.url().optional(),
     KEEP_WARM_URL: z.url().optional(),
     KEEP_WARM_SECRET: z.string().min(16).optional(),
+    CLIENT_IP_SIGNATURE_SECRET: z.string().min(16).optional(),
+    /**
+     * Widens every request throttle by this factor. Exists so an automated harness can drive the
+     * whole product from a single source IP without tripping limits that are correct for real
+     * traffic. Production is pinned to 1 by the refinement below — the strict limits are the
+     * shipped behaviour, never a value CI can relax by accident.
+     */
+    THROTTLE_SCALE: z.coerce.number().min(1).max(1000).default(1),
+    /** Public origin used to build password reset links in outbound email. */
+    APP_BASE_URL: z.url().default("http://localhost:3000"),
   })
   .superRefine((value, context) => {
     const configured = [
@@ -39,6 +49,14 @@ const apiEnvironmentSchema = z
         code: "custom",
         message: "FRAPPE_BASE_URL must use HTTPS in production.",
         path: ["FRAPPE_BASE_URL"],
+      });
+    }
+
+    if (value.NODE_ENV === "production" && value.THROTTLE_SCALE !== 1) {
+      context.addIssue({
+        code: "custom",
+        message: "THROTTLE_SCALE must be 1 in production; throttles are not relaxable in prod.",
+        path: ["THROTTLE_SCALE"],
       });
     }
 

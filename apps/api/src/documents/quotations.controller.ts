@@ -14,6 +14,7 @@ import { RequestId } from "../common/request-id.decorator.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
 import { QuotationsService } from "./quotations.service.js";
+import { scaledThrottle } from "../security/throttle-policy.js";
 
 @Controller("businesses/:businessId/quotations")
 export class QuotationsController {
@@ -56,7 +57,7 @@ export class QuotationsController {
     return new StreamableFile(result.buffer);
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(scaledThrottle({ default: { limit: 10, ttl: 60_000 } }))
   @Post(":quotationId/send")
   send(
     @Principal() principal: AuthenticatedPrincipal,

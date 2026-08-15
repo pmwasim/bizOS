@@ -53,7 +53,9 @@ describe.runIf(databaseEnabled)("Business Admin authorization boundary with Post
     await database.onModuleInit();
     const access = new BusinessAccessService(database);
     configuration = new ConfigurationService(database, access);
-    identity = new IdentityService(database);
+    identity = new IdentityService(database, {
+      sendPasswordReset: async () => "test-message-id",
+    } as never);
     platform = new PlatformService(database, access, configuration);
     onboarding = new OnboardingService(configuration);
     systemAdminService = new SystemAdminService(database);

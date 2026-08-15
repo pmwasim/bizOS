@@ -1,0 +1,23 @@
+-- Intentionally empty.
+--
+-- This migration originally created a second, competing payment design: a `customer_payments`
+-- table, a `payment_allocations` table keyed by `invoice_document_id`, the `CustomerPaymentStatus`
+-- and `PaymentMethod` enum types, and payment-numbering columns on `business_settings`.
+--
+-- That design was never deployed. Verified against the production database: `customer_payments`
+-- does not exist, neither enum type exists, and `business_settings` has neither `payment_prefix`
+-- nor `next_payment_number` — yet this migration is recorded as applied. It was marked applied
+-- without ever running.
+--
+-- The design that *is* deployed comes from 20260806152655_add_payment_module: a `payments` table
+-- and a `payment_allocations` table keyed by `document_id`/`purchase_order_id`. Because both
+-- migrations created `payment_allocations`, a database built from scratch failed with
+-- `relation "payment_allocations" already exists`, so the schema could not be reproduced in CI or
+-- in any new environment.
+--
+-- Emptying this file makes a fresh database match production exactly. The directory is kept so the
+-- name stays in migration history, matching what production already records as applied.
+--
+-- The `business_settings` numbering columns are genuinely wanted by schema.prisma, so they are
+-- (re)introduced by 20260814110000_business_settings_payment_numbering, which applies cleanly to
+-- both a fresh database and to production.

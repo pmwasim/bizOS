@@ -2,6 +2,10 @@ import { Body, Controller, Get, Inject, Post } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 
 import {
+  confirmPasswordResetRequestSchema,
+  type ConfirmPasswordResetRequest,
+  requestPasswordResetRequestSchema,
+  type RequestPasswordResetRequest,
   signUpRequestSchema,
   type SignUpRequest,
   verifyCredentialsRequestSchema,
@@ -13,25 +17,52 @@ import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
 import { Public } from "../security/public.decorator.js";
 import { IdentityService } from "./identity.service.js";
+import { scaledThrottle } from "../security/throttle-policy.js";
 
 @Controller()
 export class IdentityController {
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle(
+    scaledThrottle({ default: { limit: 5, ttl: 60_000 }, perAccount: { limit: 5, ttl: 60_000 } }),
+  )
   @Post("auth/signup")
   signUp(@Body(new ContractPipe(signUpRequestSchema)) input: SignUpRequest) {
     return this.identity.signUp(input);
   }
 
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(
+    scaledThrottle({ default: { limit: 10, ttl: 60_000 }, perAccount: { limit: 5, ttl: 60_000 } }),
+  )
   @Post("auth/verify")
   verifyCredentials(
     @Body(new ContractPipe(verifyCredentialsRequestSchema)) input: VerifyCredentialsRequest,
   ) {
     return this.identity.verifyCredentials(input);
+  }
+
+  @Public()
+  @Throttle(
+    scaledThrottle({ default: { limit: 5, ttl: 60_000 }, perAccount: { limit: 3, ttl: 60_000 } }),
+  )
+  @Post("auth/password-reset/request")
+  requestPasswordReset(
+    @Body(new ContractPipe(requestPasswordResetRequestSchema)) input: RequestPasswordResetRequest,
+  ) {
+    return this.identity.requestPasswordReset(input);
+  }
+
+  @Public()
+  @Throttle(
+    scaledThrottle({ default: { limit: 5, ttl: 60_000 }, perAccount: { limit: 5, ttl: 60_000 } }),
+  )
+  @Post("auth/password-reset/confirm")
+  confirmPasswordReset(
+    @Body(new ContractPipe(confirmPasswordResetRequestSchema)) input: ConfirmPasswordResetRequest,
+  ) {
+    return this.identity.confirmPasswordReset(input);
   }
 
   @Get("me")

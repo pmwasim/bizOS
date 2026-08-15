@@ -1,11 +1,18 @@
 import {
+  Banknote,
+  Building,
   FileText,
+  Folder,
   Home,
+  List,
   LogOut,
+  Package,
   Receipt,
   ScrollText,
   Settings,
   ShieldCheck,
+  Target,
+  Truck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -14,6 +21,7 @@ import Link from "next/link";
 import { type EnabledModuleSummary } from "@bizo/contracts/configuration";
 
 import { signOutAction } from "@/app/actions";
+import { type BusinessOption, WorkspaceSwitcher } from "@/components/workspace-switcher";
 
 export interface NavItem {
   href: string;
@@ -27,9 +35,16 @@ export interface NavItem {
 // present because they are workspace-level, not module-level.
 const MODULE_NAV: Record<string, { href: string; label: string; icon: LucideIcon }> = {
   customers: { href: "/customers", label: "Customers", icon: Users },
+  suppliers: { href: "/suppliers", label: "Suppliers", icon: Building },
   quotations: { href: "/quotations", label: "Quotations", icon: FileText },
-  "purchase-orders": { href: "/purchase-orders", label: "POs", icon: Receipt },
+  "sales-orders": { href: "/sales-orders", label: "Sales Orders", icon: List },
+  "delivery-notes": { href: "/delivery-notes", label: "Delivery", icon: Truck },
   invoices: { href: "/invoices", label: "Invoices", icon: ScrollText },
+  "credit-notes": { href: "/credit-notes", label: "Credit Notes", icon: Receipt },
+  payments: { href: "/payments", label: "Payments", icon: Banknote },
+  crm: { href: "/leads", label: "CRM", icon: Target },
+  projects: { href: "/projects", label: "Projects", icon: Folder },
+  inventory: { href: "/inventory", label: "Inventory", icon: Package },
 };
 
 function buildNavItems(modules: EnabledModuleSummary[]): NavItem[] {
@@ -46,12 +61,14 @@ function buildNavItems(modules: EnabledModuleSummary[]): NavItem[] {
 export function AppShell({
   businessId,
   businessName,
+  businesses = [],
   modules = [],
   isSystemAdmin = false,
   children,
 }: {
   businessId: string;
   businessName: string;
+  businesses?: BusinessOption[];
   modules?: EnabledModuleSummary[];
   isSystemAdmin?: boolean;
   children: React.ReactNode;
@@ -63,10 +80,11 @@ export function AppShell({
         <Link className="brand" href={`/b/${businessId}`}>
           bizOS
         </Link>
-        <div className="business-chip">
-          <span>{businessName.slice(0, 1).toUpperCase()}</span>
-          <strong>{businessName}</strong>
-        </div>
+        <WorkspaceSwitcher
+          currentBusinessId={businessId}
+          currentBusinessName={businessName}
+          businesses={businesses}
+        />
         <nav className="side-nav" aria-label="Workspace">
           {items.map(({ href, label, icon: Icon }) => (
             <Link key={label} href={`/b/${businessId}${href}`}>

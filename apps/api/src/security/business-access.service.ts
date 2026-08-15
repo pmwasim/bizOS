@@ -19,11 +19,18 @@ export interface BusinessAccessContext {
 export type AuthorizationObject =
   | "business"
   | "customers"
+  | "suppliers"
   | "quotations"
+  | "sales_orders"
+  | "delivery_notes"
+  | "credit_notes"
   | "purchase_orders"
   | "approvals"
   | "invoices"
-  | "payments";
+  | "payments"
+  | "crm"
+  | "projects"
+  | "inventory";
 
 export type AuthorizationAction =
   | "archive"
@@ -44,11 +51,23 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "customers:create",
     "customers:read",
     "customers:update",
+    "suppliers:create",
+    "suppliers:read",
+    "suppliers:update",
     "quotations:create",
     "quotations:read",
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "sales_orders:create",
+    "sales_orders:read",
+    "sales_orders:update",
+    "delivery_notes:create",
+    "delivery_notes:read",
+    "delivery_notes:update",
+    "credit_notes:create",
+    "credit_notes:read",
+    "credit_notes:update",
     "purchase_orders:create",
     "purchase_orders:read",
     "purchase_orders:update",
@@ -68,6 +87,15 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:update",
     "payments:complete",
     "payments:reverse",
+    "crm:create",
+    "crm:read",
+    "crm:update",
+    "projects:create",
+    "projects:read",
+    "projects:update",
+    "inventory:create",
+    "inventory:read",
+    "inventory:update",
   ],
   ADMIN: [
     "business:read",
@@ -75,11 +103,23 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "customers:create",
     "customers:read",
     "customers:update",
+    "suppliers:create",
+    "suppliers:read",
+    "suppliers:update",
     "quotations:create",
     "quotations:read",
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "sales_orders:create",
+    "sales_orders:read",
+    "sales_orders:update",
+    "delivery_notes:create",
+    "delivery_notes:read",
+    "delivery_notes:update",
+    "credit_notes:create",
+    "credit_notes:read",
+    "credit_notes:update",
     "purchase_orders:create",
     "purchase_orders:read",
     "purchase_orders:update",
@@ -99,17 +139,36 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:update",
     "payments:complete",
     "payments:reverse",
+    "crm:create",
+    "crm:read",
+    "crm:update",
+    "projects:create",
+    "projects:read",
+    "projects:update",
+    "inventory:create",
+    "inventory:read",
+    "inventory:update",
   ],
   MEMBER: [
     "business:read",
     "customers:create",
     "customers:read",
     "customers:update",
+    "suppliers:read",
     "quotations:create",
     "quotations:read",
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "sales_orders:create",
+    "sales_orders:read",
+    "sales_orders:update",
+    "delivery_notes:create",
+    "delivery_notes:read",
+    "delivery_notes:update",
+    "credit_notes:create",
+    "credit_notes:read",
+    "credit_notes:update",
     "purchase_orders:create",
     "purchase_orders:read",
     "purchase_orders:update",
@@ -123,17 +182,33 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:create",
     "payments:read",
     "payments:update",
+    "crm:create",
+    "crm:read",
+    "crm:update",
+    "projects:create",
+    "projects:read",
+    "projects:update",
+    "inventory:create",
+    "inventory:read",
+    "inventory:update",
   ],
   STAFF: [
     "business:read",
     "customers:create",
     "customers:read",
     "customers:update",
+    "suppliers:read",
     "quotations:create",
     "quotations:read",
     "quotations:update",
     "quotations:export",
     "quotations:send",
+    "sales_orders:create",
+    "sales_orders:read",
+    "sales_orders:update",
+    "delivery_notes:create",
+    "delivery_notes:read",
+    "delivery_notes:update",
     "purchase_orders:create",
     "purchase_orders:read",
     "purchase_orders:update",
@@ -141,28 +216,47 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:create",
     "payments:read",
     "payments:update",
+    "crm:create",
+    "crm:read",
+    "crm:update",
+    "projects:read",
+    "inventory:read",
   ],
   ACCOUNTANT: [
     "business:read",
     "customers:read",
+    "suppliers:read",
     "quotations:read",
     "quotations:export",
+    "sales_orders:read",
+    "delivery_notes:read",
+    "credit_notes:read",
     "purchase_orders:read",
     "approvals:read",
     "invoices:read",
     "invoices:export",
     "payments:read",
+    "crm:read",
+    "projects:read",
+    "inventory:read",
   ],
   EXTERNAL_AUDITOR: [
     "business:read",
     "customers:read",
+    "suppliers:read",
     "quotations:read",
     "quotations:export",
+    "sales_orders:read",
+    "delivery_notes:read",
+    "credit_notes:read",
     "purchase_orders:read",
     "approvals:read",
     "invoices:read",
     "invoices:export",
     "payments:read",
+    "crm:read",
+    "projects:read",
+    "inventory:read",
   ],
 };
 
@@ -234,13 +328,18 @@ export class BusinessAccessService {
     policyLines.push(`g, ${subject}, ${access.role}, ${domain}`);
 
     const enforcer = await createAuthorizationEnforcer(policyLines);
-    const allowed = await authorize(enforcer, {
-      action,
-      businessId: access.businessPublicId,
-      object,
-      subjectId: subject,
-      tenantId: access.tenantPublicId,
-    });
+    let allowed: boolean;
+    try {
+      allowed = await authorize(enforcer, {
+        action,
+        businessId: access.businessPublicId,
+        object,
+        subjectId: subject,
+        tenantId: access.tenantPublicId,
+      });
+    } catch {
+      allowed = false;
+    }
 
     if (!allowed) {
       throw new NotFoundException("We could not find that resource.");

@@ -31,6 +31,7 @@ import { RequestId } from "../common/request-id.decorator.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
 import { PurchaseOrdersService } from "./purchase-orders.service.js";
+import { scaledThrottle } from "../security/throttle-policy.js";
 
 type UploadedBinary = {
   buffer: Buffer;
@@ -126,7 +127,7 @@ export class PurchaseOrdersController {
   }
 
   @Post(":purchaseOrderId/files/purchase-order")
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Throttle(scaledThrottle({ default: { limit: 20, ttl: 60_000 } }))
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
@@ -151,7 +152,7 @@ export class PurchaseOrdersController {
   }
 
   @Post(":purchaseOrderId/files/approval-evidence")
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Throttle(scaledThrottle({ default: { limit: 20, ttl: 60_000 } }))
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),

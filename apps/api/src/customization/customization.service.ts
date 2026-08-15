@@ -4,12 +4,22 @@
 // active configuration template version at submission time. Tenant isolation is
 // enforced via BusinessAccessService and DatabaseService.withScope.
 
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 
 import {
   type BusinessCustomizationRequestSummary,
   type CreateCustomizationRequest,
+  type CustomFieldConfig,
+  type CustomFieldDefinition,
+  type CustomFieldType,
   type ListBusinessCustomizationRequestsResponse,
+  type ListCustomFieldDefinitionsResponse,
 } from "@bizo/contracts/customization";
 import { type Prisma } from "@bizo/database";
 
@@ -179,6 +189,179 @@ export class CustomizationService {
     };
   }
 
+  async listCustomFieldDefinitions(input: {
+    userPublicId: string;
+    businessPublicId: string;
+    documentType?: string;
+  }): Promise<ListCustomFieldDefinitionsResponse> {
+    const access = await this.businessAccess.resolve(input.userPublicId, input.businessPublicId);
+    const records = await this.database.withScope(access, async (transaction) => {
+      return transaction.customFieldDefinition.findMany({
+        where: {
+          businessId: access.businessId,
+          ...(input.documentType ? { documentType: input.documentType } : {}),
+        },
+        include: {
+          business: { select: { publicId: true, tenant: { select: { publicId: true } } } },
+        },
+        orderBy: [{ documentType: "asc" }, { fieldKey: "asc" }],
+      });
+    });
+
+    return {
+      items: records.map(
+        (record: {
+          publicId: string;
+          business: { publicId: string; tenant: { publicId: string } };
+          documentType: string;
+          fieldKey: string;
+          label: string;
+          fieldType: CustomFieldType;
+          configJson: unknown;
+          createdAt: Date;
+          updatedAt: Date;
+        }) => ({
+          id: record.publicId,
+          tenantId: record.business.tenant.publicId,
+          businessId: record.business.publicId,
+          documentType: record.documentType,
+          fieldKey: record.fieldKey,
+          label: record.label,
+          fieldType: record.fieldType,
+          config: jsonRecord(record.configJson) as CustomFieldConfig,
+          createdAt: record.createdAt.toISOString(),
+          updatedAt: record.updatedAt.toISOString(),
+        }),
+      ),
+    };
+  }
+
+  async createCustomFieldDefinition(input: {
+    userPublicId: string;
+    businessPublicId: string;
+    documentType: string;
+    fieldKey: string;
+    label: string;
+    fieldType: CustomFieldType;
+    config?: CustomFieldConfig;
+  }): Promise<CustomFieldDefinition> {
+    const access = await this.businessAccess.resolve(input.userPublicId, input.businessPublicId);
+    try {
+      const record = await this.database.withScope(access, async (transaction) => {
+        return transaction.customFieldDefinition.create({
+          data: {
+            tenantId: access.tenantId,
+            businessId: access.businessId,
+            documentType: input.documentType,
+            fieldKey: input.fieldKey,
+            label: input.label,
+            fieldType: input.fieldType,
+            configJson: (input.config ?? {}) as Prisma.InputJsonValue,
+          },
+          include: {
+            business: { select: { publicId: true, tenant: { select: { publicId: true } } } },
+          },
+        });
+      });
+
+      return {
+        id: record.publicId,
+        tenantId: record.business.tenant.publicId,
+        businessId: record.business.publicId,
+        documentType: record.documentType,
+        fieldKey: record.fieldKey,
+        label: record.label,
+        fieldType: record.fieldType as CustomFieldType,
+        config: jsonRecord(record.configJson) as CustomFieldConfig,
+        createdAt: record.createdAt.toISOString(),
+        updatedAt: record.updatedAt.toISOString(),
+      };
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException({
+          code: "DUPLICATE_FIELD_KEY",
+          detail: `Custom field key "${input.fieldKey}" already exists for document type "${input.documentType}".`,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async updateCustomFieldDefinition(input: {
+    userPublicId: string;
+    businessPublicId: string;
+    fieldId: string;
+    label?: string;
+    config?: CustomFieldConfig;
+  }): Promise<CustomFieldDefinition> {
+    const access = await this.businessAccess.resolve(input.userPublicId, input.businessPublicId);
+    const existing = await this.database.withScope(access, async (transaction) => {
+      return transaction.customFieldDefinition.findFirst({
+        where: { publicId: input.fieldId, businessId: access.businessId },
+        include: {
+          business: { select: { publicId: true, tenant: { select: { publicId: true } } } },
+        },
+      });
+    });
+
+    if (!existing) {
+      throw new NotFoundException("We could not find that custom field definition.");
+    }
+
+    const updatedConfig = input.config
+      ? { ...jsonRecord(existing.configJson), ...input.config }
+      : jsonRecord(existing.configJson);
+
+    const record = await this.database.withScope(access, async (transaction) => {
+      return transaction.customFieldDefinition.update({
+        where: { id: existing.id },
+        data: {
+          ...(input.label ? { label: input.label } : {}),
+          configJson: updatedConfig as Prisma.InputJsonValue,
+        },
+        include: {
+          business: { select: { publicId: true, tenant: { select: { publicId: true } } } },
+        },
+      });
+    });
+
+    return {
+      id: record.publicId,
+      tenantId: record.business.tenant.publicId,
+      businessId: record.business.publicId,
+      documentType: record.documentType,
+      fieldKey: record.fieldKey,
+      label: record.label,
+      fieldType: record.fieldType as CustomFieldType,
+      config: jsonRecord(record.configJson) as CustomFieldConfig,
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+    };
+  }
+
+  async deleteCustomFieldDefinition(input: {
+    userPublicId: string;
+    businessPublicId: string;
+    fieldId: string;
+  }): Promise<{ success: boolean }> {
+    const access = await this.businessAccess.resolve(input.userPublicId, input.businessPublicId);
+    const existing = await this.database.withScope(access, async (transaction) => {
+      return transaction.customFieldDefinition.findFirst({
+        where: { publicId: input.fieldId, businessId: access.businessId },
+      });
+    });
+
+    if (!existing) {
+      throw new NotFoundException("We could not find that custom field definition.");
+    }
+
+    await this.database.withScope(access, async (transaction) => {
+      await transaction.customFieldDefinition.delete({ where: { id: existing.id } });
+    });
+
+    return { success: true };
+  }
+
   private async resolveActiveConfigurationVersionId(
     userPublicId: string,
     businessPublicId: string,
@@ -199,5 +382,14 @@ export class CustomizationService {
       }
       throw error;
     }
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "P2002"
+    );
   }
 }

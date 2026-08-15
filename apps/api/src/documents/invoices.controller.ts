@@ -25,11 +25,30 @@ import { ContractPipe } from "../common/contract.pipe.js";
 import { RequestId } from "../common/request-id.decorator.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
+import { PaymentsService } from "../payments/payments.service.js";
 import { InvoicesService } from "./invoices.service.js";
+import { scaledThrottle } from "../security/throttle-policy.js";
 
 @Controller("businesses/:businessId/invoices")
 export class InvoicesController {
-  constructor(@Inject(InvoicesService) private readonly invoices: InvoicesService) {}
+  constructor(
+    @Inject(InvoicesService) private readonly invoices: InvoicesService,
+    @Inject(PaymentsService) private readonly payments: PaymentsService,
+  ) {}
+
+  /**
+   * How much of this invoice has been settled. Lives under the invoice rather than under
+   * /payments because that is what a caller holding an invoice id actually asks for, and it is
+   * what the record-payment screen needs before it can show an outstanding balance.
+   */
+  @Get(":invoiceId/payments")
+  paymentSummary(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("invoiceId") invoiceId: string,
+  ) {
+    return this.payments.invoicePaymentSummary(principal.userId, businessId, invoiceId);
+  }
 
   @Post()
   createFromQuotation(
@@ -100,7 +119,7 @@ export class InvoicesController {
     return new StreamableFile(result.buffer);
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(scaledThrottle({ default: { limit: 10, ttl: 60_000 } }))
   @Post(":invoiceId/send")
   send(
     @Principal() principal: AuthenticatedPrincipal,

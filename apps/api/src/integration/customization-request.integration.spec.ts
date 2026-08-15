@@ -23,7 +23,9 @@ describe.runIf(databaseEnabled)("customization request integration with PostgreS
     await database.onModuleInit();
     const access = new BusinessAccessService(database);
     configuration = new ConfigurationService(database, access);
-    identity = new IdentityService(database);
+    identity = new IdentityService(database, {
+      sendPasswordReset: async () => "test-message-id",
+    } as never);
     platform = new PlatformService(database, access, configuration);
     customization = new CustomizationService(database, access, configuration);
   });

@@ -9,15 +9,21 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
     };
+    tenantId?: string;
+    businessId?: string;
   }
 
   interface User {
     id: string;
+    tenantId?: string;
+    businessId?: string;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     userId?: string;
+    tenantId?: string;
+    businessId?: string;
   }
 }
