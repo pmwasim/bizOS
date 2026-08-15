@@ -8,7 +8,7 @@ Scope: apps/api/src, apps/web/src, e2e
 
 Status: In progress
 
-Related: PR #81, issue #56, `2026-08-07-retire-render-production-path.md`
+Related: PR #81, issue #56, ADR-0023, `2026-08-07-retire-render-production-path.md`
 
 ## Context
 
@@ -77,6 +77,46 @@ convention, and fails with "The datasource.url property is required in your Pris
 working directory. Added a root `prisma.config.ts` pointing at the same schema, migrations
 directory, and `DATABASE_URL`. It is deliberately import-free: the repository root has neither
 `prisma` nor `dotenv` installed, and the hosted runner must not depend on workspace hoisting.
+
+### Review findings (second pass, `8d95fbf`)
+
+The codex review on PR #81 raised six P1s and one P2. Three were already resolved by the 2026-08-14
+commits and are recorded here so nobody re-investigates them:
+
+- Duplicate API-key/webhook migration — **not reproducible**. Every statement in
+  `20260807040000_api_keys_and_webhooks` is `IF NOT EXISTS` and every constraint is guarded by a
+  `pg_constraint` lookup (fixed in `a1c4458`). CI applies migrations and reports no divergence.
+- Payment form field mapping — **already fixed** in `a7c5c0a`. `recordPaymentAction` builds a
+  `recordPaymentRequestSchema` payload against `POST /businesses/:id/payments`.
+- Statements scoping by customer — **already fixed** in `11a6433`.
+
+Four were real and are fixed here:
+
+- **Invoice settlement was never written.** `complete` and `reverse` wrote `status: "PAID"` /
+  `"PARTIAL"` and an `amountPaidMinor` column onto the document. `DocumentStatus` has neither member
+  and the table has no such column, so each write threw into a bare `catch {}`. The payment was
+  marked completed, the invoice was untouched, nothing was logged. Settlement is now derived from
+  `payment_allocations` — ADR-0023.
+- **The invoice payment summary endpoint did not exist.** `payments/new/page.tsx` called
+  `GET /businesses/:id/invoices/:id/payments` on every render; no handler matched, so recording a
+  payment 404'd before the form appeared. Added as `PaymentsService.invoicePaymentSummary`, exposed
+  on `InvoicesController` (which now imports `PaymentsModule`).
+- **Statements counted unissued invoices.** Every `INVOICE` document was a debit, drafts included,
+  overstating total invoiced and closing balance. Restricted to `SENT` on both the invoice query and
+  the allocation join.
+- **Password reset had a check-then-act race.** Two confirmations for one token could both read it
+  as unused and both write a password. The token is now claimed with a conditional `updateMany`
+  inside the transaction and only the winner updates the user. Covered by a new spec.
+- **(P2) Issued API keys could never authenticate.** `create` stored `randomBytes(32)` unrelated to
+  the `bzo_` secret it returned. Now stores SHA-256 of the returned credential. No verification path
+  consumes this yet, so no key in existence is invalidated by the change.
+
+### Cross-agent entrypoints
+
+Claude, Gemini/Antigravity, Copilot, and Cursor each look for their own instruction file. Finding
+none, they invent conventions that collide with the claim-and-journal protocol. Added `CLAUDE.md`,
+`GEMINI.md`, `.github/copilot-instructions.md`, and `.cursor/rules/bizos-agent-protocol.mdc` — all
+pointers to `AGENTS.md`, never copies, so a rule still changes in exactly one place.
 
 ## Decisions and trade-offs
 
