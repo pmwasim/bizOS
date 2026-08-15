@@ -13,6 +13,12 @@ import { BusinessAccessService } from "../security/business-access.service.js";
 
 const databaseEnabled = process.env.RUN_DATABASE_TESTS === "true";
 
+// Unique per run so re-running this suite against a persistent local database does not collide
+// with a previous run's rows on the users email unique constraint. CI gets a fresh database each
+// time and never noticed; anyone running the integration suites locally hits it on the second run.
+// `phase1-modules-journey.integration.spec.ts` already does this.
+const RUN_ID = crypto.randomUUID().slice(0, 8);
+
 describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", () => {
   let database: DatabaseService;
   let identity: IdentityService;
@@ -51,7 +57,7 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
   it("creates and sends a tenant-scoped quotation while denying another tenant", async () => {
     const owner = await identity.signUp({
       displayName: "MVP Owner",
-      email: "owner@example.test",
+      email: `owner-${RUN_ID}@example.test`,
       password: "Production1Password",
     });
     const business = await platform.createBusiness(
@@ -74,7 +80,7 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
       business.id,
       {
         name: "Example Customer",
-        email: "customer@example.test",
+        email: `customer-${RUN_ID}@example.test`,
         phone: null,
         addressLine1: "King Fahd Road",
         addressLine2: null,
@@ -104,7 +110,7 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
       owner.id,
       business.id,
       quotation.id,
-      { recipientEmail: "customer@example.test", message: null },
+      { recipientEmail: `customer-${RUN_ID}@example.test`, message: null },
       "integration-send",
     );
 
@@ -115,7 +121,7 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
 
     const outsider = await identity.signUp({
       displayName: "Other Owner",
-      email: "other@example.test",
+      email: `other-${RUN_ID}@example.test`,
       password: "Production2Password",
     });
     await expect(quotations.list(outsider.id, business.id)).rejects.toBeInstanceOf(

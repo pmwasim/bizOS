@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { type Customer } from "@bizo/contracts/customers";
+import { type BusinessSettings } from "@bizo/contracts/platform";
 
 import { auth } from "@/auth";
 import { apiJson } from "@/lib/api";
@@ -18,7 +19,10 @@ export default async function NewSalesOrderPage({
   const session = await auth();
   if (!session?.user?.id) redirect("/signin");
 
-  const customerList = await apiJson<Customer[]>(`/businesses/${businessId}/customers`);
+  const [customerList, settings] = await Promise.all([
+    apiJson<Customer[]>(`/businesses/${businessId}/customers`),
+    apiJson<BusinessSettings>(`/businesses/${businessId}/settings`),
+  ]);
 
   return (
     <div className="page">
@@ -32,6 +36,7 @@ export default async function NewSalesOrderPage({
         businessId={businessId}
         customers={customerList}
         defaultCustomerId={customerId}
+        defaultTaxRate={settings.taxEnabled ? settings.taxRatePercent : "0"}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { type SalesOrder, salesOrderStatusLabel } from "@bizo/contracts/sales-orders";
 
+import { SalesOrderActions } from "@/components/sales-order-actions";
 import { apiJson } from "@/lib/api";
 import { formatMinor } from "@/lib/display";
 
@@ -85,6 +86,15 @@ export default async function SalesOrderDetailPage({
           <p>{order.notes}</p>
         </div>
       )}
+      {/*
+        A new sales order is a DRAFT, and this page is the only destination the UI offers for one,
+        so without this the confirm and cancel endpoints are unreachable from a browser.
+      */}
+      <SalesOrderActions
+        businessId={businessId}
+        salesOrderId={salesOrderId}
+        status={order.status}
+      />
     </div>
   );
 }

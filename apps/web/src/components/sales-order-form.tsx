@@ -19,13 +19,13 @@ interface EditorLine {
   taxRatePercent: string;
 }
 
-function newLine(): EditorLine {
+function newLine(defaultTaxRate: string): EditorLine {
   return {
     id: crypto.randomUUID(),
     description: "",
     quantity: "1",
     unitPrice: "0",
-    taxRatePercent: "15",
+    taxRatePercent: defaultTaxRate,
   };
 }
 
@@ -33,15 +33,29 @@ export function SalesOrderForm({
   businessId,
   customers,
   defaultCustomerId,
+  defaultTaxRate,
 }: {
   businessId: string;
   customers: CustomerOption[];
   defaultCustomerId?: string | undefined;
+  /**
+   * The business's configured rate, or "0" when tax is disabled.
+   *
+   * Hardcoding 15% here silently produced the wrong tax and total for every business on a
+   * different rate, because whatever the line carries is what `calculateDocumentTotals` uses.
+   */
+  defaultTaxRate: string;
 }) {
   const action = createSalesOrderAction.bind(null, businessId);
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
   const [lines, setLines] = useState<EditorLine[]>([
-    { id: "line-1", description: "", quantity: "1", unitPrice: "0", taxRatePercent: "15" },
+    {
+      id: "line-1",
+      description: "",
+      quantity: "1",
+      unitPrice: "0",
+      taxRatePercent: defaultTaxRate,
+    },
   ]);
 
   const update = (id: string, field: keyof EditorLine, value: string) => {
@@ -104,7 +118,7 @@ export function SalesOrderForm({
         <button
           type="button"
           className="button button-quiet"
-          onClick={() => setLines((current) => [...current, newLine()])}
+          onClick={() => setLines((current) => [...current, newLine(defaultTaxRate)])}
         >
           Add line
         </button>
