@@ -41,7 +41,9 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   const pdfPath = await pdfFrame.getAttribute("src");
   expect(pdfPath).toBeTruthy();
   const pdfResponse = await page.request.get(pdfPath!);
-  expect(pdfResponse.ok()).toBe(true);
+  // Assert on the status, not `ok()`: a bare boolean tells whoever reads the CI log nothing about
+  // why the preview failed, and the body carries the API's error payload.
+  expect(pdfResponse.status(), await pdfResponse.text()).toBe(200);
   expect(pdfResponse.headers()["content-type"]).toContain("application/pdf");
   expect((await pdfResponse.body()).subarray(0, 4).toString()).toBe("%PDF");
 
