@@ -320,6 +320,77 @@ export class PaymentsService {
         });
       }
 
+      // Enforce remaining balance limits for each allocation target (invoices and purchase orders)
+      for (const allocation of existing.allocations) {
+        if (allocation.document) {
+          const document = await transaction.document.findFirst({
+            where: {
+              businessId: access.businessId,
+              publicId: allocation.document.publicId,
+            },
+            select: { id: true, number: true, totalMinor: true },
+          });
+          if (document) {
+            const priorAllocations = (await transaction.paymentAllocation.findMany({
+              where: {
+                businessId: access.businessId,
+                documentId: document.id,
+                paymentId: { not: existing.id },
+                payment: { status: PaymentStatus.COMPLETED },
+              },
+              select: { amountMinor: true },
+            })) as Array<{ amountMinor: Prisma.Decimal }>;
+            const priorPaidMinor = priorAllocations.reduce(
+              (total, alloc) => total + BigInt(alloc.amountMinor.toFixed(0)),
+              0n,
+            );
+            const docTotalMinor = BigInt(document.totalMinor.toFixed(0));
+            const newAllocMinor = BigInt(allocation.amountMinor.toFixed(0));
+            if (priorPaidMinor + newAllocMinor > docTotalMinor) {
+              const remainingMinor =
+                docTotalMinor > priorPaidMinor ? docTotalMinor - priorPaidMinor : 0n;
+              throw new BadRequestException(
+                `Payment allocation of ${newAllocMinor} exceeds remaining balance of ${remainingMinor} on invoice ${document.number}.`,
+              );
+            }
+          }
+        }
+
+        if (allocation.purchaseOrder) {
+          const purchaseOrder = await transaction.purchaseOrder.findFirst({
+            where: {
+              businessId: access.businessId,
+              publicId: allocation.purchaseOrder.publicId,
+            },
+            select: { id: true, poNumber: true, amountMinor: true },
+          });
+          if (purchaseOrder && purchaseOrder.amountMinor) {
+            const priorAllocations = (await transaction.paymentAllocation.findMany({
+              where: {
+                businessId: access.businessId,
+                purchaseOrderId: purchaseOrder.id,
+                paymentId: { not: existing.id },
+                payment: { status: PaymentStatus.COMPLETED },
+              },
+              select: { amountMinor: true },
+            })) as Array<{ amountMinor: Prisma.Decimal }>;
+            const priorPaidMinor = priorAllocations.reduce(
+              (total, alloc) => total + BigInt(alloc.amountMinor.toFixed(0)),
+              0n,
+            );
+            const poTotalMinor = BigInt(purchaseOrder.amountMinor.toFixed(0));
+            const newAllocMinor = BigInt(allocation.amountMinor.toFixed(0));
+            if (priorPaidMinor + newAllocMinor > poTotalMinor) {
+              const remainingMinor =
+                poTotalMinor > priorPaidMinor ? poTotalMinor - priorPaidMinor : 0n;
+              throw new BadRequestException(
+                `Payment allocation of ${newAllocMinor} exceeds remaining balance of ${remainingMinor} on purchase order ${purchaseOrder.poNumber}.`,
+              );
+            }
+          }
+        }
+      }
+
       // No invoice denormalisation here on purpose. This used to write status "PAID"/"PARTIAL" and
       // an `amountPaidMinor` column, neither of which exists — `DocumentStatus` has no such members
       // and the Document table has no such field — so every write threw and was swallowed by a bare

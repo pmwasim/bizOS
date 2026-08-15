@@ -51,7 +51,7 @@ describe("PaymentsService", () => {
       findFirst: vi.fn(),
       update: vi.fn(),
     },
-    paymentAllocation: { deleteMany: vi.fn() },
+    paymentAllocation: { deleteMany: vi.fn(), findMany: vi.fn() },
     auditEvent: { create: vi.fn() },
   };
   const database = {
@@ -207,5 +207,87 @@ describe("PaymentsService", () => {
     );
 
     expect(businessAccess.assertAllowed).toHaveBeenCalledWith(access, "payments", "reverse");
+  });
+
+  it("rejects completion when payment allocation exceeds invoice remaining balance", async () => {
+    const paymentWithAlloc = {
+      ...paymentRow,
+      allocations: [
+        {
+          publicId: "alloc-1",
+          amountMinor: decimal("7000"),
+          createdAt: new Date("2026-08-07T01:00:00.000Z"),
+          document: { publicId: "inv-1" },
+          purchaseOrder: null,
+        },
+      ],
+    };
+    transaction.payment.findFirst.mockResolvedValueOnce(paymentWithAlloc);
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+    });
+    // Prior completed allocations = 5000, new = 7000, 5000 + 7000 = 12000 > 10000
+    transaction.paymentAllocation.findMany = vi
+      .fn()
+      .mockResolvedValueOnce([{ amountMinor: decimal("5000") }]);
+
+    await expect(
+      service.markAsCompleted(
+        access.userPublicId,
+        access.businessPublicId,
+        paymentRow.publicId,
+        "req-6",
+      ),
+    ).rejects.toThrow(
+      "Payment allocation of 7000 exceeds remaining balance of 5000 on invoice INV-001.",
+    );
+
+    expect(transaction.payment.update).not.toHaveBeenCalled();
+  });
+
+  it("allows completion when payment allocation is within invoice remaining balance", async () => {
+    const paymentWithAlloc = {
+      ...paymentRow,
+      allocations: [
+        {
+          publicId: "alloc-1",
+          amountMinor: decimal("5000"),
+          createdAt: new Date("2026-08-07T01:00:00.000Z"),
+          document: { publicId: "inv-1" },
+          purchaseOrder: null,
+        },
+      ],
+    };
+    transaction.payment.findFirst.mockResolvedValueOnce(paymentWithAlloc);
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+    });
+    // Prior completed allocations = 5000, new = 5000, 5000 + 5000 = 10000 === 10000
+    transaction.paymentAllocation.findMany = vi
+      .fn()
+      .mockResolvedValueOnce([{ amountMinor: decimal("5000") }]);
+    transaction.payment.update.mockResolvedValueOnce({
+      ...paymentWithAlloc,
+      status: PaymentStatus.COMPLETED,
+    });
+
+    const completed = await service.markAsCompleted(
+      access.userPublicId,
+      access.businessPublicId,
+      paymentRow.publicId,
+      "req-7",
+    );
+
+    expect(completed.status).toBe(PaymentStatus.COMPLETED);
+    expect(transaction.payment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: paymentWithAlloc.id },
+        data: { status: PaymentStatus.COMPLETED },
+      }),
+    );
   });
 });

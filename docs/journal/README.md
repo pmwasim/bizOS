@@ -17,6 +17,8 @@ Rules:
 
 - [2026-08-15 — Stabilize PR81 for production release](2026-08-15-stabilize-pr81-for-production-release.md)
   - Agent: claude-cowork · Status: Complete
+- [2026-08-15 — Prevent cumulative payment over-allocation across completed payments (Issue #59)](2026-08-15-prevent-cumulative-payment-over-allocation-across-completed-.md)
+  - Agent: antigravity · Status: Done
 - [2026-08-15 — Merge PR81 and cut production over to the production build](2026-08-15-merge-pr81-and-cut-production-over-to-the-production-build.md)
   - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Cut over production to 564276e (PR #94 restored module routes and review fixes)](2026-08-15-cut-over-production-to-564276e-pr-94-restored-module-routes-.md)
