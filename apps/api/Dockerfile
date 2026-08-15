@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22.23.1-bookworm-slim AS base
+FROM node:24.19.0-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -28,7 +28,7 @@ RUN pnpm --filter @bizo/api... build
 RUN pnpm --filter @bizo/api --prod deploy /opt/bizo
 RUN cp -R apps/api/dist /opt/bizo/dist
 
-FROM node:22.23.1-bookworm-slim AS runtime
+FROM node:24.19.0-bookworm-slim AS runtime
 ENV NODE_ENV=production
 # Build metadata for the release manifest / version endpoint (BIZ-011).
 # Both the CI image build and Render can supply these; they default to unset.
