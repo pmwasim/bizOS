@@ -3,7 +3,13 @@ import { z } from "zod";
 const apiEnvironmentSchema = z
   .object({
     API_PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
+    /** Build metadata baked into the runtime image, surfaced on /health for release verification. */
+    BUILD_TIME: z.iso.datetime().optional(),
     DATABASE_URL: z.url().startsWith("postgresql://"),
+    GIT_SHA: z
+      .string()
+      .regex(/^[0-9a-f]{40}$/, "GIT_SHA must be a full 40-character lowercase git SHA.")
+      .optional(),
     INTERNAL_AUTH_SECRET: z.string().min(32),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     SMTP_FROM: z.email(),
