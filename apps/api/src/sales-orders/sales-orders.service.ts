@@ -123,7 +123,10 @@ export class SalesOrdersService {
           // column is NOT NULL with no default. A sales order is already agreed and does not
           // expire; without a value here every create fails with
           // `null value in column "valid_until" violates not-null constraint`.
-          validUntil: deliveryDate ?? this.toDatabaseDate(issueDate),
+          // The issue date, not the delivery date: `documents_dates_check` requires
+          // `valid_until >= issue_date`, and a delivery date before the issue date is a
+          // legitimate input the request schema accepts.
+          validUntil: this.toDatabaseDate(issueDate),
           deliveryDate,
           currencyCode: business.baseCurrency,
           currencyScale: business.currencyScale,

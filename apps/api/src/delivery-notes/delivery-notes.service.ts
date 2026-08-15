@@ -112,7 +112,10 @@ export class DeliveryNotesService {
           // NULL with no default. A delivery note has no expiry and carries no amount, but the
           // row still has to satisfy the table: without these six values every create fails with
           // `null value in column "valid_until" violates not-null constraint`.
-          validUntil: deliveryDate ?? issueDate,
+          // The issue date, not the delivery date: `documents_dates_check` requires
+          // `valid_until >= issue_date`, and a backdated delivery date is a legitimate input the
+          // request schema accepts.
+          validUntil: issueDate,
           currencyCode: business.baseCurrency,
           currencyScale: business.currencyScale,
           subtotalMinor: "0",

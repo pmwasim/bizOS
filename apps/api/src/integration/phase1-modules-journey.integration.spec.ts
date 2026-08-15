@@ -311,6 +311,44 @@ describe.runIf(databaseEnabled)("phase 1 modules journey with PostgreSQL boundar
     expect(delivered.status).toBe("DELIVERED");
   }, 30_000);
 
+  it("accepts a delivery date earlier than the issue date", async () => {
+    const { owner, business, customer } = await setUpBusinessWithCustomer("BackdatedDelivery");
+
+    // The synthetic valid_until must not be taken from deliveryDate: `documents_dates_check`
+    // requires valid_until >= issue_date, so a backdated delivery — which the request schema
+    // accepts — would be rejected by the database.
+    const deliveryNote = await deliveryNotes.create(
+      owner.id,
+      business.id,
+      {
+        customerId: customer.id,
+        deliveryDate: "2020-01-01",
+        notes: null,
+        lines: [{ description: "Delivered last year", quantity: "1" }],
+      },
+      "integration-delivery-note-backdated",
+    );
+
+    expect(deliveryNote.status).toBe("DRAFT");
+  }, 30_000);
+
+  it("accepts a sales order whose delivery date precedes its issue date", async () => {
+    const { owner, business, customer } = await setUpBusinessWithCustomer("BackdatedSalesOrder");
+
+    const salesOrder = await salesOrders.create(
+      owner.id,
+      business.id,
+      {
+        customerId: customer.id,
+        deliveryDate: "2020-01-01",
+        lines: [{ description: "Widgets", quantity: "1", unitPrice: "10.00", taxRatePercent: "0" }],
+      },
+      "integration-sales-order-backdated",
+    );
+
+    expect(salesOrder.status).toBe("DRAFT");
+  }, 30_000);
+
   it("creates a credit note against an invoice and issues it", async () => {
     const { owner, business, customer } = await setUpBusinessWithCustomer("CreditNote");
     const creditNote = await creditNotes.create(
