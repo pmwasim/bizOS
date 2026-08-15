@@ -26,7 +26,7 @@ layer above it.
 | `@bizo/queue` | package | `packages/queue` | `@bizo/contracts` | — | 2 | 1 |
 | `@bizo/storage` | package | `packages/storage` | — | `@bizo/api` | 3 | 1 |
 | `@bizo/ui` | package | `packages/ui` | — | `@bizo/web` | 2 | 0 |
-| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 116 | 4 |
+| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 118 | 4 |
 
 ## Claimable areas
 
@@ -69,8 +69,8 @@ First-level source areas. These are the natural units for a work claim
 
 ### `@bizo/web`
 
-- `apps/web/src/app` — 68 source files, 2 test files
-- `apps/web/src/components` — 37 source files, 0 test files
+- `apps/web/src/app` — 69 source files, 2 test files
+- `apps/web/src/components` — 38 source files, 0 test files
 - `apps/web/src/lib` — 9 source files, 2 test files
 
 ## Entry points

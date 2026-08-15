@@ -11,9 +11,14 @@ export default async function Home() {
         <Link className="brand" href="/">
           bizOS
         </Link>
-        <Link className="button button-quiet" href={session ? "/start" : "/signin"}>
-          {session ? "Open workspace" : "Sign in"}
-        </Link>
+        <div className="nav-links">
+          <Link className="nav-link" href="/pricing">
+            Pricing
+          </Link>
+          <Link className="button button-quiet" href={session ? "/start" : "/signin"}>
+            {session ? "Open workspace" : "Sign in"}
+          </Link>
+        </div>
       </nav>
       <section className="hero">
         <div className="hero-copy">

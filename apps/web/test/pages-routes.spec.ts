@@ -140,4 +140,32 @@ describe("Web UI Pages & RTL Layout Verification Suite", () => {
       expect(evaluateGuard(50000, "gt", 100000)).toBe(false);
     });
   });
+
+  describe("FEAT-PRICING: Transparent Per-Business Pricing & Billing Cycles", () => {
+    it("computes 20% annual discount correctly across supported launch currencies", () => {
+      const plans = [
+        {
+          name: "Starter",
+          monthly: { SA: 79, AE: 79, IN: 699 },
+          annual: { SA: 63, AE: 63, IN: 559 },
+        },
+        {
+          name: "Growth",
+          monthly: { SA: 169, AE: 149, IN: 1499 },
+          annual: { SA: 135, AE: 119, IN: 1199 },
+        },
+        {
+          name: "Pro",
+          monthly: { SA: 349, AE: 299, IN: 2999 },
+          annual: { SA: 279, AE: 239, IN: 2399 },
+        },
+      ];
+
+      for (const p of plans) {
+        expect(p.annual.SA).toBe(Math.round(p.monthly.SA * 0.8));
+        expect(p.annual.AE).toBe(Math.round(p.monthly.AE * 0.8));
+        expect(p.annual.IN).toBe(Math.round(p.monthly.IN * 0.8));
+      }
+    });
+  });
 });

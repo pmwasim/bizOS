@@ -27,6 +27,8 @@ Rules:
   - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Address PR94 review feedback: sales-order link to delivery notes, supplier deactivation, and minor-unit forms](2026-08-15-address-pr94-review-feedback-sales-order-link-to-delivery-no.md)
   - Agent: antigravity · Status: Complete
+- [2026-08-15 — Add public pricing page with multi-currency country selector and billing toggle](2026-08-15-add-public-pricing-page-with-multi-currency-country-selector.md)
+  - Agent: antigravity · Status: Done
 - [2026-08-07 — Retire obsolete Render production path](2026-08-07-retire-render-production-path.md)
   - Agent: chatgpt-gpt-5.6-thinking · Status: Complete — GitHub CI verified; live Ubuntu incident
     remains open
