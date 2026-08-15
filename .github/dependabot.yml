@@ -36,8 +36,18 @@ updates:
     directory: /apps/api
     schedule:
       interval: weekly
+    # The runtime image has to stay inside the engines range in package.json
+    # (node >=22.13 <25). A major bump past that produces a PR that cannot pass
+    # CI, so it is not proposed until the range itself moves.
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /apps/web
     schedule:
       interval: weekly
+    # Same engines constraint as the API image.
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
