@@ -17,7 +17,7 @@
     "@bizo/contracts": "workspace:*",
     "@bizo/ui": "workspace:*",
     "jose": "6.2.8",
-    "lucide-react": "1.28.0",
+    "lucide-react": "1.31.0",
     "next": "16.2.12",
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
