@@ -36,8 +36,19 @@ updates:
     directory: /apps/api
     schedule:
       interval: weekly
+    # The runtime image has to stay inside the engines range in package.json
+    # (node >=22.13 <25). Only versions outside that range are ignored, so the
+    # 22 -> 24 move is still proposed; a bump to 25 or later would produce a PR
+    # that cannot pass CI.
+    ignore:
+      - dependency-name: node
+        versions: [">=25"]
 
   - package-ecosystem: docker
     directory: /apps/web
     schedule:
       interval: weekly
+    # Same engines constraint as the API image.
+    ignore:
+      - dependency-name: node
+        versions: [">=25"]
