@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { DatabaseService } from "../database/database.service.js";
 
@@ -11,6 +11,17 @@ export interface ApiKey {
   scopes: string[];
   createdAt: string;
   lastUsedAt: string | null;
+}
+
+/**
+ * The stored form of an API key secret.
+ *
+ * A single SHA-256 pass is the right primitive here, and deliberately not Argon2: the secret is 32
+ * bytes of CSPRNG output rather than a human-chosen password, so there is no dictionary to slow
+ * down, and verification sits on a hot request path.
+ */
+export function hashApiKeySecret(secret: string): string {
+  return createHash("sha256").update(secret).digest("hex");
 }
 
 export interface CreateApiKeyInput {
@@ -25,7 +36,10 @@ export class ApiKeysService {
 
   async create(input: CreateApiKeyInput): Promise<{ apiKey: ApiKey; secret: string }> {
     const secret = `bzo_${randomBytes(32).toString("hex")}`;
-    const secretHash = randomBytes(32).toString("hex");
+    // Store a hash *of the credential we hand back*. Storing an independent random string, as this
+    // did, leaves no way for any verifier to recognise the key the caller was given: every issued
+    // key would fail authentication the moment a verification path exists.
+    const secretHash = hashApiKeySecret(secret);
 
     const business = await this.database.client.business.findUnique({
       where: { publicId: input.businessPublicId },

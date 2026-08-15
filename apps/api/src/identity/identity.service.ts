@@ -20,7 +20,7 @@ import {
   type VerifyCredentialsRequest,
 } from "@bizo/contracts/auth";
 import { type CurrentUserWorkspace } from "@bizo/contracts/platform";
-import { MembershipStatus } from "@bizo/database";
+import { MembershipStatus, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service.js";
 import { MailService } from "../mail/mail.service.js";
@@ -150,29 +150,50 @@ export class IdentityService {
     const tokenHash = this.hashResetToken(input.token);
     const grant = await this.database.client.passwordResetToken.findUnique({
       where: { tokenHash },
+      select: { userId: true },
     });
 
-    if (!grant || grant.usedAt !== null || grant.expiresAt.getTime() <= Date.now()) {
-      throw new BadRequestException({
-        code: "INVALID_PASSWORD_RESET_TOKEN",
-        detail: "That reset link is no longer valid. Request a new one.",
-      });
+    const invalidToken = new BadRequestException({
+      code: "INVALID_PASSWORD_RESET_TOKEN",
+      detail: "That reset link is no longer valid. Request a new one.",
+    });
+
+    // Cheap rejection for a token that was never issued, so an unknown link does not pay for an
+    // Argon2 hash. Validity is not decided here — the claim below is what decides it.
+    if (!grant) {
+      throw invalidToken;
     }
 
     const passwordHash = await hash(input.password, { type: argon2id });
 
-    // The password change and the token burn have to land together: committing one without the
-    // other either leaves a reusable link or silently drops the reset.
-    await this.database.client.$transaction([
-      this.database.client.user.update({
+    await this.database.client.$transaction(async (transaction: Prisma.TransactionClient) => {
+      const now = new Date();
+
+      // Claim this specific token before anything else. Reading it as unused and then updating the
+      // user unconditionally lets two concurrent confirmations for the same link both succeed, and
+      // whichever commits last silently wins the password. `updateMany` with `usedAt: null` in the
+      // filter makes the burn the race: exactly one caller can move it from null, and only that
+      // caller is allowed to change the password.
+      const claimed = await transaction.passwordResetToken.updateMany({
+        where: { tokenHash, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+
+      if (claimed.count !== 1) {
+        throw invalidToken;
+      }
+
+      await transaction.user.update({
         where: { id: grant.userId },
         data: { passwordHash },
-      }),
-      this.database.client.passwordResetToken.updateMany({
+      });
+
+      // A completed reset invalidates every other outstanding link for the account.
+      await transaction.passwordResetToken.updateMany({
         where: { userId: grant.userId, usedAt: null },
-        data: { usedAt: new Date() },
-      }),
-    ]);
+        data: { usedAt: now },
+      });
+    });
 
     return { status: "accepted" };
   }

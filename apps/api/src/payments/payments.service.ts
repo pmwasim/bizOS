@@ -1,6 +1,10 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 
-import { type Payment, type RecordPaymentRequest } from "@bizo/contracts/payments";
+import {
+  type InvoicePaymentSummary,
+  type Payment,
+  type RecordPaymentRequest,
+} from "@bizo/contracts/payments";
 import { PaymentStatus, type Prisma, type PaymentType } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service.js";
@@ -316,38 +320,12 @@ export class PaymentsService {
         });
       }
 
-      for (const allocation of existing.allocations) {
-        if (allocation.document) {
-          const document = await transaction.document.findFirst({
-            where: { businessId: access.businessId, publicId: allocation.document.publicId },
-          });
-          if (document) {
-            const currentPaid = BigInt(
-              (
-                (document as Record<string, unknown>).amountPaidMinor as
-                  { toString(): string } | null | undefined
-              )?.toString() ?? "0",
-            );
-            const allocAmount = BigInt(allocation.amountMinor.toFixed(0));
-            const newPaid = currentPaid + allocAmount;
-            const total = BigInt(document.totalMinor.toFixed(0));
-            const newStatus = newPaid >= total ? "PAID" : "PARTIAL";
-
-            try {
-              await transaction.document.update({
-                where: { id: document.id },
-                data: {
-                  ...("amountPaidMinor" in document ? { amountPaidMinor: newPaid.toString() } : {}),
-                  status: newStatus as never,
-                },
-              });
-            } catch {
-              // Ignore if field is non-persisted schema column
-            }
-          }
-        }
-      }
-
+      // No invoice denormalisation here on purpose. This used to write status "PAID"/"PARTIAL" and
+      // an `amountPaidMinor` column, neither of which exists — `DocumentStatus` has no such members
+      // and the Document table has no such field — so every write threw and was swallowed by a bare
+      // catch. The payment was then marked completed while its invoice was untouched, and nothing
+      // surfaced. Settlement is derived from `payment_allocations` instead; see
+      // `invoicePaymentSummary` below and docs/decisions/0023-invoice-settlement-is-derived.md.
       const updated = await transaction.payment.update({
         where: { id: existing.id },
         data: {
@@ -386,38 +364,9 @@ export class PaymentsService {
         throw new BadRequestException("Only completed payments can be reversed.");
       }
 
-      for (const allocation of existing.allocations) {
-        if (allocation.document) {
-          const document = await transaction.document.findFirst({
-            where: { businessId: access.businessId, publicId: allocation.document.publicId },
-          });
-          if (document) {
-            const currentPaid = BigInt(
-              (
-                (document as Record<string, unknown>).amountPaidMinor as
-                  { toString(): string } | null | undefined
-              )?.toString() ?? "0",
-            );
-            const allocAmount = BigInt(allocation.amountMinor.toFixed(0));
-            const newPaid = currentPaid > allocAmount ? currentPaid - allocAmount : 0n;
-            const total = BigInt(document.totalMinor.toFixed(0));
-            const newStatus = newPaid <= 0n ? "SENT" : newPaid >= total ? "PAID" : "PARTIAL";
-
-            try {
-              await transaction.document.update({
-                where: { id: document.id },
-                data: {
-                  ...("amountPaidMinor" in document ? { amountPaidMinor: newPaid.toString() } : {}),
-                  status: newStatus as never,
-                },
-              });
-            } catch {
-              // Ignore if field is non-persisted schema column
-            }
-          }
-        }
-      }
-
+      // Reversal is symmetric with completion: nothing to unwind on the invoice, because nothing
+      // was written to it. Excluding this payment from the derived summary is what un-settles the
+      // invoice, and `invoicePaymentSummary` already counts only COMPLETED payments.
       const totalAllocatedMinor = existing.allocations.reduce(
         (total, alloc) => total + BigInt(alloc.amountMinor.toFixed(0)),
         0n,
@@ -476,6 +425,74 @@ export class PaymentsService {
     if (allocatedMinor > BigInt(input.amountMinor)) {
       throw new BadRequestException("Payment allocations cannot exceed the payment amount.");
     }
+  }
+
+  /**
+   * How much of one invoice has actually been settled.
+   *
+   * Derived from allocations rather than read off the document: `payment_allocations` is the only
+   * place settlement is recorded, and deriving keeps a reversal correct for free — a REVERSED
+   * payment simply stops counting, with no compensating write to get wrong.
+   */
+  async invoicePaymentSummary(
+    userPublicId: string,
+    businessPublicId: string,
+    invoicePublicId: string,
+  ): Promise<InvoicePaymentSummary> {
+    const access = await this.authorize(userPublicId, businessPublicId, "payments", "read");
+
+    return this.database.withScope(access, async (transaction) => {
+      const invoice = await transaction.document.findFirst({
+        where: {
+          businessId: access.businessId,
+          publicId: invoicePublicId,
+          type: "INVOICE" as never,
+        },
+        select: {
+          id: true,
+          publicId: true,
+          number: true,
+          totalMinor: true,
+          currencyCode: true,
+          currencyScale: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new NotFoundException({
+          code: "INVOICE_NOT_FOUND",
+          detail: "That invoice does not exist in this business.",
+        });
+      }
+
+      const allocations = await transaction.paymentAllocation.findMany({
+        where: {
+          businessId: access.businessId,
+          documentId: invoice.id,
+          payment: { status: PaymentStatus.COMPLETED },
+        },
+        select: { amountMinor: true },
+      });
+
+      const totalMinor = BigInt(invoice.totalMinor.toFixed(0));
+      const paidMinor = (allocations as Array<{ amountMinor: Prisma.Decimal }>).reduce(
+        (running: bigint, allocation) => running + BigInt(allocation.amountMinor.toFixed(0)),
+        0n,
+      );
+      // An overpayment leaves nothing outstanding rather than a negative balance; the surplus is
+      // already audited as a customer credit when the payment completes.
+      const outstandingMinor = totalMinor > paidMinor ? totalMinor - paidMinor : 0n;
+
+      return {
+        id: invoice.publicId,
+        number: invoice.number,
+        totalMinor: totalMinor.toString(),
+        paidMinor: paidMinor.toString(),
+        outstandingMinor: outstandingMinor.toString(),
+        currencyCode: invoice.currencyCode,
+        currencyScale: invoice.currencyScale,
+      };
+    });
   }
 
   private async authorize(

@@ -31,6 +31,15 @@ interface AllocationRow {
   };
 }
 
+/**
+ * Invoice statuses that represent a receivable the customer actually owes.
+ *
+ * `DocumentStatus` has no PAID or PARTIAL member — settlement lives in `payment_allocations`, not
+ * on the document — so "issued" is exactly SENT. DRAFT and READY_TO_SEND have not left the
+ * business, SEND_FAILED never arrived, and ARCHIVED was withdrawn.
+ */
+const ISSUED_INVOICE_STATUSES = { in: ["SENT"] } as const;
+
 /** A ledger entry before the running balance is applied. */
 interface PendingLine {
   id: string;
@@ -67,11 +76,16 @@ export class StatementsService {
         });
       }
 
+      // Only issued invoices are receivables. A DRAFT or READY_TO_SEND invoice has never reached
+      // the customer, a SEND_FAILED one did not arrive, and an ARCHIVED one was withdrawn —
+      // counting any of them as a debit overstates both total invoiced and the closing balance on
+      // a document the customer has never seen.
       const invoices = await transaction.document.findMany({
         where: {
           businessId: access.businessId,
           customerId: customer.id,
           type: "INVOICE" as never,
+          status: ISSUED_INVOICE_STATUSES as never,
         },
         orderBy: { issueDate: "asc" },
       });
@@ -84,7 +98,11 @@ export class StatementsService {
       const allocations = await transaction.paymentAllocation.findMany({
         where: {
           businessId: access.businessId,
-          document: { customerId: customer.id, type: "INVOICE" as never },
+          document: {
+            customerId: customer.id,
+            type: "INVOICE" as never,
+            status: ISSUED_INVOICE_STATUSES as never,
+          },
           payment: { status: "COMPLETED" as never },
         },
         include: { payment: true },

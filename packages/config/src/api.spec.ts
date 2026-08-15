@@ -21,7 +21,46 @@ describe("readApiEnvironment", () => {
       NODE_ENV: "test",
       SMTP_FROM: "quotes@example.test",
       SMTP_URL: "smtp://localhost:1025",
+      THROTTLE_SCALE: 1,
     });
+  });
+
+  it("defaults THROTTLE_SCALE to the strict limits", () => {
+    expect(
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        NODE_ENV: "test",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+      }).THROTTLE_SCALE,
+    ).toBe(1);
+  });
+
+  it("refuses a widened throttle in production", () => {
+    expect(() =>
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        NODE_ENV: "production",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtps://localhost:465",
+        THROTTLE_SCALE: "40",
+      }),
+    ).toThrow(/THROTTLE_SCALE must be 1 in production/);
+  });
+
+  it("accepts a widened throttle outside production", () => {
+    expect(
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        NODE_ENV: "test",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+        THROTTLE_SCALE: "40",
+      }).THROTTLE_SCALE,
+    ).toBe(40);
   });
 
   it("rejects an invalid API port", () => {

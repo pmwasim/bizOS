@@ -14,22 +14,56 @@ const USER = {
   passwordHash: "argon2-hash",
 };
 
-function buildHarness(overrides: { user?: typeof USER | null; grant?: unknown } = {}) {
+interface ResetGrant {
+  userId: bigint;
+  usedAt: Date | null;
+  expiresAt: Date;
+}
+
+function buildHarness(
+  overrides: {
+    user?: typeof USER | null;
+    grant?: ResetGrant | null;
+    /** Simulates a concurrent confirmation that burned the same token first. */
+    claimedByAnother?: boolean;
+  } = {},
+) {
+  const grant = overrides.grant ?? null;
+
   const passwordResetToken = {
     create: vi.fn().mockResolvedValue({}),
-    findUnique: vi.fn().mockResolvedValue(overrides.grant ?? null),
-    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    findUnique: vi.fn().mockResolvedValue(grant),
+    // The service claims the token with `updateMany({ where: { tokenHash, usedAt: null, expiresAt:
+    // { gt: now } } })`, so the mock has to answer that filter honestly: exactly one row when the
+    // grant is genuinely unused and unexpired, none otherwise. Returning a blanket count would let
+    // a used or expired token through and hide the very race this guards.
+    updateMany: vi.fn().mockImplementation(async (args: { where: { tokenHash?: string } }) => {
+      if (args.where.tokenHash === undefined) {
+        return { count: 0 };
+      }
+      const claimable =
+        grant !== null &&
+        grant.usedAt === null &&
+        grant.expiresAt.getTime() > Date.now() &&
+        !overrides.claimedByAnother;
+      return { count: claimable ? 1 : 0 };
+    }),
   };
   const user = {
     findFirst: vi.fn().mockResolvedValue(overrides.user === undefined ? USER : overrides.user),
     update: vi.fn().mockResolvedValue(USER),
   };
+  const client: Record<string, unknown> = { user, passwordResetToken };
   const database = {
-    client: {
-      user,
-      passwordResetToken,
-      $transaction: vi.fn().mockImplementation(async (ops: unknown[]) => ops),
-    },
+    client: Object.assign(client, {
+      // The service now uses the interactive form; the array form is still accepted so unrelated
+      // call sites keep working.
+      $transaction: vi
+        .fn()
+        .mockImplementation(async (work: unknown) =>
+          typeof work === "function" ? (work as (tx: unknown) => Promise<unknown>)(client) : work,
+        ),
+    }),
   };
   const mail = { sendPasswordReset: vi.fn().mockResolvedValue("message-id") };
 
@@ -151,5 +185,19 @@ describe("IdentityService password reset", () => {
 
     const updated = user.update.mock.calls[0]![0] as { data: { passwordHash: string } };
     expect(updated.data.passwordHash).toMatch(/^\$argon2id\$/);
+  });
+
+  it("leaves the password alone when a concurrent confirmation claimed the token first", async () => {
+    // Both requests read the token as unused; only one can move `usedAt` off null. The loser must
+    // not go on to write a password, or the last writer silently wins the account.
+    const { service, user } = buildHarness({
+      grant: { userId: USER.id, usedAt: null, expiresAt: new Date(Date.now() + 60_000) },
+      claimedByAnother: true,
+    });
+
+    await expect(
+      service.confirmPasswordReset({ token: "a".repeat(43), password: "Sup3rSecret!" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(user.update).not.toHaveBeenCalled();
   });
 });

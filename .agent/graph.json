@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 24,
-    "handbookDocumentCount": 84
+    "adrCount": 25,
+    "handbookDocumentCount": 85
   },
   "buildOrder": [
     {
@@ -257,6 +257,7 @@
         "docs/architecture.md",
         "docs/decisions/0015-managed-hosting-behind-cloudflare.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/decisions/0023-invoice-settlement-is-derived.md",
         "docs/deployment-handoff-cursor.md",
         "docs/document-templates-plan.md",
         "docs/multi-agent-protocol.md",
@@ -780,6 +781,13 @@
       "status": "Accepted",
       "date": "2026-08-07",
       "path": "docs/decisions/0022-ubuntu-production-hosting.md"
+    },
+    {
+      "id": "0023",
+      "title": "ADR-0023: Invoice settlement is derived, not stored",
+      "status": "Proposed",
+      "date": "2026-08-15",
+      "path": "docs/decisions/0023-invoice-settlement-is-derived.md"
     }
   ],
   "rootCommands": [
