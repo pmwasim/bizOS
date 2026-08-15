@@ -23,6 +23,8 @@ Rules:
   - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Cut over production to 564276e (PR #94 restored module routes and review fixes)](2026-08-15-cut-over-production-to-564276e-pr-94-restored-module-routes-.md)
   - Agent: antigravity · Status: Complete
+- [2026-08-15 — Close the two open PR94 findings and record a production restart I caused](2026-08-15-close-the-two-open-pr94-findings-and-record-a-production-res.md)
+  - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Branch audit: recover unmerged phase-1 work and fix three broken document write paths](2026-08-15-branch-audit-recover-unmerged-phase-1-work-and-fix-three-bro.md)
   - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Address PR94 review feedback: sales-order link to delivery notes, supplier deactivation, and minor-unit forms](2026-08-15-address-pr94-review-feedback-sales-order-link-to-delivery-no.md)

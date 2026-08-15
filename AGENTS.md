@@ -133,6 +133,15 @@ documents governing each workspace.
   under that flag mixes React's development and production bundles. Build with `NODE_ENV=production`
   (or with `NODE_ENV` unset, as CI does) and it succeeds. This is why production ran on `next dev`
   until 2026-08-15 — see `docs/operations/ubuntu-production-cutover.md`.
+- **Never `pkill` by process name on the production host.** Production and any test stack share this
+  machine, and Next names the standalone production server `next-server (v16...)` — the same pattern
+  that matches a leftover test server. `pkill -f "next-server"` takes down `bizos-web`. Kill scratch
+  servers by PID (`ss -ltnp` to find them). `Restart=always` recovers the unit in about five
+  seconds, but it is still an outage.
+- **Run e2e on scratch ports against a scratch database.** `E2E_WEB_PORT` / `E2E_API_PORT` plus a
+  `DATABASE_URL` pointing at `bizo_e2e`, migrated **and** seeded (an unseeded database fails 46
+  tests). Without the port overrides, `reuseExistingServer` points the suite at production. A stale
+  reused server also makes failures look like product bugs rather than a stale build.
 - **`lefthook install` (root `prepare`) fails under the cloud agent's custom `core.hooksPath`.** It
   is a benign local git-hook convenience; the startup update script installs deps without triggering
   it, so ignore that failure.
