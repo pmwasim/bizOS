@@ -525,19 +525,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 99,
+      "sourceFiles": 116,
       "testFiles": 4,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 58,
+          "sourceFiles": 68,
           "testFiles": 2
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 30,
+          "sourceFiles": 37,
           "testFiles": 0
         },
         {
