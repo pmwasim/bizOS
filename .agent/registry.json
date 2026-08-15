@@ -1,5 +1,17 @@
 {
   "version": 1,
   "note": "Advisory work claims held by agents. Managed by `pnpm agent:*` commands.",
-  "claims": []
+  "claims": [
+    {
+      "id": "clm_7a234f4f",
+      "agent": "claude-cowork",
+      "task": "Recover phase-1 service specs and audit branches",
+      "scopes": [
+        "apps/api/src"
+      ],
+      "branch": null,
+      "claimedAt": "2026-08-15T04:16:06.478Z",
+      "expiresAt": "2026-08-15T08:16:06.478Z"
+    }
+  ]
 }

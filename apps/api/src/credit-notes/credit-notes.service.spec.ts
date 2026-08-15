@@ -29,15 +29,16 @@ describe("CreditNotesService", () => {
   const buildDatabase = (): DatabaseService => {
     const transaction: Record<string, unknown> = {
       business: {
+        // Mirrors the real Prisma shape: `currencyScale` and `baseCurrency` are columns on
+        // `businesses`, and `business_settings` has no currency column at all.
         findUniqueOrThrow: vi.fn().mockResolvedValue({
           settings: {
-            currencyScale: 2,
-            baseCurrency: "USD",
             timeZone: "UTC",
             creditNotePrefix: "CN",
             nextCreditNoteNumber: 1,
           },
           baseCurrency: "USD",
+          currencyScale: 2,
           timeZone: "UTC",
         }),
       },

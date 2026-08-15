@@ -98,6 +98,8 @@ export class DeliveryNotesService {
         ? new Date(`${input.deliveryDate}T00:00:00.000Z`)
         : null;
 
+      const issueDate = new Date();
+
       const document = (await transaction.document.create({
         data: {
           tenantId: access.tenantId,
@@ -105,7 +107,17 @@ export class DeliveryNotesService {
           customerId: customer.id,
           type: DocumentType.DELIVERY_NOTE,
           number: `${updatedSettings.deliveryNotePrefix}-${String(sequence).padStart(4, "0")}`,
-          issueDate: new Date(),
+          issueDate,
+          // `documents` is shared with quotations, so valid_until and the money columns are NOT
+          // NULL with no default. A delivery note has no expiry and carries no amount, but the
+          // row still has to satisfy the table: without these six values every create fails with
+          // `null value in column "valid_until" violates not-null constraint`.
+          validUntil: deliveryDate ?? issueDate,
+          currencyCode: business.baseCurrency,
+          currencyScale: business.currencyScale,
+          subtotalMinor: "0",
+          taxMinor: "0",
+          totalMinor: "0",
           deliveryDate,
           sourceDocumentId,
           notes: input.notes ?? null,

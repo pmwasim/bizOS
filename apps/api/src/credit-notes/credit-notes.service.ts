@@ -92,7 +92,7 @@ export class CreditNotesService {
         subtotalMinor,
         taxMinor,
         totalMinor,
-      } = calculateDocumentTotals(input.lines, settings.currencyScale);
+      } = calculateDocumentTotals(input.lines, business.currencyScale);
 
       const updatedSettings = await transaction.businessSettings.update({
         where: { businessId: access.businessId },
@@ -111,8 +111,13 @@ export class CreditNotesService {
           status: DocumentStatus.DRAFT,
           number: `${updatedSettings.creditNotePrefix}-${String(sequence).padStart(4, "0")}`,
           issueDate: this.toDatabaseDate(issueDate),
+          // `documents` is shared with quotations, where valid_until is the offer expiry, so the
+          // column is NOT NULL with no default. A credit note does not expire; without a value
+          // here every create fails with
+          // `null value in column "valid_until" violates not-null constraint`.
+          validUntil: this.toDatabaseDate(issueDate),
           currencyCode: business.baseCurrency,
-          currencyScale: settings.currencyScale,
+          currencyScale: business.currencyScale,
           subtotalMinor: subtotalMinor.toString(),
           taxMinor: taxMinor.toString(),
           totalMinor: totalMinor.toString(),

@@ -1,11 +1,14 @@
 import { NotFoundException } from "@nestjs/common";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type CreateSalesOrderRequest, type SalesOrder } from "@bizo/contracts/sales-orders";
 
 import { type DatabaseService } from "../database/database.service.js";
 import { type BusinessAccessService } from "../security/business-access.service.js";
 import { SalesOrdersService } from "../sales-orders/sales-orders.service.js";
+
+/** Every `document.create` payload the service produced, so tests can assert on the persisted row. */
+const createdDocuments: Array<Record<string, unknown>> = [];
 
 const buildInput = (): CreateSalesOrderRequest => ({
   customerId: "cust-001",
@@ -55,6 +58,10 @@ const buildRecord = (overrides: Partial<SalesOrder> = {}): Record<string, unknow
 });
 
 describe("SalesOrdersService", () => {
+  beforeEach(() => {
+    createdDocuments.length = 0;
+  });
+
   const access = {
     businessId: 1n,
     businessPublicId: "biz-001",
@@ -94,9 +101,14 @@ describe("SalesOrdersService", () => {
 
     const transaction = {
       business: {
+        // Mirrors the real Prisma shape: `currencyScale` and `baseCurrency` are columns on
+        // `businesses`, and `business_settings` has no currency column at all. The mock used to
+        // put `currencyScale` on `settings`, which let the service read
+        // `settings.currencyScale` — undefined in production — and still pass here.
         findUniqueOrThrow: vi.fn().mockResolvedValue({
           settings: config.settings,
           baseCurrency: config.settings.baseCurrency,
+          currencyScale: config.settings.currencyScale,
           timeZone: config.settings.timeZone,
         }),
       },
@@ -109,7 +121,10 @@ describe("SalesOrdersService", () => {
       },
       businessSettings: { update: config.settingsUpdate },
       document: {
-        create: vi.fn().mockResolvedValue(config.document),
+        create: vi.fn().mockImplementation(async (args: { data: Record<string, unknown> }) => {
+          createdDocuments.push(args.data);
+          return config.document;
+        }),
         update: vi.fn().mockImplementation(async (args: Record<string, unknown>) => ({
           ...config.document,
           ...(args.data as object),
@@ -148,6 +163,21 @@ describe("SalesOrdersService", () => {
     expect(result.status).toBe("DRAFT");
     expect(result.totalMinor).toBe("115000");
     expect(result.customer.name).toBe("Acme Studio");
+  });
+
+  it("populates every NOT NULL column the shared documents table requires", async () => {
+    const database = buildDatabase();
+    const service = new SalesOrdersService(database, buildAccessService());
+
+    await service.create("user-001", "biz-001", buildInput(), "req-001");
+
+    // `documents` is shared with quotations, so valid_until is NOT NULL with no default even
+    // though a sales order does not expire. Omitting it made every create fail against a real
+    // database while this suite stayed green.
+    const created = createdDocuments[0]!;
+    expect(created.validUntil).toBeTruthy();
+    expect(created.currencyScale).toBe(2);
+    expect(created.currencyCode).toBe("USD");
   });
 
   it("throws NotFoundException when customer is missing", async () => {
