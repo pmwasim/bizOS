@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { type Payment, paymentStatusLabel } from "@bizo/contracts/payments";
 
+import { VoidPaymentButton } from "@/components/payment-actions";
 import { apiJson } from "@/lib/api";
 import { formatMoney } from "@/lib/display";
 
@@ -80,6 +81,18 @@ export default async function PaymentDetailPage({
               ))}
             </tbody>
           </table>
+        </section>
+      )}
+
+      {/*
+        Only a COMPLETED payment can be reversed — the API rejects any other transition. Without
+        this the reverse endpoint had no route into it from a browser, so a mis-keyed payment
+        stayed on the customer's balance permanently.
+      */}
+      {payment.status === "COMPLETED" && (
+        <section className="panel" style={{ marginTop: "1rem" }}>
+          <h2>Void payment</h2>
+          <VoidPaymentButton businessId={businessId} paymentId={paymentId} />
         </section>
       )}
     </div>

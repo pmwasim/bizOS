@@ -28,10 +28,11 @@ export function VoidPaymentButton({
       }}
     >
       <ActionMessage error={state.error} />
-      <label>
-        Reason
-        <input name="reason" type="text" maxLength={500} placeholder="Optional reason" />
-      </label>
+      {/*
+        No reason field: the API models undoing a payment as a status transition to REVERSED and
+        stores no reason, so collecting one would promise the user a record that is never kept.
+      */}
+      <p>Reverses the payment so it no longer counts toward invoice balances.</p>
       <SubmitButton className="button button-secondary" pendingText="Voiding…">
         Void payment
       </SubmitButton>
