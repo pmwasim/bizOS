@@ -108,6 +108,13 @@ would write real data, so it was not attempted. The e2e suite covers those journ
   repository's GitHub App settings, or give the Prisma project an entrypoint if it is wanted for
   something. Decide rather than leaving a permanently red check that trains everyone to ignore check
   failures.
+- **The `Production health` workflow has failed on every run since at least 2026-08-14** and is not
+  a regression from this cutover. The API probe passes; the web probe gets **HTTP 403** from GitHub
+  runner IPs while the same URL answers 200 from the host and from a browser. That is Cloudflare
+  blocking datacenter traffic, not the origin being down. Either allow the probe through the WAF (a
+  rule on the probe path, or a shared secret header the worker checks) or point the workflow at
+  something that is allowed. As it stands it is a monitor that cannot distinguish an outage from its
+  own block, which is worse than no monitor.
 - **PR #37** (build metadata on the health endpoint) has been open since 2026-07-28. Merging it
   makes `release-readiness` able to assert the deployed SHA, which is the difference between "the
   site is up" and "the site is running what I just shipped".
