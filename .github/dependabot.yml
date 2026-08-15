@@ -37,11 +37,12 @@ updates:
     schedule:
       interval: weekly
     # The runtime image has to stay inside the engines range in package.json
-    # (node >=22.13 <25). A major bump past that produces a PR that cannot pass
-    # CI, so it is not proposed until the range itself moves.
+    # (node >=22.13 <25). Only versions outside that range are ignored, so the
+    # 22 -> 24 move is still proposed; a bump to 25 or later would produce a PR
+    # that cannot pass CI.
     ignore:
       - dependency-name: node
-        update-types: ["version-update:semver-major"]
+        versions: [">=25"]
 
   - package-ecosystem: docker
     directory: /apps/web
@@ -50,4 +51,4 @@ updates:
     # Same engines constraint as the API image.
     ignore:
       - dependency-name: node
-        update-types: ["version-update:semver-major"]
+        versions: [">=25"]
