@@ -11,10 +11,10 @@ export default async function NewDeliveryNotePage({
   searchParams,
 }: {
   params: Promise<{ businessId: string }>;
-  searchParams: Promise<{ customer?: string }>;
+  searchParams: Promise<{ customer?: string; salesOrderId?: string; order?: string }>;
 }) {
   const { businessId } = await params;
-  const { customer: customerId } = await searchParams;
+  const { customer: customerId, salesOrderId, order } = await searchParams;
   const session = await auth();
   if (!session?.user?.id) redirect("/signin");
 
@@ -32,6 +32,7 @@ export default async function NewDeliveryNotePage({
         businessId={businessId}
         customers={customerList}
         defaultCustomerId={customerId}
+        defaultSalesOrderId={salesOrderId ?? order}
       />
     </div>
   );

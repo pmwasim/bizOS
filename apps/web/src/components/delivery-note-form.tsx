@@ -25,10 +25,12 @@ export function DeliveryNoteForm({
   businessId,
   customers,
   defaultCustomerId,
+  defaultSalesOrderId,
 }: {
   businessId: string;
   customers: CustomerOption[];
   defaultCustomerId?: string | undefined;
+  defaultSalesOrderId?: string | undefined;
 }) {
   const action = createDeliveryNoteAction.bind(null, businessId);
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
@@ -45,6 +47,9 @@ export function DeliveryNoteForm({
   return (
     <form action={formAction} className="form-stack wide">
       <ActionMessage error={state.error} />
+      {defaultSalesOrderId && (
+        <input type="hidden" name="salesOrderId" value={defaultSalesOrderId} />
+      )}
       <label className="field">
         <span>Customer</span>
         <select name="customerId" defaultValue={defaultCustomerId ?? customers[0]?.id} required>

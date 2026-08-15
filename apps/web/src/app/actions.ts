@@ -790,6 +790,13 @@ export async function setDefaultErpVersionAction(
   }
 }
 
+function toMinorUnits(formData: FormData, field: string): string | null {
+  const value = String(formData.get(field) ?? "").trim();
+  if (!value) return null;
+  const currencyScale = Number(formData.get("currencyScale") ?? 2);
+  return parseDecimalToScaledInteger(value, currencyScale).toString();
+}
+
 export async function createLeadAction(
   businessId: string,
   _state: ActionState,
@@ -799,13 +806,22 @@ export async function createLeadAction(
     const value = String(formData.get(name) ?? "").trim();
     return value || null;
   };
+  // The form collects a decimal; leads.estimated_value is numeric(38,0) minor units and the CRM
+  // views format it as such, so a raw "1250.00" would display as 12.50.
+  let estimatedValue: string | null;
+  try {
+    estimatedValue = toMinorUnits(formData, "estimatedValue");
+  } catch {
+    return { error: "Enter the estimated value as a positive number, for example 1250.00." };
+  }
+
   const parsed = createLeadRequestSchema.safeParse({
     name: formData.get("name"),
     company: optional("company"),
     email: optional("email"),
     phone: optional("phone"),
     source: optional("source"),
-    estimatedValue: optional("estimatedValue"),
+    estimatedValue,
     notes: optional("notes"),
   });
   if (!parsed.success) return { error: validationMessage(parsed.error) };
@@ -830,11 +846,17 @@ export async function createOpportunityAction(
     const value = String(formData.get(name) ?? "").trim();
     return value || null;
   };
+  let amountMinor: string | null;
+  try {
+    amountMinor = toMinorUnits(formData, "amount") ?? toMinorUnits(formData, "amountMinor");
+  } catch {
+    return { error: "Enter the amount as a positive number, for example 1250.00." };
+  }
   const parsed = createOpportunityRequestSchema.safeParse({
     name: formData.get("name"),
     stage: formData.get("stage") || undefined,
     probability: optional("probability") ? Number(optional("probability")) : null,
-    amountMinor: optional("amountMinor"),
+    amountMinor,
     expectedCloseDate: optional("expectedCloseDate"),
     notes: optional("notes"),
   });
@@ -859,15 +881,17 @@ export async function createSalesOrderAction(
   const parsed = createSalesOrderRequestSchema.safeParse({
     customerId: formData.get("customerId"),
     lines: readLinesFromFormData(formData),
+    deliveryDate: formData.get("deliveryDate") || undefined,
+    notes: formData.get("notes") || null,
   });
   if (!parsed.success) return { error: validationMessage(parsed.error) };
 
   try {
-    await apiJson<SalesOrder>(`/businesses/${businessId}/sales-orders`, {
+    const order = await apiJson<SalesOrder>(`/businesses/${businessId}/sales-orders`, {
       method: "POST",
       body: JSON.stringify(parsed.data),
     });
-    redirect(`/b/${businessId}/sales-orders`);
+    redirect(`/b/${businessId}/sales-orders/${order.id}`);
   } catch (error) {
     return actionError(error);
   }
@@ -880,8 +904,10 @@ export async function createDeliveryNoteAction(
 ): Promise<ActionState> {
   const descriptions = formData.getAll("description").map(String);
   const quantities = formData.getAll("quantity").map(String);
+  const salesOrderId = String(formData.get("salesOrderId") ?? "").trim() || undefined;
   const parsed = createDeliveryNoteRequestSchema.safeParse({
     customerId: formData.get("customerId"),
+    salesOrderId,
     lines: descriptions.map((description, i) => ({
       description,
       quantity: quantities[i] || "1",

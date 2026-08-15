@@ -3,6 +3,7 @@ import Link from "next/link";
 import { type Supplier } from "@bizo/contracts/suppliers";
 
 import { apiJson } from "@/lib/api";
+import { SupplierActions } from "@/components/supplier-actions";
 
 export default async function SupplierDetailPage({
   params,
@@ -85,6 +86,7 @@ export default async function SupplierDetailPage({
           <p>{supplier.notes}</p>
         </div>
       )}
+      {supplier.isActive && <SupplierActions businessId={businessId} supplierId={supplierId} />}
     </div>
   );
 }

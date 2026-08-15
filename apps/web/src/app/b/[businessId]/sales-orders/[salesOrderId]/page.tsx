@@ -25,7 +25,7 @@ export default async function SalesOrderDetailPage({
         <div className="header-actions">
           <Link
             className="button button-quiet"
-            href={`/b/${businessId}/delivery-notes/new?customer=${order.customer.id}`}
+            href={`/b/${businessId}/delivery-notes/new?customer=${order.customer.id}&salesOrderId=${order.id}`}
           >
             Create delivery
           </Link>

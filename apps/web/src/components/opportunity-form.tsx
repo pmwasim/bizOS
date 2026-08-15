@@ -8,13 +8,21 @@ import { type ActionState, createOpportunityAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
 import { SubmitButton } from "@/components/submit-button";
 
-export function OpportunityForm({ businessId }: { businessId: string }) {
+export function OpportunityForm({
+  businessId,
+  currencyScale,
+}: {
+  businessId: string;
+  currencyScale: number;
+}) {
   const action = createOpportunityAction.bind(null, businessId);
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
 
   return (
     <form action={formAction} className="form-stack">
       <ActionMessage error={state.error} />
+      {/* The amount is stored in minor units; the action converts using this scale. */}
+      <input type="hidden" name="currencyScale" value={currencyScale} />
       <label className="field">
         <span>Name</span>
         <input name="name" required minLength={1} autoFocus />
