@@ -575,7 +575,11 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
           findUniqueOrThrow: vi.fn().mockResolvedValue({
             baseCurrency: "SAR",
             timeZone: "Asia/Riyadh",
-            settings: { currencyScale: 2, creditNotePrefix: "CN" },
+            // currencyScale is a column on `businesses`; `business_settings` has no currency
+            // column at all. Mocking it under `settings` is what let the services read
+            // `settings.currencyScale` — undefined in production — and still pass here.
+            currencyScale: 2,
+            settings: { creditNotePrefix: "CN" },
           }),
         },
         businessSettings: {
@@ -647,7 +651,8 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
         business: {
           findUniqueOrThrow: vi.fn().mockResolvedValue({
             baseCurrency: "SAR",
-            settings: { currencyScale: 2 },
+            currencyScale: 2,
+            settings: {},
           }),
         },
         customer: {

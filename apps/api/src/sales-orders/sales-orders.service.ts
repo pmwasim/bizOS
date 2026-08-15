@@ -96,7 +96,7 @@ export class SalesOrdersService {
         subtotalMinor,
         taxMinor,
         totalMinor,
-      } = calculateDocumentTotals(input.lines, settings.currencyScale);
+      } = calculateDocumentTotals(input.lines, business.currencyScale);
 
       const updatedSettings = await transaction.businessSettings.update({
         where: { businessId: access.businessId },
@@ -119,9 +119,17 @@ export class SalesOrdersService {
           status: DocumentStatus.DRAFT,
           number: `${updatedSettings.salesOrderPrefix}-${String(sequence).padStart(4, "0")}`,
           issueDate: this.toDatabaseDate(issueDate),
+          // `documents` is shared with quotations, where valid_until is the offer expiry, so the
+          // column is NOT NULL with no default. A sales order is already agreed and does not
+          // expire; without a value here every create fails with
+          // `null value in column "valid_until" violates not-null constraint`.
+          // The issue date, not the delivery date: `documents_dates_check` requires
+          // `valid_until >= issue_date`, and a delivery date before the issue date is a
+          // legitimate input the request schema accepts.
+          validUntil: this.toDatabaseDate(issueDate),
           deliveryDate,
           currencyCode: business.baseCurrency,
-          currencyScale: settings.currencyScale,
+          currencyScale: business.currencyScale,
           subtotalMinor: subtotalMinor.toString(),
           taxMinor: taxMinor.toString(),
           totalMinor: totalMinor.toString(),
@@ -306,7 +314,10 @@ export class SalesOrdersService {
 
       const updated = (await transaction.document.update({
         where: { id: existing.id },
-        data: { status: DocumentStatus.ARCHIVED },
+        // `documents_archive_consistency_check` requires archived_at and status to move together:
+        // ARCHIVED with a null archived_at is rejected outright, so setting the status alone made
+        // every cancellation fail. `InvoicesService.archive` already sets both.
+        data: { status: DocumentStatus.ARCHIVED, archivedAt: new Date() },
         include: this.detailInclude(),
       })) as unknown as SalesOrderRecord;
 
