@@ -1,0 +1,16 @@
+[Unit]
+Description=bizOS NestJS API Service
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=wasim
+WorkingDirectory=/home/wasim/bizos-production/apps/api
+EnvironmentFile=/home/wasim/bizos-production/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /home/wasim/bizos-production/apps/api/dist/main.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

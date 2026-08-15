@@ -1,7 +1,9 @@
 # Ubuntu production cutover: moving off `next dev`
 
-**Status:** prepared and verified; the two mutating steps are not applied. **Prepared build:**
-`/home/wasim/bizos-production` pinned to `a5c9edf`.
+**Status:** **applied on 2026-08-15.** Both `bizos-web.service` and `bizos-api.service` now run the
+production build from `/home/wasim/bizos-production`, pinned to `97b877e` (the squash merge of PR
+#81). `pnpm ops:release-readiness` reports 8/8. The record of what was done, and the root cause that
+had blocked it, is in [Applied](#applied-2026-08-15) at the end of this document.
 
 ## Why
 
@@ -108,15 +110,71 @@ sudo cp /etc/systemd/system/bizos-web.service.bak /etc/systemd/system/bizos-web.
 
 The old unit runs from `/home/wasim/bizOS`, which is untouched by this change.
 
-## Still outstanding
+## Applied 2026-08-15
 
-- **`bizos-api.service` has the same coupling.** It runs `/home/wasim/bizOS/apps/api/dist/main.js` —
-  the development checkout. Until it is repointed at `/home/wasim/bizos-production`, production is
-  half-migrated and the development tree can still affect the live API.
-- **`products` has no row-level security.** It is tenant/business-scoped but is the only such table
-  without the `tenant_business_isolation` policy, because it is created after the RLS migration in
-  sort order. Enabling it requires a new migration _and_ confirmation that product queries set the
-  tenant/business session context, or product reads will break.
-- **The statements page is broken.** `StatementsService` returns `lines`, `currencyCode`, and string
-  balances, while the shared contract and the page expect `items`, `currency`, `totalInvoicedMinor`,
-  and numeric balances. It fails at runtime, not at build time.
+### The root cause that had blocked this for weeks
+
+The production build did not fail because of Next 16 / React 19. It failed because the build was run
+with the repository `.env` exported — and that file carried `NODE_ENV=development`. `next build`
+under that flag mixes React's development and production bundles, which surfaces as
+`TypeError: Cannot read properties of null (reading 'useContext')` while prerendering
+`/_global-error`. The same tree builds 9/9 with `NODE_ENV=production`. AGENTS.md had recorded the
+failure as pre-existing and unexplained; that entry is corrected.
+
+`/home/wasim/bizos-production/.env` also had `NODE_ENV=development`, so even after the cutover the
+API and web would have run in development mode — with `useSecureCookies` off, meaning session
+cookies without the `Secure` attribute. It is now `production`.
+
+### What was done
+
+1. `/home/wasim/bizos-production` repointed from the local `/home/wasim/bizOS` clone to
+   `https://github.com/pmwasim/bizOS.git` and moved to `97b877e`.
+2. `pg_dump -Fc` of the `bizo` database to `/home/wasim/bizos-backups/bizo-20260815-065232.dump`
+   before any migration.
+3. Three additive migrations applied — `20260814090000_password_reset_tokens`,
+   `20260814100000_enable_rls_products`, `20260814110000_business_settings_payment_numbering`.
+   `prisma migrate status` then reported the schema up to date.
+4. `APP_BASE_URL=https://bizos.qloudihub.com` added and `NODE_ENV` set to `production` in
+   `/home/wasim/bizos-production/.env` (previous file kept as `.env.bak.20260815065157`).
+5. `pnpm build` — 9/9 tasks, standalone server emitted.
+6. Smoke test on `:3998` before touching systemd: `/`, `/signin`, `/forgot-password`,
+   `/reset-password` all 200; zero dev fingerprints; CSP without `'unsafe-eval'` and with
+   `upgrade-insecure-requests`.
+7. Both units replaced (`.bak` copies kept alongside), `daemon-reload`, API restarted first, then
+   web. `bizos-api.service` now runs `/home/wasim/bizos-production/apps/api/dist/main.js`;
+   `bizos-web.service` runs the standalone server from the same tree.
+
+### Verification after cutover
+
+| Check                                 | Result                                                  |
+| ------------------------------------- | ------------------------------------------------------- |
+| `systemctl is-active` both units      | active                                                  |
+| `pnpm ops:release-readiness`          | 8/8 passed                                              |
+| `https://bizos.qloudihub.com/signin`  | 200 (issue #56 was a stale dev-server 404)              |
+| Dev fingerprints on the public origin | 0                                                       |
+| CSP                                   | no `'unsafe-eval'`; `upgrade-insecure-requests` present |
+| Web process resident memory           | from ~7.8 GB to under the API's 260 MB                  |
+
+### Consequences to expect
+
+- **Everyone is signed out once.** `useSecureCookies` is now on, so Auth.js reads
+  `__Secure-authjs.session-token` and the old non-prefixed cookie is ignored. Signing in again is
+  the whole remedy.
+- The development checkout at `/home/wasim/bizOS` no longer affects the live site in any way.
+
+### Rollback
+
+```bash
+sudo cp /etc/systemd/system/bizos-web.service.bak /etc/systemd/system/bizos-web.service && sudo cp /etc/systemd/system/bizos-api.service.bak /etc/systemd/system/bizos-api.service && sudo systemctl daemon-reload && sudo systemctl restart bizos-api bizos-web
+```
+
+The old units run from `/home/wasim/bizOS`, which is untouched. The three migrations are additive
+and need no reversal; the pre-migration dump is in `/home/wasim/bizos-backups/` if one is ever
+wanted.
+
+## Resolved since this runbook was written
+
+- **`bizos-api.service` coupling** — repointed at `/home/wasim/bizos-production` in step 7 above.
+- **`products` row-level security** — enabled by `20260814100000_enable_rls_products`, applied in
+  step 3.
+- **The statements page shape mismatch** — fixed in `11a6433`, on `main` as of PR #81.

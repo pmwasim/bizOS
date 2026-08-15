@@ -126,13 +126,13 @@ documents governing each workspace.
 - **DB must be migrated + seeded per fresh database.**
   `pnpm --filter @bizo/database prisma:migrate:deploy` then `pnpm db:seed` (the API's Default-ERP
   assignment and system-admin flows depend on the seed).
-- **`pnpm build` / `pnpm check` / `pnpm typecheck` fail only on `@bizo/web#build`.** Next's
-  prerender of `/_global-error` throws
-  `TypeError: Cannot read properties of null (reading 'useContext')` under the pinned Next 16 /
-  React 19 versions. This is a pre-existing production-build issue, unrelated to environment setup.
-  Dev mode (`next dev`), the web app's own `tsc --noEmit`, ESLint, and all package/api tests pass.
-  Use per-package/per-app commands (or `--filter '!@bizo/web'`) to get green build/test signal while
-  this stands.
+- **`@bizo/web#build` fails when `NODE_ENV=development` is exported into it.** The symptom is
+  `TypeError: Cannot read properties of null (reading 'useContext')` while prerendering
+  `/_global-error`, and it was recorded here for weeks as an unexplained pre-existing Next 16 /
+  React 19 issue. It is not: `set -a && . ./.env` exports `NODE_ENV=development`, and `next build`
+  under that flag mixes React's development and production bundles. Build with `NODE_ENV=production`
+  (or with `NODE_ENV` unset, as CI does) and it succeeds. This is why production ran on `next dev`
+  until 2026-08-15 — see `docs/operations/ubuntu-production-cutover.md`.
 - **`lefthook install` (root `prepare`) fails under the cloud agent's custom `core.hooksPath`.** It
   is a benign local git-hook convenience; the startup update script installs deps without triggering
   it, so ignore that failure.

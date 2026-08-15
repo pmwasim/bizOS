@@ -6,7 +6,7 @@ Agent: claude-cowork
 
 Scope: apps/api/src, apps/web/src, e2e
 
-Status: In progress
+Status: Complete
 
 Related: PR #81, issue #56, ADR-0023, `2026-08-07-retire-render-production-path.md`
 
@@ -159,7 +159,7 @@ pnpm repo:artifacts                                  # pass
 pnpm security:local-services                         # pass
 pnpm db:validate                                     # pass (pre-existing SetNull warnings only)
 pnpm graph                                           # regenerated — 9 workspaces, 24 decisions
-pnpm test:e2e                                        # NOT RUN — see above
+pnpm test:e2e                                        # NOT RUN locally — see above; green in CI
 pnpm build                                           # NOT RUN — @bizo/web#build fails locally on
                                                      #   /_global-error prerender (AGENTS.md
                                                      #   documents this as pre-existing local-only;
