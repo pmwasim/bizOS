@@ -1,0 +1,6 @@
+docs(repo): point every agent tool at AGENTS.md
+
+Claude, Gemini/Antigravity, Copilot, and Cursor each look for their own
+instruction file and, finding none, invent conventions that collide with the
+claim-and-journal protocol. Each now gets a pointer to AGENTS.md rather than a
+copy, so there is still exactly one place a rule can change.

@@ -6,6 +6,11 @@ repository. The rationale behind it is in
 
 More than one agent may be working here at the same time. Assume you are not alone.
 
+This file is the single source of truth for agent behaviour. `CLAUDE.md`, `GEMINI.md`,
+`.github/copilot-instructions.md`, and `.cursor/rules/bizos-agent-protocol.mdc` exist only so that
+Claude, Gemini/Antigravity, Copilot, and Cursor land here rather than inventing their own
+conventions — they are pointers, never copies. If a rule changes, it changes here.
+
 ## Start every session with this
 
 ```bash
