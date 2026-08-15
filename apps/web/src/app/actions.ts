@@ -9,6 +9,15 @@ import {
   signUpRequestSchema,
 } from "@bizo/contracts/auth";
 import { createCustomerRequestSchema, type Customer } from "@bizo/contracts/customers";
+import { createDeliveryNoteRequestSchema, type DeliveryNote } from "@bizo/contracts/delivery-notes";
+import {
+  createLeadRequestSchema,
+  createOpportunityRequestSchema,
+  type Lead,
+  type Opportunity,
+} from "@bizo/contracts/crm";
+import { createSalesOrderRequestSchema, type SalesOrder } from "@bizo/contracts/sales-orders";
+import { createSupplierRequestSchema, type Supplier } from "@bizo/contracts/suppliers";
 import {
   createCustomizationRequestSchema,
   type BusinessCustomizationRequestSummary,
@@ -779,4 +788,210 @@ export async function setDefaultErpVersionAction(
   } catch (error) {
     return actionError(error);
   }
+}
+
+export async function createLeadAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const optional = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value || null;
+  };
+  const parsed = createLeadRequestSchema.safeParse({
+    name: formData.get("name"),
+    company: optional("company"),
+    email: optional("email"),
+    phone: optional("phone"),
+    source: optional("source"),
+    estimatedValue: optional("estimatedValue"),
+    notes: optional("notes"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<Lead>(`/businesses/${businessId}/leads`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/leads`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createOpportunityAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const optional = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value || null;
+  };
+  const parsed = createOpportunityRequestSchema.safeParse({
+    name: formData.get("name"),
+    stage: formData.get("stage") || undefined,
+    probability: optional("probability") ? Number(optional("probability")) : null,
+    amountMinor: optional("amountMinor"),
+    expectedCloseDate: optional("expectedCloseDate"),
+    notes: optional("notes"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<Opportunity>(`/businesses/${businessId}/opportunities`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/opportunities`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createSalesOrderAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = createSalesOrderRequestSchema.safeParse({
+    customerId: formData.get("customerId"),
+    lines: readLinesFromFormData(formData),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<SalesOrder>(`/businesses/${businessId}/sales-orders`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/sales-orders`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createDeliveryNoteAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const descriptions = formData.getAll("description").map(String);
+  const quantities = formData.getAll("quantity").map(String);
+  const parsed = createDeliveryNoteRequestSchema.safeParse({
+    customerId: formData.get("customerId"),
+    lines: descriptions.map((description, i) => ({
+      description,
+      quantity: quantities[i] || "1",
+    })),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<DeliveryNote>(`/businesses/${businessId}/delivery-notes`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/delivery-notes`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createSupplierAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const optional = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value || null;
+  };
+  const paymentTerms = optional("paymentTerms");
+  const parsed = createSupplierRequestSchema.safeParse({
+    name: formData.get("name"),
+    contactName: optional("contactName"),
+    email: optional("email"),
+    phone: optional("phone"),
+    taxId: optional("taxId"),
+    paymentTerms: paymentTerms ? Number(paymentTerms) : null,
+    notes: optional("notes"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<Supplier>(`/businesses/${businessId}/suppliers`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/suppliers`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function deactivateSupplierAction(
+  businessId: string,
+  supplierId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/suppliers/${supplierId}/deactivate`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/suppliers/${supplierId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function confirmSalesOrderAction(
+  businessId: string,
+  salesOrderId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/sales-orders/${salesOrderId}/confirm`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/sales-orders/${salesOrderId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function cancelSalesOrderAction(
+  businessId: string,
+  salesOrderId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/sales-orders/${salesOrderId}/cancel`, {
+      method: "POST",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/sales-orders/${salesOrderId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+function readLinesFromFormData(formData: FormData): Array<Record<string, string>> {
+  const descriptions = formData.getAll("description").map(String);
+  const quantities = formData.getAll("quantity").map(String);
+  const unitPrices = formData.getAll("unitPrice").map(String);
+  const taxRates = formData.getAll("taxRatePercent").map(String);
+  return descriptions.map((description, i) => ({
+    description,
+    quantity: quantities[i] || "1",
+    unitPrice: unitPrices[i] || "0",
+    taxRatePercent: taxRates[i] || "0",
+  }));
 }
