@@ -6,6 +6,17 @@ import { type Payment, paymentStatusLabel } from "@bizo/contracts/payments";
 import { VoidPaymentButton } from "@/components/payment-actions";
 import { apiJson } from "@/lib/api";
 import { formatMoney } from "@/lib/display";
+import { loadWorkspace } from "@/lib/workspace";
+
+/**
+ * Roles holding `payments:reverse` in `BusinessAccessService`.
+ *
+ * Mirrored here so the page does not offer an action the API will refuse. `payments:read` is much
+ * broader — MEMBER, STAFF, ACCOUNTANT and EXTERNAL_AUDITOR can all open this page — and a refused
+ * reverse comes back as a deliberately opaque "not found", which reads as a bug rather than a
+ * permission boundary.
+ */
+const ROLES_THAT_MAY_REVERSE = new Set(["OWNER", "ADMIN"]);
 
 export default async function PaymentDetailPage({
   params,
@@ -13,7 +24,12 @@ export default async function PaymentDetailPage({
   params: Promise<{ businessId: string; paymentId: string }>;
 }) {
   const { businessId, paymentId } = await params;
-  const payment = await apiJson<Payment>(`/businesses/${businessId}/payments/${paymentId}`);
+  const [payment, workspace] = await Promise.all([
+    apiJson<Payment>(`/businesses/${businessId}/payments/${paymentId}`),
+    loadWorkspace(),
+  ]);
+  const role = workspace.businesses.find((business) => business.id === businessId)?.role;
+  const mayReverse = role !== undefined && ROLES_THAT_MAY_REVERSE.has(role);
 
   return (
     <div className="page preview-page">
@@ -89,10 +105,14 @@ export default async function PaymentDetailPage({
         this the reverse endpoint had no route into it from a browser, so a mis-keyed payment
         stayed on the customer's balance permanently.
       */}
-      {payment.status === "COMPLETED" && (
+      {payment.status === "COMPLETED" && mayReverse && (
         <section className="panel" style={{ marginTop: "1rem" }}>
           <h2>Void payment</h2>
-          <VoidPaymentButton businessId={businessId} paymentId={paymentId} />
+          <VoidPaymentButton
+            businessId={businessId}
+            paymentId={paymentId}
+            paymentType={payment.type}
+          />
         </section>
       )}
     </div>
