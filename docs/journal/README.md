@@ -15,6 +15,8 @@ Rules:
 
 ## Entries
 
+- [2026-08-17 — Take over bizOS autonomously: fabrication sweep, beta claims, MMF-2](2026-08-17-take-over-bizos-autonomously-fabrication-sweep-beta-claims-m.md)
+  - Agent: claude-cowork · Status: Ready for review
 - [2026-08-17 — Define the MMF and deliver "Money customers owe"](2026-08-17-define-the-mmf-and-deliver-money-customers-owe.md)
   - Agent: claude-cowork · Status: Ready for review
 - [2026-08-17 — Close the MMF-1 write-back gap and assert A7, A8, A11](2026-08-17-close-the-mmf-1-write-back-gap-and-assert-a7-a8-a11.md)

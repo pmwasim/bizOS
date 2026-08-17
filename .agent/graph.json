@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 171,
-      "testFiles": 53,
+      "sourceFiles": 173,
+      "testFiles": 54,
       "areas": [
         {
           "name": "ai",
@@ -225,8 +225,8 @@
         {
           "name": "statements",
           "path": "apps/api/src/statements",
-          "sourceFiles": 6,
-          "testFiles": 2
+          "sourceFiles": 8,
+          "testFiles": 3
         },
         {
           "name": "storage",
@@ -527,19 +527,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 119,
+      "sourceFiles": 121,
       "testFiles": 4,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 69,
+          "sourceFiles": 70,
           "testFiles": 2
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 39,
+          "sourceFiles": 40,
           "testFiles": 0
         },
         {
