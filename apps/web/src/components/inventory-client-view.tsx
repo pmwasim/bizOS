@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Package, AlertTriangle, Plus, X, BarChart2 } from "lucide-react";
+import { Package, Plus, X } from "lucide-react";
 
 import { type InventoryItem, type InventoryItemType } from "@bizo/contracts/inventory";
+import { ActionMessage } from "@/components/action-message";
 import { formatMoney } from "@/lib/display";
 
 export function InventoryClientView({
@@ -14,9 +15,9 @@ export function InventoryClientView({
   initialItems: InventoryItem[];
 }) {
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
-  const [valuationMethod, setValuationMethod] = useState<"FIFO" | "AVCO">("FIFO");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
 
   // Form State
   const [sku, setSku] = useState("");
@@ -29,69 +30,11 @@ export function InventoryClientView({
   const [taxRatePpm, setTaxRatePpm] = useState(150000); // 15%
   const [reorderLevel, setReorderLevel] = useState(10);
 
-  // Mock initial items if backend list is empty
-  const activeItems = items.length
-    ? items
-    : [
-        {
-          id: "inv-1",
-          sku: "SKU-PRO-001",
-          name: "Industrial Server Rack 42U",
-          description: "Heavy duty steel rack enclosure",
-          itemType: "INVENTORY" as InventoryItemType,
-          unit: "unit",
-          costPriceMinor: "120000",
-          sellingPriceMinor: "185000",
-          taxRatePpm: 150000,
-          reorderLevel: 5,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "inv-2",
-          sku: "SKU-PRO-002",
-          name: "Cat6 Ethernet Patch Cable 5m",
-          description: "High speed network cabling",
-          itemType: "INVENTORY" as InventoryItemType,
-          unit: "pcs",
-          costPriceMinor: "450",
-          sellingPriceMinor: "1200",
-          taxRatePpm: 150000,
-          reorderLevel: 25,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "inv-3",
-          sku: "SKU-SER-001",
-          name: "On-Site Installation Service",
-          description: "Technical setup and deployment labor",
-          itemType: "SERVICE" as InventoryItemType,
-          unit: "hrs",
-          costPriceMinor: "0",
-          sellingPriceMinor: "25000",
-          taxRatePpm: 150000,
-          reorderLevel: null,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-
-  // Calculations for FIFO / AVCO valuation & low stock items
-  const physicalItems = activeItems.filter((i) => i.itemType === "INVENTORY");
-  const lowStockItems = physicalItems.filter((i) => i.reorderLevel !== null && i.reorderLevel > 0);
-
-  const totalCostMinor = physicalItems.reduce(
-    (acc, i) => acc + Number(i.costPriceMinor || "0") * 20, // assuming baseline batch quantity 20
-    0,
-  );
-
-  // FIFO vs AVCO Valuation calculation simulation
-  const _fifoValuationMinor = totalCostMinor;
-  const avcoValuationMinor = Math.round(totalCostMinor * (valuationMethod === "AVCO" ? 0.96 : 1.0));
+  // Stock valuation and low-stock alerts are not derivable yet: InventoryItem records a
+  // reorder level but bizOS has no quantity-on-hand column and no stock-movement ledger, so
+  // there is nothing to value or to compare a threshold against. Both were previously shown
+  // from an assumed batch quantity of 20 and an AVCO factor of 0.96 — invented numbers. They
+  // return with the stock-ledger slice, not before.
 
   async function handleAddItem(e: React.FormEvent) {
     e.preventDefault();
@@ -120,28 +63,14 @@ export function InventoryClientView({
         const newItem: InventoryItem = await res.json();
         setItems((prev) => [newItem, ...prev]);
         setIsModalOpen(false);
-      } else {
-        // Fallback local state add
-        const mockItem: InventoryItem = {
-          id: crypto.randomUUID(),
-          sku: sku || `SKU-${Math.floor(100 + Math.random() * 900)}`,
-          name,
-          description: description || null,
-          itemType,
-          unit: unit || null,
-          costPriceMinor: costPriceMinor || null,
-          sellingPriceMinor: sellingPriceMinor || null,
-          taxRatePpm,
-          reorderLevel: reorderLevel ? Number(reorderLevel) : null,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        setItems((prev) => [mockItem, ...prev]);
-        setIsModalOpen(false);
+        return;
       }
+
+      // The server rejected the item. Adding it to the list anyway would tell the
+      // business it holds stock it does not hold.
+      setError("The item could not be saved. Nothing was added.");
     } catch {
-      setIsModalOpen(false);
+      setError("The item could not be saved — bizOS could not be reached. Nothing was added.");
     } finally {
       setLoading(false);
     }
@@ -151,127 +80,45 @@ export function InventoryClientView({
     <>
       <header className="page-header">
         <div>
-          <h1>Inventory & Stock Engine</h1>
-          <p>Manage product catalog, stock valuation metrics (FIFO/AVCO), and low-stock alerts.</p>
+          <h1>Item catalogue</h1>
+          <p>The products and services you sell, with their prices and tax rates.</p>
         </div>
         <button
           className="button button-primary"
           type="button"
           onClick={() => setIsModalOpen(true)}
         >
-          <Plus aria-hidden="true" size={18} /> Add Stock Item
+          <Plus aria-hidden="true" size={18} /> Add item
         </button>
       </header>
 
-      {/* Summary Valuation Bar */}
-      <div
-        className="stats"
-        style={{ gridTemplateColumns: "1fr 1fr 1.2fr", margin: "1rem 0 2rem" }}
-      >
+      <div className="stats" style={{ gridTemplateColumns: "1fr 1fr", margin: "1rem 0 2rem" }}>
         <a>
           <Package size={28} />
-          <span>Catalog Items</span>
-          <strong>{activeItems.length}</strong>
+          <span>Catalogue items</span>
+          <strong>{items.length}</strong>
         </a>
         <a>
-          <AlertTriangle size={28} style={{ color: "#b54708" }} />
-          <span>Low-Stock Alerts</span>
-          <strong>{lowStockItems.length}</strong>
-        </a>
-        <a>
-          <BarChart2 size={28} />
-          <span>Stock Valuation ({valuationMethod})</span>
-          <strong>{formatMoney(String(avcoValuationMinor), "USD", 2)}</strong>
+          <Package size={28} />
+          <span>Sold as services</span>
+          <strong>{items.filter((item) => item.itemType === "SERVICE").length}</strong>
         </a>
       </div>
 
-      {/* Valuation Engine Selector Toggle */}
-      <div
-        className="panel"
-        style={{
-          background: "var(--surface-subtle)",
-          borderRadius: "var(--radius)",
-          padding: "1.25rem",
-          marginBottom: "2rem",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Stock Valuation Costing Engine</h2>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "0.82rem" }}>
-              Select inventory costing method for total asset calculation
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              type="button"
-              className={`button ${valuationMethod === "FIFO" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setValuationMethod("FIFO")}
-            >
-              FIFO (First-In, First-Out)
-            </button>
-            <button
-              type="button"
-              className={`button ${valuationMethod === "AVCO" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setValuationMethod("AVCO")}
-            >
-              AVCO (Moving Average Cost)
-            </button>
-          </div>
-        </div>
+      <div className="empty-state" style={{ marginBottom: "2rem" }}>
+        <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Stock levels are not tracked yet</h2>
+        <p style={{ margin: "0.4rem 0 0" }}>
+          bizOS records what you sell and what it costs, but it does not yet record how much of it
+          you hold. Stock valuation (FIFO/AVCO) and low-stock alerts need a stock ledger, and will
+          appear here once that ships rather than being estimated in the meantime.
+        </p>
       </div>
-
-      {/* Low-Stock Alert Digest Banner */}
-      {lowStockItems.length > 0 && (
-        <div
-          style={{
-            background: "#fff4ed",
-            border: "1px solid #fecdca",
-            borderRadius: "var(--radius)",
-            padding: "1.25rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-              marginBottom: "0.75rem",
-            }}
-          >
-            <AlertTriangle style={{ color: "#b54708" }} size={22} />
-            <h3 style={{ margin: 0, color: "#b54708", fontSize: "1.05rem" }}>
-              Low Stock Warning: {lowStockItems.length} items require reorder
-            </h3>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-            {lowStockItems.map((item) => (
-              <span
-                key={item.id}
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #fecdca",
-                  borderRadius: "0.5rem",
-                  padding: "0.4rem 0.8rem",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  color: "#b54708",
-                }}
-              >
-                {item.name} ({item.sku}) — Reorder Threshold: {item.reorderLevel}{" "}
-                {item.unit || "pcs"}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Catalog Table */}
       <div className="recent-section">
         <div className="section-heading">
           <h2>Stock Catalog</h2>
-          <small>{activeItems.length} total items</small>
+          <small>{items.length} total items</small>
         </div>
 
         <div className="data-list">
@@ -293,7 +140,16 @@ export function InventoryClientView({
             <span style={{ width: "100px", textAlign: "right" }}>Reorder Lvl</span>
           </div>
 
-          {activeItems.map((item) => (
+          {items.length === 0 && (
+            <div className="data-row">
+              <span className="grow">
+                <strong>No items yet</strong>
+                <small>Add the products and services you sell to build your catalogue.</small>
+              </span>
+            </div>
+          )}
+
+          {items.map((item) => (
             <div className="data-row" key={item.id}>
               <strong style={{ width: "130px" }}>{item.sku}</strong>
               <span className="grow">
@@ -373,6 +229,8 @@ export function InventoryClientView({
                 <X size={18} />
               </button>
             </div>
+
+            <ActionMessage error={error} />
 
             <form onSubmit={handleAddItem} className="form-stack">
               <div className="field-grid">

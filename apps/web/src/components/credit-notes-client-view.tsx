@@ -10,6 +10,7 @@ import {
 } from "@bizo/contracts/credit-notes";
 import { type Customer } from "@bizo/contracts/customers";
 import { type Invoice } from "@bizo/contracts/invoices";
+import { ActionMessage } from "@/components/action-message";
 
 import { formatMoney } from "@/lib/display";
 
@@ -35,6 +36,7 @@ export function CreditNotesClientView({
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(initialCreditNotes);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
 
   // Form State
   const [customerId, setCustomerId] = useState(customers[0]?.id || "");
@@ -105,70 +107,12 @@ export function CreditNotesClientView({
         setCreditNotes((prev) => [created, ...prev]);
         setIsModalOpen(false);
       } else {
-        // Fallback local update if API requires authenticated session in client context
-        const selectedCust = customers.find((c) => c.id === customerId);
-        const refInv = invoices.find((i) => i.id === referenceInvoiceId);
-
-        const subtotal = lines.reduce(
-          (sum, l) => sum + Number(l.quantity) * Number(l.unitPrice) * 100,
-          0,
-        );
-        const tax = lines.reduce(
-          (sum, l) =>
-            sum + (Number(l.quantity) * Number(l.unitPrice) * 100 * Number(l.taxRatePercent)) / 100,
-          0,
-        );
-
-        const mockNote: CreditNote = {
-          id: crypto.randomUUID(),
-          number: `CN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          status: "ISSUED",
-          reason,
-          issueDate,
-          currencyCode: "USD",
-          currencyScale: 2,
-          subtotalMinor: String(Math.round(subtotal)),
-          taxMinor: String(Math.round(tax)),
-          totalMinor: String(Math.round(subtotal + tax)),
-          notes: notes || null,
-          customer: {
-            id: customerId,
-            name: selectedCust?.name || "Customer",
-            email: selectedCust?.email || null,
-            phone: selectedCust?.phone || null,
-          },
-          referenceInvoice: refInv ? { id: refInv.id, number: refInv.number } : null,
-          lines: lines.map((l, index) => ({
-            position: index + 1,
-            description: l.description,
-            quantity: l.quantity,
-            unitPriceMinor: String(Math.round(Number(l.unitPrice) * 100)),
-            taxRatePpm: Number(l.taxRatePercent) * 10000,
-            subtotalMinor: String(Math.round(Number(l.quantity) * Number(l.unitPrice) * 100)),
-            taxMinor: String(
-              Math.round(
-                (Number(l.quantity) * Number(l.unitPrice) * 100 * Number(l.taxRatePercent)) / 100,
-              ),
-            ),
-            totalMinor: String(
-              Math.round(
-                Number(l.quantity) *
-                  Number(l.unitPrice) *
-                  100 *
-                  (1 + Number(l.taxRatePercent) / 100),
-              ),
-            ),
-          })),
-          allocations: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        setCreditNotes((prev) => [mockNote, ...prev]);
-        setIsModalOpen(false);
+        // A credit note reduces what a customer owes, and receivables now net issued credit
+        // notes off each invoice. Inventing one here would understate real debt.
+        setError("The credit note could not be issued. Nothing was created.");
       }
     } catch {
-      setIsModalOpen(false);
+      setError("The credit note could not be issued — bizOS could not be reached.");
     } finally {
       setLoading(false);
     }
@@ -301,6 +245,8 @@ export function CreditNotesClientView({
                 <X size={18} />
               </button>
             </div>
+
+            <ActionMessage error={error} />
 
             <form onSubmit={handleCreateCreditNote} className="form-stack">
               <label className="field">

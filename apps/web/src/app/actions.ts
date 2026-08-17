@@ -13,6 +13,7 @@ import { createDeliveryNoteRequestSchema, type DeliveryNote } from "@bizo/contra
 import {
   createLeadRequestSchema,
   createOpportunityRequestSchema,
+  opportunityStageSchema,
   type Lead,
   type Opportunity,
 } from "@bizo/contracts/crm";
@@ -1020,4 +1021,35 @@ function readLinesFromFormData(formData: FormData): Array<Record<string, string>
     unitPrice: unitPrices[i] || "0",
     taxRatePercent: taxRates[i] || "0",
   }));
+}
+
+export async function convertLeadAction(businessId: string, leadId: string): Promise<ActionState> {
+  try {
+    await apiJson<Lead>(`/businesses/${businessId}/leads/${leadId}/convert`, {
+      method: "POST",
+      body: "{}",
+    });
+    return {};
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateOpportunityStageAction(
+  businessId: string,
+  opportunityId: string,
+  stage: string,
+): Promise<ActionState> {
+  const parsed = opportunityStageSchema.safeParse(stage);
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<Opportunity>(`/businesses/${businessId}/opportunities/${opportunityId}`, {
+      method: "PUT",
+      body: JSON.stringify({ stage: parsed.data }),
+    });
+    return {};
+  } catch (error) {
+    return actionError(error);
+  }
 }
