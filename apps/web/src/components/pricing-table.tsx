@@ -15,7 +15,7 @@ interface PlanTier {
   description: string;
   intendedCustomer: string;
   price: Record<CountryCode, { monthly: number; annual: number; currency: string; symbol: string }>;
-  features: string[];
+  features: Array<string | { label: string; beta: true }>;
 }
 
 const PLANS: PlanTier[] = [
@@ -53,7 +53,9 @@ const PLANS: PlanTier[] = [
       "100 business documents / month",
       "Customers & quotations",
       "Invoices & payment recording",
-      "Customer statements & ledger views",
+      // Beta until MMF-1 is verified against real data in a deployed environment.
+      // See docs/mmf.md, "Claim readiness".
+      { label: "Customer statements & ledger views", beta: true },
       "Standard email support",
     ],
   },
@@ -200,18 +202,31 @@ export function PricingTable() {
               <div className="pricing-features">
                 <div className="features-title">What&apos;s included:</div>
                 <ul className="features-list">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx}>
-                      <Check className="feature-check" size={16} aria-hidden="true" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
+                  {plan.features.map((feature, idx) => {
+                    const label = typeof feature === "string" ? feature : feature.label;
+                    const beta = typeof feature !== "string";
+                    return (
+                      <li key={idx}>
+                        <Check className="feature-check" size={16} aria-hidden="true" />
+                        <span>
+                          {label}
+                          {beta ? <span className="feature-beta"> — beta</span> : null}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
           );
         })}
       </div>
+
+      <p className="pricing-beta-note">
+        Features marked <strong>beta</strong> are built and usable, but have not yet been verified
+        against real business data in a deployed environment. They are included in the plan price,
+        and we will tell you before relying on them for anything you cannot re-check by hand.
+      </p>
     </div>
   );
 }

@@ -160,4 +160,12 @@ fabricated number on screen: the document says something the product has not sho
 
 The pricing-page claim in the Starter plan is only honest once this MMF passes its acceptance
 criteria against real data in a deployed environment. Until that evidence is recorded, the claim
-should read as beta scope, not as a shipped capability.
+reads as beta scope rather than as a shipped capability.
+
+**Status: resolved as of 2026-08-17.** "Customer statements & ledger views" is marked `beta` in the
+Starter plan, and `pricing-table.tsx` carries a note defining what beta means — built and usable,
+not yet verified against real business data. The marker comes off when the deployed-data evidence
+lands in
+[invoice-vertical-slice-production-evidence.md](operations/invoice-vertical-slice-production-evidence.md),
+not before. `PricingPlan.features` accepts `{ label, beta: true }` so the next unverified claim has
+somewhere honest to go.
