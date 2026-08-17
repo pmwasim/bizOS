@@ -14,6 +14,7 @@ import {
   Target,
   Truck,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -53,6 +54,12 @@ function buildNavItems(modules: EnabledModuleSummary[]): NavItem[] {
     const entry = MODULE_NAV[moduleSummary.code];
     if (!entry) continue;
     items.push({ href: entry.href, label: entry.label, icon: entry.icon });
+  }
+  // Receivables and account statements are the read side of the payments module — they are
+  // authorized by payments:read and have no module code of their own, so they follow that module
+  // into the nav rather than being reachable only by typing the URL.
+  if (modules.some((moduleSummary) => moduleSummary.code === "payments")) {
+    items.push({ href: "/statements", label: "Money Owed", icon: Wallet });
   }
   items.push({ href: "/settings", label: "Settings", icon: Settings });
   return items;
