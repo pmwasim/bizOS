@@ -14,6 +14,7 @@ a handbook statement must update the relevant document in the same pull request.
 - [Vision](vision.md)
 - [Product and delivery baseline](product-delivery-baseline.md)
 - [MVP module delivery plan](mvp-module-plan.md)
+- [Minimum Marketable Feature](mmf.md)
 - [Country compliance delivery plan](country-compliance-plan.md)
 - [Operating and access governance](operating-access-governance.md)
 - [ERPNext/Frappe local foundation runbook](../ops/erpnext/README.md)

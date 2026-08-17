@@ -15,6 +15,10 @@ Rules:
 
 ## Entries
 
+- [2026-08-17 — Define the MMF and deliver "Money customers owe"](2026-08-17-define-the-mmf-and-deliver-money-customers-owe.md)
+  - Agent: claude-cowork · Status: Ready for review
+- [2026-08-17 — Close the MMF-1 write-back gap and assert A7, A8, A11](2026-08-17-close-the-mmf-1-write-back-gap-and-assert-a7-a8-a11.md)
+  - Agent: claude-cowork · Status: Ready for review
 - [2026-08-15 — Stabilize PR81 for production release](2026-08-15-stabilize-pr81-for-production-release.md)
   - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Prevent cumulative payment over-allocation across completed payments (Issue #59)](2026-08-15-prevent-cumulative-payment-over-allocation-across-completed-.md)
