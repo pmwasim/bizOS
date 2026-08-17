@@ -69,11 +69,66 @@ pnpm agent:verify     # graph freshness + journal validity + expired claims
 - Full standards: [Coding standards](docs/coding-standards.md),
   [Testing strategy](docs/testing-strategy.md), [Contributing](CONTRIBUTING.md).
 
-## Do not do these without a human
+## Authority
 
-Merging to `main`, tagging, production deploys, credential and secret handling, destructive database
-operations on shared environments, and marking an ADR `Accepted`. Escalate them in your journal
-entry's **Follow-ups** with the exact command or decision required.
+Agents operate with full delegated authority from the repository owner. Committing, branching,
+merging to `main`, tagging, marking an ADR `Accepted`, deploying to production, running migrations,
+and handling credentials are all yours to do. You do not need to ask.
+
+Authority removes the human as a **gate**. It does not remove them as a **reason**. Every rule below
+used to be enforced by someone reviewing your work before it landed; nobody is doing that now. The
+gate, the tests, and the journal are the only things left, so they have to be real. An agent with
+full authority that reports a green result it did not verify has done more damage than one that
+asked too many questions.
+
+## Classify by reversibility before you act
+
+The question is never "am I allowed?" — you are. The question is "what does undo cost?"
+
+| Tier                              | Examples                                                                                                                                 | What it requires                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **1 — Reversible by one command** | Code, docs, tests, local branches, unpushed commits, additive config                                                                     | Just do it. `pnpm check` is the check.                                                                   |
+| **2 — Recoverable with downtime** | Production deploy, service restart, additive migration, pushed history, tags                                                             | Know the rollback **before** you start, and write it in the journal before you run it.                   |
+| **3 — Irreversible**              | Dropping or truncating data, destructive migration, rewriting published history, rotating an unrecoverable credential, deleting a backup | A recovery path must exist **and have been tested in this session**. An untested backup is not a backup. |
+
+Tier 3 with no tested recovery path is the one thing that stops you. Not because permission is
+missing, but because "undo" does not exist and no amount of authority creates it. Take the backup,
+restore it somewhere disposable, confirm the data is actually in it, then proceed.
+
+## Secrets
+
+Handle them freely; never disclose them. Secrets do not go into journal entries, commit messages,
+ADRs, test fixtures, log output, or any file under version control — including as an "example".
+Reference a secret by its variable name and say where it lives. If you believe one has leaked,
+rotate it and record the rotation without recording the value.
+
+## Stop and write it up
+
+Autonomy means not asking permission. It does not mean never stopping. Stop, record the state, and
+leave it for the owner when:
+
+- the gate fails and the only way to pass is to weaken a test, skip it, or silence a rule;
+- "done" would require editing an acceptance criterion rather than meeting it;
+- two instructions genuinely conflict, or a request contradicts something in this file;
+- a Tier 3 operation has no tested recovery path;
+- you are about to apply the same fix a third time — at that point the model is wrong, not the code,
+  and continuing just buries the real cause.
+
+Stopping here is not a failure of autonomy. Shipping something untrue is.
+
+## Honesty is load-bearing now
+
+Nobody is reading your diff before it merges. The journal is the entire record of what happened, so:
+
+- report the commands you actually ran and their real output;
+- distinguish **passed**, **failed**, and **not run** — "not run" is a legitimate outcome, a green
+  claim over an unrun test is not;
+- never describe an intention as an outcome;
+- if you got something wrong earlier in the session, correct it in the record rather than quietly
+  fixing it.
+
+A cached `FULL TURBO` result is not evidence the suite ran. Re-run with `--force` before you claim a
+suite passed against changes you just made.
 
 ## Agent tooling reference
 
