@@ -60,6 +60,7 @@ function buildNavItems(modules: EnabledModuleSummary[]): NavItem[] {
   // into the nav rather than being reachable only by typing the URL.
   if (modules.some((moduleSummary) => moduleSummary.code === "payments")) {
     items.push({ href: "/statements", label: "Money Owed", icon: Wallet });
+    items.push({ href: "/payables", label: "Bills to Pay", icon: Wallet });
   }
   items.push({ href: "/settings", label: "Settings", icon: Settings });
   return items;

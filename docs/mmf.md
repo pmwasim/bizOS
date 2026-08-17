@@ -169,3 +169,84 @@ lands in
 [invoice-vertical-slice-production-evidence.md](operations/invoice-vertical-slice-production-evidence.md),
 not before. `PricingPlan.features` accepts `{ label, beta: true }` so the next unverified claim has
 somewhere honest to go.
+
+---
+
+## MMF-2 — "Money you owe suppliers"
+
+Status: In delivery
+
+### The claim
+
+> **See exactly which supplier bills are approved and unpaid, what they come to, and how overdue
+> they are — from the bills you already recorded in bizOS.**
+
+### Why this one
+
+MMF-1 answers "who owes me". A small business that can answer that and not "what do I owe" still
+cannot decide whether it can pay itself this month. Supplier bills are already recorded: the
+procurement module writes them as `Document` rows with `type = SUPPLIER_BILL`, with a supplier, a
+bill date, a due date and a total.
+
+It also removes a placeholder. The statements surface previously rendered a supplier statement
+entirely from constants (`BILL-2001 / 85000`); MMF-1 deleted it rather than repair it, on the basis
+that payables is a separate claim that gets its own slice. This is that slice.
+
+### The constraint this MMF must not hide
+
+bizOS has no supplier payment. `Payment.type` has an `OUTBOUND` value and `PaymentAllocation` could
+carry it, but nothing writes one: `payments.service.ts` allocates against `type: "INVOICE"` only.
+Settlement of a supplier bill is therefore expressed by the bill's own status — `APPROVED` (mapped
+from `DocumentStatus.SENT`) is outstanding, `PAID` is settled.
+
+**A bill is therefore all-or-nothing. Partial payment cannot be represented.** That is a real
+limitation, and the surface says so rather than implying the figures account for part-payments.
+Inventing a partial settlement to make the number look precise is exactly the failure test 4 exists
+to catch.
+
+### In scope
+
+1. **Payables summary for the business.** Every supplier with at least one approved, unpaid bill:
+   amount outstanding, amount overdue, count of open bills, oldest due date, and a five-bucket
+   ageing breakdown computed per bill from that bill's own due date. Business totals across
+   suppliers.
+2. **Honest currency.** Reported in the business base currency at the business scale. Bills in any
+   other currency are excluded from the totals and those currencies named, never converted.
+3. **A real path from the browser to the API.** Server-rendered from the API response, with a
+   visible error state when the read fails.
+4. **An explicit statement of the all-or-nothing limitation** on the surface itself.
+
+### Out of scope, and named
+
+- partial settlement of a supplier bill, and outbound payment recording generally;
+- a supplier account statement with an opening balance carried forward — that needs settlement
+  events with dates, which do not exist yet;
+- multi-currency consolidation at an exchange rate;
+- payment scheduling, batching, or remittance advice;
+- PDF export and email delivery.
+
+### Acceptance criteria
+
+| #   | Criterion                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ |
+| B1  | Only `APPROVED` bills are payables. Draft and cancelled bills never appear, and paid bills contribute nothing.                 |
+| B2  | Ageing buckets are derived from each bill's own due date against the as-of date: not yet due, 1–30, 31–60, 61–90, over 90.     |
+| B3  | A bill with no due date is aged from its bill date, and never silently treated as not yet due.                                 |
+| B4  | Bucket amounts sum exactly to the outstanding total; no rounding, apportioning, or estimation.                                 |
+| B5  | Bills dated after the as-of date are excluded.                                                                                 |
+| B6  | Amounts are reported in the business base currency and scale; other currencies are excluded and named, never summed.           |
+| B7  | Suppliers are grouped, and the supplier with the largest outstanding balance leads.                                            |
+| B8  | Every role holding `payments:read` can read the view; no other role can, and it never crosses a business boundary.             |
+| B9  | When the API cannot be reached the surface reports the failure. No fallback, illustrative, or example figure is ever rendered. |
+
+### Verification
+
+The quality gate (`pnpm check`) plus unit tests. B1–B8 are asserted in
+`apps/api/src/statements/payables.service.spec.ts`, reusing the pure bucket rules already covered by
+`ageing.spec.ts`. B9 is asserted by the absence of any fallback branch: the surface is
+server-rendered, so no client error path exists.
+
+### Claim readiness
+
+Same rule as MMF-1. The claim is beta scope until it is verified against real data in a deployed
+environment.

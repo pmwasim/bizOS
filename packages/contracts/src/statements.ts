@@ -142,3 +142,47 @@ export const receivablesQuerySchema = z.object({
 });
 
 export type ReceivablesQuery = z.infer<typeof receivablesQuerySchema>;
+
+/** One supplier's position in the payables summary. */
+export const payableSupplierSchema = z.object({
+  supplierId: z.string(),
+  supplierName: z.string(),
+  outstandingMinor: z.number().int().nonnegative(),
+  overdueMinor: z.number().int().nonnegative(),
+  openBillCount: z.number().int().nonnegative(),
+  /** Due date of the oldest unpaid bill, or null when nothing is outstanding. */
+  oldestDueDate: dateOnlySchema.nullable(),
+  buckets: ageingBucketsSchema,
+});
+
+export type PayableSupplier = z.infer<typeof payableSupplierSchema>;
+
+/**
+ * Everything the business owes its suppliers, as of a date.
+ *
+ * A supplier bill is settled all-or-nothing: bizOS records no outbound payment, so a bill is either
+ * APPROVED (fully outstanding) or PAID (fully settled). `partialSettlementSupported` is false and
+ * exists so the surface states that limitation rather than implying these totals net part-payments.
+ *
+ * `otherCurrencies` names the currencies deliberately left out of the totals, for the same reason
+ * as receivables: there is no exchange rate source (ADR-0024).
+ */
+export const payablesSummarySchema = z.object({
+  asOf: dateOnlySchema,
+  currency: currencySchema,
+  currencyScale: currencyScaleSchema,
+  totalOutstandingMinor: z.number().int().nonnegative(),
+  totalOverdueMinor: z.number().int().nonnegative(),
+  buckets: ageingBucketsSchema,
+  suppliers: z.array(payableSupplierSchema),
+  otherCurrencies: z.array(currencySchema),
+  partialSettlementSupported: z.literal(false),
+});
+
+export type PayablesSummary = z.infer<typeof payablesSummarySchema>;
+
+export const payablesQuerySchema = z.object({
+  asOf: dateOnlySchema.optional(),
+});
+
+export type PayablesQuery = z.infer<typeof payablesQuerySchema>;
