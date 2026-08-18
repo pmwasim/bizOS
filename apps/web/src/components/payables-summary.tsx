@@ -24,13 +24,26 @@ export function PayablesSummaryPanel({ summary }: { summary: PayablesSummary }) 
   const money = (amountMinor: string) => formatMoney(amountMinor, currency, currencyScale);
 
   if (BigInt(summary.totalOutstandingMinor) === 0n) {
+    // A zero base-currency total does not mean nothing is owed — bills in other currencies are
+    // excluded from it. Claiming "all settled" here would hide that foreign-currency debt, so the
+    // exclusion warning still shows and the copy is scoped to the base currency.
+    const hasExcludedCurrencies = summary.otherCurrencies.length > 0;
     return (
       <div className="empty-state">
         <CheckCircle2 aria-hidden="true" size={30} />
-        <h2>Nothing outstanding</h2>
+        <h2>
+          {hasExcludedCurrencies ? `Nothing outstanding in ${currency}` : "Nothing outstanding"}
+        </h2>
         <p>
-          No approved supplier bill is unpaid as of {summary.asOf}. Amounts are shown in {currency}.
+          No {currency} supplier bill is unpaid as of {summary.asOf}.
         </p>
+        {hasExcludedCurrencies ? (
+          <p role="note">
+            This business also has bills in {summary.otherCurrencies.join(", ")}, which are not
+            included in this total — bizOS does not convert between currencies yet, so it cannot say
+            whether those are settled.
+          </p>
+        ) : null}
       </div>
     );
   }
