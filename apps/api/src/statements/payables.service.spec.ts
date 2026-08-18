@@ -37,6 +37,7 @@ function buildService(options: {
   bills?: unknown[];
   baseCurrency?: string;
   currencyScale?: number;
+  timeZone?: string;
 }) {
   const documentFindMany = vi.fn().mockResolvedValue(options.bills ?? []);
 
@@ -45,6 +46,7 @@ function buildService(options: {
       findFirst: vi.fn().mockResolvedValue({
         baseCurrency: options.baseCurrency ?? "SAR",
         currencyScale: options.currencyScale ?? 2,
+        timeZone: options.timeZone ?? "UTC",
       }),
     },
     document: { findMany: documentFindMany },
@@ -200,5 +202,18 @@ describe("PayablesService.payables", () => {
     // The flag exists so the surface can say that rather than implying these totals net
     // part-payments.
     expect(summary.partialSettlementSupported).toBe(false);
+  });
+
+  it("defaults the as-of date to the business timezone, not UTC", async () => {
+    vi.useFakeTimers();
+    // 22:30 UTC on 2026-06-30 is already 2026-07-01 in Riyadh; a UTC default would age a day behind
+    // and exclude bills dated today in the business's own timezone.
+    vi.setSystemTime(new Date("2026-06-30T22:30:00.000Z"));
+    const { service } = buildService({ timeZone: "Asia/Riyadh" });
+
+    const summary = await service.payables("user-1", "biz-1");
+
+    expect(summary.asOf).toBe("2026-07-01");
+    vi.useRealTimers();
   });
 });

@@ -19,6 +19,7 @@ import {
   addBuckets,
   type AgeableInvoice,
   ageInvoices,
+  businessToday,
   compareMinorDesc,
   emptyAgeingBuckets,
   overdueTotal,
@@ -74,6 +75,7 @@ interface CreditNoteAllocationRow {
 interface BusinessCurrencyRow {
   baseCurrency: string;
   currencyScale: number;
+  timeZone: string;
 }
 
 /** A ledger entry before the running balance is applied. */
@@ -137,13 +139,15 @@ export class StatementsService {
     query: ReceivablesQuery = {},
   ): Promise<ReceivablesSummary> {
     const access = await this.authorize(userPublicId, businessPublicId, "read");
-    const asOf = query.asOf ?? today();
 
     return this.database.withScope(access, async (transaction) => {
-      const { baseCurrency, currencyScale } = await this.readBusinessCurrency(
+      const { baseCurrency, currencyScale, timeZone } = await this.readBusinessCurrency(
         transaction,
         access.businessId,
       );
+      // Default to the business's own civil date, not UTC, so a document created today in a non-UTC
+      // timezone is not excluded by an as-of date that is still yesterday (see businessToday).
+      const asOf = query.asOf ?? businessToday(timeZone);
       const { invoices, otherCurrencies } = await this.load(transaction, access.businessId, {
         baseCurrency,
         asOf,
@@ -215,7 +219,6 @@ export class StatementsService {
     const access = await this.authorize(userPublicId, businessPublicId, "read");
     const periodStart = query.startDate ?? null;
     const periodEnd = query.endDate ?? null;
-    const asOf = periodEnd ?? today();
 
     return this.database.withScope(access, async (transaction) => {
       const customer = (await transaction.customer.findFirst({
@@ -229,10 +232,13 @@ export class StatementsService {
         });
       }
 
-      const { baseCurrency, currencyScale } = await this.readBusinessCurrency(
+      const { baseCurrency, currencyScale, timeZone } = await this.readBusinessCurrency(
         transaction,
         access.businessId,
       );
+      // With no period end, age as of the business's own civil date rather than UTC's, so today's
+      // documents in a non-UTC timezone are not dropped (see businessToday).
+      const asOf = periodEnd ?? businessToday(timeZone);
       const { entries, invoices, otherCurrencies } = await this.load(
         transaction,
         access.businessId,
@@ -457,7 +463,7 @@ export class StatementsService {
   ): Promise<BusinessCurrencyRow> {
     const business = (await transaction.business.findFirst({
       where: { id: businessId },
-      select: { baseCurrency: true, currencyScale: true },
+      select: { baseCurrency: true, currencyScale: true, timeZone: true },
     })) as BusinessCurrencyRow | null;
 
     if (!business) {
@@ -491,8 +497,4 @@ function toAgeable(invoice: SettledInvoice): AgeableInvoice {
     dueDate: invoice.payableFrom,
     outstandingMinor: outstanding > 0n ? outstanding : 0n,
   };
-}
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
 }

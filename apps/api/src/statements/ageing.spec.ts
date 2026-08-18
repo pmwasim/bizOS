@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   addBuckets,
   ageInvoices,
   bucketFor,
+  businessToday,
   compareMinorDesc,
   daysPastDue,
   overdueTotal,
@@ -90,6 +91,22 @@ describe("addBuckets", () => {
       days61To90Minor: "0",
       daysOver90Minor: "200",
     });
+  });
+});
+
+describe("businessToday", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns the business civil date, which differs from UTC near midnight", () => {
+    vi.useFakeTimers();
+    // 22:30 UTC on 2026-06-30 is already 01:30 on 2026-07-01 in Riyadh (UTC+3). A UTC-derived
+    // default would age against 2026-06-30 and drop a bill dated today in Riyadh.
+    vi.setSystemTime(new Date("2026-06-30T22:30:00.000Z"));
+
+    expect(businessToday("UTC")).toBe("2026-06-30");
+    expect(businessToday("Asia/Riyadh")).toBe("2026-07-01");
   });
 });
 

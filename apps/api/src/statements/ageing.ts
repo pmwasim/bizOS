@@ -23,6 +23,27 @@ export function toDateOnly(value: Date): string {
 }
 
 /**
+ * Today's civil date in the business's own timezone, as `YYYY-MM-DD`.
+ *
+ * The default as-of date must be the business's date, not UTC's. Near midnight in a non-UTC
+ * timezone (e.g. Asia/Riyadh, UTC+3) `new Date().toISOString()` is still the previous day, which
+ * would exclude documents dated today from receivables, payables, and statements. This derives the
+ * date the same way document creation does (the `localDate` helpers in the document services), so a
+ * default statement and a freshly created document agree on what "today" is.
+ */
+export function businessToday(timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value;
+  return `${read("year")}-${read("month")}-${read("day")}`;
+}
+
+/**
  * Whole days `asOf` is past `dueDate`. Zero or negative means the invoice is not due yet, so an
  * invoice due today is not late today — it becomes one day late tomorrow.
  */

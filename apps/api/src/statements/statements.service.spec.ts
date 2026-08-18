@@ -88,6 +88,7 @@ function buildService(options: {
   creditNotes?: unknown[];
   baseCurrency?: string;
   currencyScale?: number;
+  timeZone?: string;
 }) {
   const documentFindMany = vi.fn().mockResolvedValue(options.invoices ?? []);
   const allocationFindMany = vi.fn().mockResolvedValue(options.payments ?? []);
@@ -98,6 +99,7 @@ function buildService(options: {
       findFirst: vi.fn().mockResolvedValue({
         baseCurrency: options.baseCurrency ?? "SAR",
         currencyScale: options.currencyScale ?? 2,
+        timeZone: options.timeZone ?? "UTC",
       }),
     },
     customer: {
@@ -679,5 +681,18 @@ describe("StatementsService.receivables", () => {
     await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
     expect(assertAllowed).toHaveBeenCalledWith(expect.anything(), "payments", "read");
+  });
+
+  it("defaults the as-of date to the business timezone, not UTC", async () => {
+    vi.useFakeTimers();
+    // 22:30 UTC on 2026-06-30 is already 2026-07-01 in Riyadh; a UTC default would age a day behind
+    // and exclude documents dated today in the business's own timezone.
+    vi.setSystemTime(new Date("2026-06-30T22:30:00.000Z"));
+    const { service } = buildService({ timeZone: "Asia/Riyadh" });
+
+    const summary = await service.receivables("user-1", "biz-1");
+
+    expect(summary.asOf).toBe("2026-07-01");
+    vi.useRealTimers();
   });
 });

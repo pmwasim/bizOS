@@ -12,6 +12,7 @@ import {
   addBuckets,
   type AgeableInvoice,
   ageInvoices,
+  businessToday,
   compareMinorDesc,
   emptyAgeingBuckets,
   overdueTotal,
@@ -54,6 +55,7 @@ interface BillRow {
 interface BusinessCurrencyRow {
   baseCurrency: string;
   currencyScale: number;
+  timeZone: string;
 }
 
 /** What the business owes its suppliers, aged per bill. */
@@ -72,13 +74,14 @@ export class PayablesService {
     const access = await this.businessAccess.resolve(userPublicId, businessPublicId);
     await this.businessAccess.assertAllowed(access, "payments", "read");
 
-    const asOf = query.asOf ?? today();
-
     return this.database.withScope(access, async (transaction) => {
-      const { baseCurrency, currencyScale } = await this.readBusinessCurrency(
+      const { baseCurrency, currencyScale, timeZone } = await this.readBusinessCurrency(
         transaction,
         access.businessId,
       );
+      // Default to the business's own civil date, not UTC, so a bill dated today in a non-UTC
+      // timezone is not excluded by an as-of date that is still yesterday (see businessToday).
+      const asOf = query.asOf ?? businessToday(timeZone);
 
       const billRows = (await transaction.document.findMany({
         where: {
@@ -174,7 +177,7 @@ export class PayablesService {
   ): Promise<BusinessCurrencyRow> {
     const business = (await transaction.business.findFirst({
       where: { id: businessId },
-      select: { baseCurrency: true, currencyScale: true },
+      select: { baseCurrency: true, currencyScale: true, timeZone: true },
     })) as BusinessCurrencyRow | null;
 
     if (!business) {
@@ -186,8 +189,4 @@ export class PayablesService {
 
     return business;
   }
-}
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
 }
