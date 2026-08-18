@@ -99,15 +99,15 @@ describe("PayablesService.payables", () => {
     const summary = await service.payables("user-1", "biz-1", { asOf: AS_OF });
 
     expect(summary.buckets).toEqual({
-      notDueMinor: 10000,
-      days1To30Minor: 20000,
-      days31To60Minor: 30000,
-      days61To90Minor: 40000,
-      daysOver90Minor: 50000,
+      notDueMinor: "10000",
+      days1To30Minor: "20000",
+      days31To60Minor: "30000",
+      days61To90Minor: "40000",
+      daysOver90Minor: "50000",
     });
     // Buckets are sums of whole bills, so they reconcile exactly to the total (B4).
-    expect(summary.totalOutstandingMinor).toBe(150000);
-    expect(summary.totalOverdueMinor).toBe(140000);
+    expect(summary.totalOutstandingMinor).toBe("150000");
+    expect(summary.totalOverdueMinor).toBe("140000");
   });
 
   it("ages a bill with no due date from its bill date (B3)", async () => {
@@ -118,8 +118,8 @@ describe("PayablesService.payables", () => {
     const summary = await service.payables("user-1", "biz-1", { asOf: AS_OF });
 
     // Treating a missing due date as "not yet due" would file the oldest debt in the safest bucket.
-    expect(summary.buckets.notDueMinor).toBe(0);
-    expect(summary.buckets.daysOver90Minor).toBe(70000);
+    expect(summary.buckets.notDueMinor).toBe("0");
+    expect(summary.buckets.daysOver90Minor).toBe("70000");
   });
 
   it("excludes bills dated after the as-of date (B5)", async () => {
@@ -129,7 +129,7 @@ describe("PayablesService.payables", () => {
 
     const summary = await service.payables("user-1", "biz-1", { asOf: AS_OF });
 
-    expect(summary.totalOutstandingMinor).toBe(0);
+    expect(summary.totalOutstandingMinor).toBe("0");
     expect(summary.suppliers).toEqual([]);
   });
 
@@ -151,7 +151,7 @@ describe("PayablesService.payables", () => {
 
     // There is no rate source, so a USD bill is named rather than summed at an implied 1:1 rate.
     expect(summary.currency).toBe("SAR");
-    expect(summary.totalOutstandingMinor).toBe(10000);
+    expect(summary.totalOutstandingMinor).toBe("10000");
     expect(summary.otherCurrencies).toEqual(["USD"]);
   });
 
@@ -175,10 +175,10 @@ describe("PayablesService.payables", () => {
       "Apex Cabling",
       "Delta Supplies",
     ]);
-    expect(summary.suppliers[1]!.outstandingMinor).toBe(15000);
+    expect(summary.suppliers[1]!.outstandingMinor).toBe("15000");
     expect(summary.suppliers[1]!.openBillCount).toBe(2);
     expect(summary.suppliers[1]!.oldestDueDate).toBe("2026-04-30");
-    expect(summary.totalOutstandingMinor).toBe(85000);
+    expect(summary.totalOutstandingMinor).toBe("85000");
   });
 
   it("requires payments:read (B8)", async () => {

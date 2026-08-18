@@ -28,9 +28,9 @@ export function ReceivablesSummaryPanel({
   summary: ReceivablesSummary;
 }) {
   const { currency, currencyScale } = summary;
-  const money = (amountMinor: number) => formatMoney(String(amountMinor), currency, currencyScale);
+  const money = (amountMinor: string) => formatMoney(amountMinor, currency, currencyScale);
 
-  if (summary.totalOutstandingMinor === 0) {
+  if (BigInt(summary.totalOutstandingMinor) === 0n) {
     return (
       <div className="empty-state">
         <CheckCircle2 aria-hidden="true" size={30} />
@@ -87,7 +87,7 @@ export function ReceivablesSummaryPanel({
                 {customer.oldestDueDate ? `, oldest due ${customer.oldestDueDate}` : ""}
               </small>
             </span>
-            <span>{customer.overdueMinor > 0 ? money(customer.overdueMinor) : "—"}</span>
+            <span>{BigInt(customer.overdueMinor) > 0n ? money(customer.overdueMinor) : "—"}</span>
             <span>
               <strong>{money(customer.outstandingMinor)}</strong>
             </span>

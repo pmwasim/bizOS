@@ -18,7 +18,7 @@ const LINE_LABEL: Record<StatementLineType, string> = {
  */
 export function CustomerStatementPanel({ statement }: { statement: CustomerStatement }) {
   const { currency, currencyScale } = statement;
-  const money = (amountMinor: number) => formatMoney(String(amountMinor), currency, currencyScale);
+  const money = (amountMinor: string) => formatMoney(amountMinor, currency, currencyScale);
 
   const period =
     statement.periodStart || statement.periodEnd
@@ -92,8 +92,8 @@ export function CustomerStatementPanel({ statement }: { statement: CustomerState
                   {item.dueDate ? ` · due ${item.dueDate}` : ""}
                 </small>
               </span>
-              <span>{item.debitMinor ? money(item.debitMinor) : "—"}</span>
-              <span>{item.creditMinor ? money(item.creditMinor) : "—"}</span>
+              <span>{BigInt(item.debitMinor) > 0n ? money(item.debitMinor) : "—"}</span>
+              <span>{BigInt(item.creditMinor) > 0n ? money(item.creditMinor) : "—"}</span>
               <span>
                 <strong>{money(item.balanceMinor)}</strong>
               </span>

@@ -198,12 +198,15 @@ describe("StatementsService.customer", () => {
       "CN-001",
     ]);
     expect(statement.items.map((item) => item.balanceMinor)).toEqual([
-      100000, 60000, 110000, 100000,
+      "100000",
+      "60000",
+      "110000",
+      "100000",
     ]);
-    expect(statement.totalInvoicedMinor).toBe(150000);
-    expect(statement.totalPaidMinor).toBe(40000);
-    expect(statement.totalCreditedMinor).toBe(10000);
-    expect(statement.closingBalanceMinor).toBe(100000);
+    expect(statement.totalInvoicedMinor).toBe("150000");
+    expect(statement.totalPaidMinor).toBe("40000");
+    expect(statement.totalCreditedMinor).toBe("10000");
+    expect(statement.closingBalanceMinor).toBe("100000");
   });
 
   it("orders an invoice before a payment received the same day", async () => {
@@ -227,7 +230,7 @@ describe("StatementsService.customer", () => {
     });
 
     expect(statement.items.map((item) => item.type)).toEqual(["INVOICE", "PAYMENT"]);
-    expect(statement.items.map((item) => item.balanceMinor)).toEqual([30000, 0]);
+    expect(statement.items.map((item) => item.balanceMinor)).toEqual(["30000", "0"]);
   });
 
   it("carries a balance from before the period into the opening balance", async () => {
@@ -254,9 +257,9 @@ describe("StatementsService.customer", () => {
 
     // The period shows only the April invoice, but the customer walked into April owing 60000, so
     // dropping the earlier lines must not drop the balance they produced.
-    expect(statement.openingBalanceMinor).toBe(60000);
+    expect(statement.openingBalanceMinor).toBe("60000");
     expect(statement.items.map((item) => item.referenceNumber)).toEqual(["INV-002"]);
-    expect(statement.closingBalanceMinor).toBe(85000);
+    expect(statement.closingBalanceMinor).toBe("85000");
     expect(statement.periodStart).toBe("2026-04-01");
   });
 
@@ -282,7 +285,7 @@ describe("StatementsService.customer", () => {
     });
 
     expect(statement.items.map((item) => item.referenceNumber)).toEqual(["INV-001"]);
-    expect(statement.closingBalanceMinor).toBe(100000);
+    expect(statement.closingBalanceMinor).toBe("100000");
   });
 
   it("reports the business base currency and scale rather than a customer field", async () => {
@@ -315,7 +318,7 @@ describe("StatementsService.customer", () => {
     });
 
     // Summing 900000 USD into a SAR total at an implied 1:1 rate would be a fabricated number.
-    expect(statement.closingBalanceMinor).toBe(100000);
+    expect(statement.closingBalanceMinor).toBe("100000");
     expect(statement.otherCurrencies).toEqual(["USD"]);
     expect(statement.items).toHaveLength(1);
   });
@@ -328,14 +331,14 @@ describe("StatementsService.customer", () => {
     });
 
     expect(statement.items).toEqual([]);
-    expect(statement.openingBalanceMinor).toBe(0);
-    expect(statement.closingBalanceMinor).toBe(0);
+    expect(statement.openingBalanceMinor).toBe("0");
+    expect(statement.closingBalanceMinor).toBe("0");
     expect(statement.buckets).toEqual({
-      notDueMinor: 0,
-      days1To30Minor: 0,
-      days31To60Minor: 0,
-      days61To90Minor: 0,
-      daysOver90Minor: 0,
+      notDueMinor: "0",
+      days1To30Minor: "0",
+      days31To60Minor: "0",
+      days61To90Minor: "0",
+      daysOver90Minor: "0",
     });
   });
 
@@ -401,15 +404,15 @@ describe("StatementsService.receivables", () => {
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
     expect(summary.buckets).toEqual({
-      notDueMinor: 10000,
-      days1To30Minor: 20000,
-      days31To60Minor: 30000,
-      days61To90Minor: 40000,
-      daysOver90Minor: 50000,
+      notDueMinor: "10000",
+      days1To30Minor: "20000",
+      days31To60Minor: "30000",
+      days61To90Minor: "40000",
+      daysOver90Minor: "50000",
     });
     // Every bucket is a sum of whole invoices, so they reconcile exactly to the total.
-    expect(summary.totalOutstandingMinor).toBe(150000);
-    expect(summary.totalOverdueMinor).toBe(140000);
+    expect(summary.totalOutstandingMinor).toBe("150000");
+    expect(summary.totalOverdueMinor).toBe("140000");
   });
 
   it("ages an invoice with no due date from its issue date", async () => {
@@ -427,8 +430,8 @@ describe("StatementsService.receivables", () => {
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
     // Treating a missing due date as "not yet due" would hide the oldest debts in the safest bucket.
-    expect(summary.buckets.days1To30Minor).toBe(10000);
-    expect(summary.buckets.notDueMinor).toBe(0);
+    expect(summary.buckets.days1To30Minor).toBe("10000");
+    expect(summary.buckets.notDueMinor).toBe("0");
     expect(summary.customers[0]!.oldestDueDate).toBe("2026-06-15");
   });
 
@@ -455,9 +458,9 @@ describe("StatementsService.receivables", () => {
 
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
-    expect(summary.totalOutstandingMinor).toBe(0);
+    expect(summary.totalOutstandingMinor).toBe("0");
     expect(summary.customers).toEqual([]);
-    expect(summary.buckets.daysOver90Minor).toBe(0);
+    expect(summary.buckets.daysOver90Minor).toBe("0");
   });
 
   it("nets a credit note off the invoice it was applied to", async () => {
@@ -483,8 +486,8 @@ describe("StatementsService.receivables", () => {
 
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
-    expect(summary.totalOutstandingMinor).toBe(6000);
-    expect(summary.buckets.days1To30Minor).toBe(6000);
+    expect(summary.totalOutstandingMinor).toBe("6000");
+    expect(summary.buckets.days1To30Minor).toBe("6000");
   });
 
   it("floors an overpaid invoice at zero instead of offsetting other debt", async () => {
@@ -517,7 +520,7 @@ describe("StatementsService.receivables", () => {
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
     // The 3000 surplus on INV-001 must not quietly reduce the 5000 still owed on INV-002.
-    expect(summary.totalOutstandingMinor).toBe(5000);
+    expect(summary.totalOutstandingMinor).toBe("5000");
   });
 
   it("ignores settlement dated after the as-of date", async () => {
@@ -543,7 +546,7 @@ describe("StatementsService.receivables", () => {
 
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
-    expect(summary.totalOutstandingMinor).toBe(10000);
+    expect(summary.totalOutstandingMinor).toBe("10000");
   });
 
   it("groups by customer and leads with the largest debt", async () => {
@@ -577,10 +580,10 @@ describe("StatementsService.receivables", () => {
       "Beta Works",
       "Acme Trading",
     ]);
-    expect(summary.customers[1]!.outstandingMinor).toBe(15000);
+    expect(summary.customers[1]!.outstandingMinor).toBe("15000");
     expect(summary.customers[1]!.openInvoiceCount).toBe(2);
     expect(summary.customers[1]!.oldestDueDate).toBe("2026-05-31");
-    expect(summary.totalOutstandingMinor).toBe(85000);
+    expect(summary.totalOutstandingMinor).toBe("85000");
   });
 
   it("excludes invoices issued after the as-of date", async () => {
@@ -597,7 +600,7 @@ describe("StatementsService.receivables", () => {
 
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
-    expect(summary.totalOutstandingMinor).toBe(0);
+    expect(summary.totalOutstandingMinor).toBe("0");
   });
 
   it("reads only issued credit notes", async () => {
@@ -659,14 +662,14 @@ describe("StatementsService.receivables", () => {
     const summary = await service.receivables("user-1", "biz-1", { asOf: AS_OF });
 
     // Each invoice keeps only its own share, so each ages in its own bucket for its own remainder.
-    expect(summary.totalOutstandingMinor).toBe(50000);
+    expect(summary.totalOutstandingMinor).toBe("50000");
     expect(summary.buckets).toEqual({
       // i-1 due 2026-05-31 is 30 days past AS_OF; i-2 due 2026-03-31 is 91 days past it.
-      notDueMinor: 0,
-      days1To30Minor: 40000,
-      days31To60Minor: 0,
-      days61To90Minor: 0,
-      daysOver90Minor: 10000,
+      notDueMinor: "0",
+      days1To30Minor: "40000",
+      days31To60Minor: "0",
+      days61To90Minor: "0",
+      daysOver90Minor: "10000",
     });
   });
 

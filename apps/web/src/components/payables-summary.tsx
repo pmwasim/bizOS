@@ -21,9 +21,9 @@ const BUCKET_KEYS = [
  */
 export function PayablesSummaryPanel({ summary }: { summary: PayablesSummary }) {
   const { currency, currencyScale } = summary;
-  const money = (amountMinor: number) => formatMoney(String(amountMinor), currency, currencyScale);
+  const money = (amountMinor: string) => formatMoney(amountMinor, currency, currencyScale);
 
-  if (summary.totalOutstandingMinor === 0) {
+  if (BigInt(summary.totalOutstandingMinor) === 0n) {
     return (
       <div className="empty-state">
         <CheckCircle2 aria-hidden="true" size={30} />
@@ -79,7 +79,7 @@ export function PayablesSummaryPanel({ summary }: { summary: PayablesSummary }) 
                 {supplier.oldestDueDate ? `, oldest due ${supplier.oldestDueDate}` : ""}
               </small>
             </span>
-            <span>{supplier.overdueMinor > 0 ? money(supplier.overdueMinor) : "—"}</span>
+            <span>{BigInt(supplier.overdueMinor) > 0n ? money(supplier.overdueMinor) : "—"}</span>
             <span>
               <strong>{money(supplier.outstandingMinor)}</strong>
             </span>

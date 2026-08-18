@@ -12,8 +12,10 @@ import {
   addBuckets,
   type AgeableInvoice,
   ageInvoices,
+  compareMinorDesc,
   emptyAgeingBuckets,
   overdueTotal,
+  sumMinor,
   toDateOnly,
 } from "./ageing.js";
 
@@ -132,7 +134,7 @@ export class PayablesService {
           return {
             supplierId,
             supplierName: entry.name,
-            outstandingMinor: Number(outstandingMinor),
+            outstandingMinor: outstandingMinor.toString(),
             overdueMinor: overdueTotal(buckets),
             openBillCount: entry.ageable.length,
             oldestDueDate: entry.ageable.map((item) => item.dueDate).sort()[0] ?? null,
@@ -143,7 +145,7 @@ export class PayablesService {
         // name rather than to whichever row the database happened to return first.
         .sort(
           (left, right) =>
-            right.outstandingMinor - left.outstandingMinor ||
+            compareMinorDesc(left.outstandingMinor, right.outstandingMinor) ||
             left.supplierName.localeCompare(right.supplierName),
         );
 
@@ -156,10 +158,7 @@ export class PayablesService {
         asOf,
         currency: baseCurrency,
         currencyScale,
-        totalOutstandingMinor: suppliers.reduce(
-          (sum, supplier) => sum + supplier.outstandingMinor,
-          0,
-        ),
+        totalOutstandingMinor: sumMinor(suppliers.map((supplier) => supplier.outstandingMinor)),
         totalOverdueMinor: overdueTotal(buckets),
         buckets,
         suppliers,

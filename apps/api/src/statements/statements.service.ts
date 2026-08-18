@@ -19,8 +19,10 @@ import {
   addBuckets,
   type AgeableInvoice,
   ageInvoices,
+  compareMinorDesc,
   emptyAgeingBuckets,
   overdueTotal,
+  sumMinor,
   toDateOnly,
 } from "./ageing.js";
 
@@ -170,7 +172,7 @@ export class StatementsService {
           return {
             customerId,
             customerName: entry.name,
-            outstandingMinor: Number(outstandingMinor),
+            outstandingMinor: outstandingMinor.toString(),
             overdueMinor: overdueTotal(buckets),
             openInvoiceCount: entry.ageable.length,
             oldestDueDate: entry.ageable.map((item) => item.dueDate).sort()[0] ?? null,
@@ -181,7 +183,7 @@ export class StatementsService {
         // ties fall back to the name rather than to whichever row the database returned first.
         .sort(
           (left, right) =>
-            right.outstandingMinor - left.outstandingMinor ||
+            compareMinorDesc(left.outstandingMinor, right.outstandingMinor) ||
             left.customerName.localeCompare(right.customerName),
         );
 
@@ -194,10 +196,7 @@ export class StatementsService {
         asOf,
         currency: baseCurrency,
         currencyScale,
-        totalOutstandingMinor: customers.reduce(
-          (sum, customer) => sum + customer.outstandingMinor,
-          0,
-        ),
+        totalOutstandingMinor: sumMinor(customers.map((customer) => customer.outstandingMinor)),
         totalOverdueMinor: overdueTotal(buckets),
         buckets,
         customers,
@@ -270,9 +269,9 @@ export class StatementsService {
           referenceNumber: entry.referenceNumber,
           description: entry.description,
           dueDate: entry.dueDate,
-          debitMinor: Number(entry.debitMinor),
-          creditMinor: Number(entry.creditMinor),
-          balanceMinor: Number(balance),
+          debitMinor: entry.debitMinor.toString(),
+          creditMinor: entry.creditMinor.toString(),
+          balanceMinor: balance.toString(),
           currency: baseCurrency,
           currencyScale,
         };
@@ -285,11 +284,11 @@ export class StatementsService {
         currencyScale,
         periodStart,
         periodEnd,
-        openingBalanceMinor: Number(openingBalance),
-        totalInvoicedMinor: Number(totalInvoiced),
-        totalPaidMinor: Number(totalPaid),
-        totalCreditedMinor: Number(totalCredited),
-        closingBalanceMinor: Number(balance),
+        openingBalanceMinor: openingBalance.toString(),
+        totalInvoicedMinor: totalInvoiced.toString(),
+        totalPaidMinor: totalPaid.toString(),
+        totalCreditedMinor: totalCredited.toString(),
+        closingBalanceMinor: balance.toString(),
         asOf,
         buckets: ageInvoices(invoices.map(toAgeable), asOf),
         items,

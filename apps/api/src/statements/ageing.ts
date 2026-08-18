@@ -70,34 +70,51 @@ export function ageInvoices(invoices: readonly AgeableInvoice[], asOf: string): 
     buckets[bucketFor(daysPastDue(invoice.dueDate, asOf))] += invoice.outstandingMinor;
   }
 
+  // Minor units are arbitrary-size integers, so they leave here as decimal strings rather than as
+  // JS numbers that would round above Number.MAX_SAFE_INTEGER (ADR-0008).
   return {
-    notDueMinor: Number(buckets.notDueMinor),
-    days1To30Minor: Number(buckets.days1To30Minor),
-    days31To60Minor: Number(buckets.days31To60Minor),
-    days61To90Minor: Number(buckets.days61To90Minor),
-    daysOver90Minor: Number(buckets.daysOver90Minor),
+    notDueMinor: buckets.notDueMinor.toString(),
+    days1To30Minor: buckets.days1To30Minor.toString(),
+    days31To60Minor: buckets.days31To60Minor.toString(),
+    days61To90Minor: buckets.days61To90Minor.toString(),
+    daysOver90Minor: buckets.daysOver90Minor.toString(),
   };
 }
 
 /** Adds two bucket sets. Used to roll customer ageing up into the business total. */
 export function addBuckets(left: AgeingBuckets, right: AgeingBuckets): AgeingBuckets {
+  const add = (a: string, b: string) => (BigInt(a) + BigInt(b)).toString();
   return {
-    notDueMinor: left.notDueMinor + right.notDueMinor,
-    days1To30Minor: left.days1To30Minor + right.days1To30Minor,
-    days31To60Minor: left.days31To60Minor + right.days31To60Minor,
-    days61To90Minor: left.days61To90Minor + right.days61To90Minor,
-    daysOver90Minor: left.daysOver90Minor + right.daysOver90Minor,
+    notDueMinor: add(left.notDueMinor, right.notDueMinor),
+    days1To30Minor: add(left.days1To30Minor, right.days1To30Minor),
+    days31To60Minor: add(left.days31To60Minor, right.days31To60Minor),
+    days61To90Minor: add(left.days61To90Minor, right.days61To90Minor),
+    daysOver90Minor: add(left.daysOver90Minor, right.daysOver90Minor),
   };
 }
 
-/** Everything past due — every bucket except the not-yet-due one. */
-export function overdueTotal(buckets: AgeingBuckets): number {
+/** Sums minor-units strings with `BigInt` and returns the exact total as a string (ADR-0008). */
+export function sumMinor(values: readonly string[]): string {
+  return values.reduce((total, value) => total + BigInt(value), 0n).toString();
+}
+
+/**
+ * Orders two minor-units strings largest-first, comparing with `BigInt` so amounts above
+ * `Number.MAX_SAFE_INTEGER` still sort correctly rather than colliding once coerced to a number.
+ */
+export function compareMinorDesc(left: string, right: string): number {
+  const diff = BigInt(right) - BigInt(left);
+  return diff > 0n ? 1 : diff < 0n ? -1 : 0;
+}
+
+/** Everything past due — every bucket except the not-yet-due one, as a minor-units string. */
+export function overdueTotal(buckets: AgeingBuckets): string {
   return (
-    buckets.days1To30Minor +
-    buckets.days31To60Minor +
-    buckets.days61To90Minor +
-    buckets.daysOver90Minor
-  );
+    BigInt(buckets.days1To30Minor) +
+    BigInt(buckets.days31To60Minor) +
+    BigInt(buckets.days61To90Minor) +
+    BigInt(buckets.daysOver90Minor)
+  ).toString();
 }
 
 export { emptyAgeingBuckets };

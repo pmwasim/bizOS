@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { addBuckets, ageInvoices, bucketFor, daysPastDue, overdueTotal } from "./ageing.js";
+import {
+  addBuckets,
+  ageInvoices,
+  bucketFor,
+  compareMinorDesc,
+  daysPastDue,
+  overdueTotal,
+  sumMinor,
+} from "./ageing.js";
 
 describe("daysPastDue", () => {
   it("counts whole days and treats the due date itself as not late", () => {
@@ -40,18 +48,11 @@ describe("ageInvoices", () => {
       "2026-06-30",
     );
 
-    const total =
-      buckets.notDueMinor +
-      buckets.days1To30Minor +
-      buckets.days31To60Minor +
-      buckets.days61To90Minor +
-      buckets.daysOver90Minor;
-
     // Apportioning by percentage would not land on 7000 for amounts that do not divide evenly.
-    expect(total).toBe(7000);
-    expect(buckets.notDueMinor).toBe(333);
-    expect(buckets.days1To30Minor).toBe(3334);
-    expect(buckets.daysOver90Minor).toBe(3333);
+    expect(sumMinor(Object.values(buckets))).toBe("7000");
+    expect(buckets.notDueMinor).toBe("333");
+    expect(buckets.days1To30Minor).toBe("3334");
+    expect(buckets.daysOver90Minor).toBe("3333");
   });
 
   it("ignores settled and negative invoices", () => {
@@ -63,7 +64,17 @@ describe("ageInvoices", () => {
       "2026-06-30",
     );
 
-    expect(overdueTotal(buckets)).toBe(0);
+    expect(overdueTotal(buckets)).toBe("0");
+  });
+
+  it("keeps minor units exact above Number.MAX_SAFE_INTEGER (ADR-0008)", () => {
+    // 2^53 + 1 in minor units cannot be held exactly by a JS number; the buckets carry it as a
+    // string so the value never rounds.
+    const huge = 9_007_199_254_740_993n;
+    const buckets = ageInvoices([{ dueDate: "2026-01-01", outstandingMinor: huge }], "2026-06-30");
+
+    expect(buckets.daysOver90Minor).toBe("9007199254740993");
+    expect(overdueTotal(buckets)).toBe("9007199254740993");
   });
 });
 
@@ -73,11 +84,21 @@ describe("addBuckets", () => {
     const right = ageInvoices([{ dueDate: "2026-01-01", outstandingMinor: 200n }], "2026-06-30");
 
     expect(addBuckets(left, right)).toEqual({
-      notDueMinor: 0,
-      days1To30Minor: 0,
-      days31To60Minor: 100,
-      days61To90Minor: 0,
-      daysOver90Minor: 200,
+      notDueMinor: "0",
+      days1To30Minor: "0",
+      days31To60Minor: "100",
+      days61To90Minor: "0",
+      daysOver90Minor: "200",
     });
+  });
+});
+
+describe("sumMinor and compareMinorDesc", () => {
+  it("sums exact minor-units strings and orders them largest-first", () => {
+    expect(sumMinor(["100", "250", "0"])).toBe("350");
+    expect(sumMinor([])).toBe("0");
+    expect(compareMinorDesc("100", "250")).toBeGreaterThan(0);
+    expect(compareMinorDesc("250", "100")).toBeLessThan(0);
+    expect(compareMinorDesc("100", "100")).toBe(0);
   });
 });

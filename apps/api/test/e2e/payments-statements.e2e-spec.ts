@@ -447,9 +447,9 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
       );
 
       expect(statement.customerName).toBe("Acme Industrial KSA");
-      expect(statement.closingBalanceMinor).toBe(60000); // 100000 - 40000
-      expect(statement.totalInvoicedMinor).toBe(100000);
-      expect(statement.totalPaidMinor).toBe(40000);
+      expect(statement.closingBalanceMinor).toBe("60000"); // 100000 - 40000
+      expect(statement.totalInvoicedMinor).toBe("100000");
+      expect(statement.totalPaidMinor).toBe("40000");
       expect(statement.items.map((item) => item.referenceNumber)).toEqual(["INV-0001", "TRX-1"]);
       // Scoped to this customer only; an unscoped query would pull in other customers' receipts.
       expect(mockTx.paymentAllocation.findMany.mock.calls[0][0].where.document.customerId).toBe(
@@ -505,14 +505,14 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
       );
 
       expect(summary.buckets).toEqual({
-        notDueMinor: 0,
-        days1To30Minor: 10000,
-        days31To60Minor: 20000,
-        days61To90Minor: 30000,
-        daysOver90Minor: 40000,
+        notDueMinor: "0",
+        days1To30Minor: "10000",
+        days31To60Minor: "20000",
+        days61To90Minor: "30000",
+        daysOver90Minor: "40000",
       });
-      expect(summary.totalOutstandingMinor).toBe(100000);
-      expect(summary.totalOverdueMinor).toBe(100000);
+      expect(summary.totalOutstandingMinor).toBe("100000");
+      expect(summary.totalOverdueMinor).toBe("100000");
     });
 
     it("Tier 4: maintains strict currency isolation in statement balance computations", async () => {
@@ -539,7 +539,7 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
       // bizOS has no exchange rate source, so the USD invoice is named and excluded rather than
       // added to a SAR total at an implied 1:1 rate.
       expect(statement.currency).toBe("SAR");
-      expect(statement.closingBalanceMinor).toBe(100000);
+      expect(statement.closingBalanceMinor).toBe("100000");
       expect(statement.otherCurrencies).toEqual(["USD"]);
     });
   });

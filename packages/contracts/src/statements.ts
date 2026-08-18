@@ -10,6 +10,21 @@ const currencySchema = z.string().trim().length(3).toUpperCase();
 const currencyScaleSchema = z.number().int().min(0).max(6);
 
 /**
+ * A monetary amount in integer minor units, encoded as a decimal string.
+ *
+ * Minor units are arbitrary-size integers (ADR-0008). A value above `Number.MAX_SAFE_INTEGER` would
+ * round silently if it crossed the wire as a JS number, so every money field on a statement is a
+ * string and is parsed with `BigInt` where arithmetic is needed. Scale stays a `number` — it is a
+ * small exponent, not an amount. `minorUnitsSchema` is signed (a balance can be negative);
+ * `nonNegativeMinorUnitsSchema` is for amounts that cannot be, such as an outstanding total or a
+ * bucket sum.
+ */
+const minorUnitsSchema = z.string().regex(/^-?\d+$/, "Use an integer number of minor units.");
+const nonNegativeMinorUnitsSchema = z
+  .string()
+  .regex(/^\d+$/, "Use a non-negative integer number of minor units.");
+
+/**
  * A statement line is one of three things, and only three: an invoice the customer owes, a receipt
  * applied against one, or a credit note applied against one. There is no "adjustment" — every
  * movement on a bizOS statement traces back to a document or a payment the business recorded.
@@ -25,10 +40,10 @@ export const statementLineItemSchema = z.object({
   description: z.string(),
   /** Null on payment and credit-note lines, which have no due date of their own. */
   dueDate: dateOnlySchema.nullable(),
-  debitMinor: z.number().int().nonnegative(),
-  creditMinor: z.number().int().nonnegative(),
+  debitMinor: nonNegativeMinorUnitsSchema,
+  creditMinor: nonNegativeMinorUnitsSchema,
   /** Running balance after this line. Negative when the customer is in credit. */
-  balanceMinor: z.number().int(),
+  balanceMinor: minorUnitsSchema,
   currency: currencySchema,
   currencyScale: currencyScaleSchema,
 });
@@ -43,21 +58,21 @@ export type StatementLineItem = z.infer<typeof statementLineItemSchema>;
  * up to the outstanding total exactly. See ADR-0024.
  */
 export const ageingBucketsSchema = z.object({
-  notDueMinor: z.number().int().nonnegative(),
-  days1To30Minor: z.number().int().nonnegative(),
-  days31To60Minor: z.number().int().nonnegative(),
-  days61To90Minor: z.number().int().nonnegative(),
-  daysOver90Minor: z.number().int().nonnegative(),
+  notDueMinor: nonNegativeMinorUnitsSchema,
+  days1To30Minor: nonNegativeMinorUnitsSchema,
+  days31To60Minor: nonNegativeMinorUnitsSchema,
+  days61To90Minor: nonNegativeMinorUnitsSchema,
+  daysOver90Minor: nonNegativeMinorUnitsSchema,
 });
 
 export type AgeingBuckets = z.infer<typeof ageingBucketsSchema>;
 
 export const emptyAgeingBuckets: AgeingBuckets = {
-  notDueMinor: 0,
-  days1To30Minor: 0,
-  days31To60Minor: 0,
-  days61To90Minor: 0,
-  daysOver90Minor: 0,
+  notDueMinor: "0",
+  days1To30Minor: "0",
+  days31To60Minor: "0",
+  days61To90Minor: "0",
+  daysOver90Minor: "0",
 };
 
 export const ageingBucketLabels = {
@@ -72,8 +87,8 @@ export const ageingBucketLabels = {
 export const receivableCustomerSchema = z.object({
   customerId: z.string(),
   customerName: z.string(),
-  outstandingMinor: z.number().int().nonnegative(),
-  overdueMinor: z.number().int().nonnegative(),
+  outstandingMinor: nonNegativeMinorUnitsSchema,
+  overdueMinor: nonNegativeMinorUnitsSchema,
   openInvoiceCount: z.number().int().nonnegative(),
   /** Due date of the oldest unsettled invoice, or null when nothing is outstanding. */
   oldestDueDate: dateOnlySchema.nullable(),
@@ -93,8 +108,8 @@ export const receivablesSummarySchema = z.object({
   asOf: dateOnlySchema,
   currency: currencySchema,
   currencyScale: currencyScaleSchema,
-  totalOutstandingMinor: z.number().int().nonnegative(),
-  totalOverdueMinor: z.number().int().nonnegative(),
+  totalOutstandingMinor: nonNegativeMinorUnitsSchema,
+  totalOverdueMinor: nonNegativeMinorUnitsSchema,
   buckets: ageingBucketsSchema,
   customers: z.array(receivableCustomerSchema),
   otherCurrencies: z.array(currencySchema),
@@ -111,11 +126,11 @@ export const customerStatementSchema = z.object({
   periodStart: dateOnlySchema.nullable(),
   periodEnd: dateOnlySchema.nullable(),
   /** Closing balance of everything strictly before `periodStart`. Zero when there is no start. */
-  openingBalanceMinor: z.number().int(),
-  totalInvoicedMinor: z.number().int().nonnegative(),
-  totalPaidMinor: z.number().int().nonnegative(),
-  totalCreditedMinor: z.number().int().nonnegative(),
-  closingBalanceMinor: z.number().int(),
+  openingBalanceMinor: minorUnitsSchema,
+  totalInvoicedMinor: nonNegativeMinorUnitsSchema,
+  totalPaidMinor: nonNegativeMinorUnitsSchema,
+  totalCreditedMinor: nonNegativeMinorUnitsSchema,
+  closingBalanceMinor: minorUnitsSchema,
   /** Ageing of what is still outstanding as of `periodEnd`, or as of today when there is none. */
   asOf: dateOnlySchema,
   buckets: ageingBucketsSchema,
@@ -147,8 +162,8 @@ export type ReceivablesQuery = z.infer<typeof receivablesQuerySchema>;
 export const payableSupplierSchema = z.object({
   supplierId: z.string(),
   supplierName: z.string(),
-  outstandingMinor: z.number().int().nonnegative(),
-  overdueMinor: z.number().int().nonnegative(),
+  outstandingMinor: nonNegativeMinorUnitsSchema,
+  overdueMinor: nonNegativeMinorUnitsSchema,
   openBillCount: z.number().int().nonnegative(),
   /** Due date of the oldest unpaid bill, or null when nothing is outstanding. */
   oldestDueDate: dateOnlySchema.nullable(),
@@ -171,8 +186,8 @@ export const payablesSummarySchema = z.object({
   asOf: dateOnlySchema,
   currency: currencySchema,
   currencyScale: currencyScaleSchema,
-  totalOutstandingMinor: z.number().int().nonnegative(),
-  totalOverdueMinor: z.number().int().nonnegative(),
+  totalOutstandingMinor: nonNegativeMinorUnitsSchema,
+  totalOverdueMinor: nonNegativeMinorUnitsSchema,
   buckets: ageingBucketsSchema,
   suppliers: z.array(payableSupplierSchema),
   otherCurrencies: z.array(currencySchema),
