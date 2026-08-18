@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { Folder, Plus, X } from "lucide-react";
 
 import { type Project, projectStatusLabel } from "@bizo/contracts/projects";
 import { type Customer } from "@bizo/contracts/customers";
+import { type ActionState, createProjectAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
+import { SubmitButton } from "@/components/submit-button";
 import { formatMoney } from "@/lib/display";
 
 export function ProjectsClientView({
@@ -21,60 +23,16 @@ export function ProjectsClientView({
   currency: string;
   currencyScale: number;
 }) {
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const projects = initialProjects;
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | undefined>(undefined);
-
-  // Form State
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id || "");
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [endDate, setEndDate] = useState("2026-12-31");
-  const [budgetMinor, setBudgetMinor] = useState("5000000");
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    createProjectAction.bind(null, businessId),
+    {},
+  );
 
   // Milestones, time and cost logs, and project profitability are not derivable yet:
   // bizOS has no milestone, time-entry, or expense table, so there is nothing to total.
   // These were previously rendered from hard-coded arrays keyed to invented project ids.
-
-  async function handleCreateProject(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(undefined);
-
-    const payload = {
-      name,
-      description: description || undefined,
-      customerId: selectedCustomerId || undefined,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      budgetMinor: budgetMinor || undefined,
-    };
-
-    try {
-      const res = await fetch(`/api/businesses/${businessId}/projects`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const created: Project = await res.json();
-        setProjects((prev) => [created, ...prev]);
-        setIsModalOpen(false);
-        return;
-      }
-
-      // The server rejected the project. Listing it anyway would show the business a
-      // project, and a budget, that bizOS is not tracking.
-      setError("The project could not be saved. Nothing was created.");
-    } catch {
-      setError("The project could not be saved — bizOS could not be reached.");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <>
@@ -213,25 +171,17 @@ export function ProjectsClientView({
               </button>
             </div>
 
-            <ActionMessage error={error} />
+            <ActionMessage error={state.error} />
 
-            <form onSubmit={handleCreateProject} className="form-stack">
+            <form action={formAction} className="form-stack">
               <label className="field">
                 <span>Project Name</span>
-                <input
-                  placeholder="e.g. ERP System Implementation"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+                <input name="name" placeholder="e.g. ERP System Implementation" required />
               </label>
 
               <label className="field">
                 <span>Customer</span>
-                <select
-                  value={selectedCustomerId}
-                  onChange={(e) => setSelectedCustomerId(e.target.value)}
-                >
+                <select name="customerId" defaultValue={customers[0]?.id ?? ""}>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -243,10 +193,9 @@ export function ProjectsClientView({
               <label className="field">
                 <span>Description</span>
                 <textarea
+                  name="description"
                   rows={2}
                   placeholder="Project scope and deliverables..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
                 />
               </label>
 
@@ -254,25 +203,21 @@ export function ProjectsClientView({
                 <label className="field">
                   <span>Start Date</span>
                   <input
+                    name="startDate"
                     type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    defaultValue={new Date().toISOString().slice(0, 10)}
                   />
                 </label>
 
                 <label className="field">
                   <span>End Date</span>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  <input name="endDate" type="date" defaultValue="2026-12-31" />
                 </label>
               </div>
 
               <label className="field">
                 <span>Budget (Minor Units)</span>
-                <input
-                  type="number"
-                  value={budgetMinor}
-                  onChange={(e) => setBudgetMinor(e.target.value)}
-                />
+                <input name="budgetMinor" type="number" defaultValue="5000000" />
               </label>
 
               <div
@@ -290,9 +235,7 @@ export function ProjectsClientView({
                 >
                   Cancel
                 </button>
-                <button className="button button-primary" type="submit" disabled={loading}>
-                  {loading ? "Creating..." : "Save Project"}
-                </button>
+                <SubmitButton pendingText="Creating...">Save Project</SubmitButton>
               </div>
             </form>
           </div>
