@@ -20,15 +20,19 @@ import {
 /**
  * The bill statuses that represent money the business currently owes.
  *
- * `procurement.service.ts` maps `DocumentStatus` onto the supplier-bill vocabulary: DRAFT stays
- * DRAFT, SENT reads as APPROVED, ARCHIVED reads as CANCELLED, and anything else reads as PAID.
- * Only APPROVED is a payable — a draft has not been agreed, a cancelled bill is not owed, and a
- * paid one is settled.
+ * `createSupplierBill` records every supplier bill as `DocumentStatus.DRAFT`, and bizOS has no
+ * supplier-bill approval transition — nothing moves a bill out of DRAFT (unlike supplier POs, which
+ * `issueSupplierPo` sends). So the status a recorded, still-owed bill actually carries is DRAFT.
+ * Counting only SENT — a status no supplier bill ever reaches — meant every payables summary
+ * reported nothing outstanding, however many bills the business had recorded. This mirrors
+ * receivables, which counts the status an issued invoice actually carries (`SENT`): the payable is
+ * the recorded, unsettled bill. A cancelled bill (`ARCHIVED`) is not owed, and settlement (PAID) is
+ * MMF-2. When a bill-approval transition is added, widen this to include the approved status.
  *
  * bizOS records no outbound payment, so a bill is settled all-or-nothing (see MMF-2). There is no
  * partial state to net off, and none is invented here.
  */
-const APPROVED_BILL_STATUSES = { in: ["SENT"] } as const;
+const OWED_BILL_STATUSES = { in: ["DRAFT"] } as const;
 
 type TransactionLike = Parameters<Parameters<DatabaseService["withScope"]>[1]>[0];
 
@@ -78,7 +82,7 @@ export class PayablesService {
         where: {
           businessId: access.businessId,
           type: "SUPPLIER_BILL" as never,
-          status: APPROVED_BILL_STATUSES as never,
+          status: OWED_BILL_STATUSES as never,
         },
         include: { supplier: { select: { publicId: true, name: true } } },
         orderBy: { issueDate: "asc" },

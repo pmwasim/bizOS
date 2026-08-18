@@ -71,15 +71,16 @@ function buildService(options: {
 }
 
 describe("PayablesService.payables", () => {
-  it("reads only approved supplier bills (B1)", async () => {
+  it("reads recorded supplier bills, which are the ones the business owes (B1)", async () => {
     const { service, documentFindMany } = buildService({});
 
     await service.payables("user-1", "biz-1", { asOf: AS_OF });
 
-    // Draft bills have not been agreed, cancelled ones are not owed, and paid ones are settled.
+    // A recorded bill carries DRAFT — bizOS has no bill-approval transition — so DRAFT is what "owed"
+    // looks like today. Filtering on SENT (which no bill ever reaches) left payables always empty.
     const where = documentFindMany.mock.calls[0]![0].where as Record<string, unknown>;
     expect(where.type).toBe("SUPPLIER_BILL");
-    expect(where.status).toEqual({ in: ["SENT"] });
+    expect(where.status).toEqual({ in: ["DRAFT"] });
     expect(where.businessId).toBe(2n);
   });
 
