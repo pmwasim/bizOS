@@ -37,7 +37,7 @@ export function InventoryClientView({
     <>
       <header className="page-header">
         <div>
-          <h1>Item catalogue</h1>
+          <h1>Inventory &amp; Stock Engine</h1>
           <p>The products and services you sell, with their prices and tax rates.</p>
         </div>
         <button

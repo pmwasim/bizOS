@@ -38,7 +38,7 @@ export function ProjectsClientView({
     <>
       <header className="page-header">
         <div>
-          <h1>Projects</h1>
+          <h1>Projects &amp; Profitability Summary</h1>
           <p>The work you are delivering, who it is for, and what it is budgeted at.</p>
         </div>
         <button
