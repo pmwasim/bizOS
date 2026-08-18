@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 25,
-    "handbookDocumentCount": 86
+    "adrCount": 26,
+    "handbookDocumentCount": 88
   },
   "buildOrder": [
     {
@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 169,
-      "testFiles": 52,
+      "sourceFiles": 173,
+      "testFiles": 54,
       "areas": [
         {
           "name": "ai",
@@ -225,8 +225,8 @@
         {
           "name": "statements",
           "path": "apps/api/src/statements",
-          "sourceFiles": 4,
-          "testFiles": 1
+          "sourceFiles": 8,
+          "testFiles": 3
         },
         {
           "name": "storage",
@@ -260,6 +260,7 @@
         "docs/decisions/0023-invoice-settlement-is-derived.md",
         "docs/deployment-handoff-cursor.md",
         "docs/document-templates-plan.md",
+        "docs/mmf.md",
         "docs/multi-agent-protocol.md",
         "docs/operations/issue-60-object-store-blob-audit.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
@@ -526,19 +527,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 118,
+      "sourceFiles": 121,
       "testFiles": 4,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 69,
+          "sourceFiles": 70,
           "testFiles": 2
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 38,
+          "sourceFiles": 40,
           "testFiles": 0
         },
         {
@@ -552,6 +553,7 @@
         "docs/architecture.md",
         "docs/decisions/0015-managed-hosting-behind-cloudflare.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/decisions/0024-receivables-and-statements-are-derived-per-currency.md",
         "docs/deployment-handoff-cursor.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
@@ -786,9 +788,16 @@
     {
       "id": "0023",
       "title": "ADR-0023: Invoice settlement is derived, not stored",
-      "status": "Proposed",
+      "status": "Accepted",
       "date": "2026-08-15",
       "path": "docs/decisions/0023-invoice-settlement-is-derived.md"
+    },
+    {
+      "id": "0024",
+      "title": "ADR-0024: Receivables and statements are derived per currency, and never estimated",
+      "status": "Accepted",
+      "date": "2026-08-17",
+      "path": "docs/decisions/0024-receivables-and-statements-are-derived-per-currency.md"
     }
   ],
   "rootCommands": [

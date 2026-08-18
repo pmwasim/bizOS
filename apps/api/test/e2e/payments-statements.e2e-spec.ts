@@ -367,42 +367,36 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
   // FEAT-16: Statements & Aging
   // ==========================================
   describe("FEAT-16: Statements & Aging", () => {
-    it("Tier 1: computes customer account statement lines and net closing balance", async () => {
-      const customerPublicId = "c5555555-5555-4555-8555-555555555555";
+    const customerPublicId = "c5555555-5555-4555-8555-555555555555";
 
+    function buildStatementsService(options: {
+      customer?: unknown;
+      invoices?: unknown[];
+      paymentAllocations?: unknown[];
+      creditNoteAllocations?: unknown[];
+      access?: BusinessAccessContext;
+    }) {
       const mockTx = {
+        business: {
+          findFirst: vi.fn().mockResolvedValue({ baseCurrency: "SAR", currencyScale: 2 }),
+        },
         customer: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: 50n,
-            publicId: customerPublicId,
-            name: "Acme Industrial KSA",
-            currencyCode: "SAR",
-          }),
+          findFirst: vi
+            .fn()
+            .mockResolvedValue(
+              options.customer === undefined
+                ? { id: 50n, publicId: customerPublicId, name: "Acme Industrial KSA" }
+                : options.customer,
+            ),
         },
-        document: {
-          findMany: vi.fn().mockResolvedValue([
-            {
-              publicId: "d1111111-1111-4111-8111-111111111111",
-              issueDate: new Date("2026-08-01T00:00:00Z"),
-              number: "INV-0001",
-              totalMinor: "100000",
-            },
-          ]),
-        },
+        document: { findMany: vi.fn().mockResolvedValue(options.invoices ?? []) },
         // Payment has no customer column, so a receipt reaches this statement only through its
         // allocation against one of the customer's invoices.
         paymentAllocation: {
-          findMany: vi.fn().mockResolvedValue([
-            {
-              publicId: "a1111111-1111-4111-8111-111111111111",
-              amountMinor: "40000",
-              payment: {
-                publicId: "p1111111-1111-4111-8111-111111111111",
-                paymentDate: new Date("2026-08-05T00:00:00Z"),
-                reference: "TRX-1",
-              },
-            },
-          ]),
+          findMany: vi.fn().mockResolvedValue(options.paymentAllocations ?? []),
+        },
+        creditNoteAllocation: {
+          findMany: vi.fn().mockResolvedValue(options.creditNoteAllocations ?? []),
         },
       };
 
@@ -411,22 +405,51 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
       } as unknown as DatabaseService;
 
       const businessAccess = {
-        resolve: vi.fn().mockResolvedValue(mockAccessTenant1),
+        resolve: vi.fn().mockResolvedValue(options.access ?? mockAccessTenant1),
         assertAllowed: vi.fn().mockResolvedValue(undefined),
       } as unknown as BusinessAccessService;
 
-      const service = new StatementsService(database, businessAccess);
+      return { service: new StatementsService(database, businessAccess), mockTx };
+    }
+
+    const acmeInvoice = {
+      publicId: "d1111111-1111-4111-8111-111111111111",
+      issueDate: new Date("2026-08-01T00:00:00Z"),
+      dueDate: new Date("2026-08-31T00:00:00Z"),
+      number: "INV-0001",
+      currencyCode: "SAR",
+      totalMinor: "100000",
+      customer: { publicId: customerPublicId, name: "Acme Industrial KSA" },
+    };
+
+    const acmeReceipt = {
+      publicId: "a1111111-1111-4111-8111-111111111111",
+      amountMinor: "40000",
+      document: { publicId: acmeInvoice.publicId },
+      payment: {
+        publicId: "p1111111-1111-4111-8111-111111111111",
+        paymentDate: new Date("2026-08-05T00:00:00Z"),
+        reference: "TRX-1",
+      },
+    };
+
+    it("Tier 1: computes customer account statement lines and net closing balance", async () => {
+      const { service, mockTx } = buildStatementsService({
+        invoices: [acmeInvoice],
+        paymentAllocations: [acmeReceipt],
+      });
 
       const statement = await service.customer(
         mockAccessTenant1.userPublicId,
         mockAccessTenant1.businessPublicId,
         customerPublicId,
+        { endDate: "2026-09-30" },
       );
 
       expect(statement.customerName).toBe("Acme Industrial KSA");
-      expect(statement.closingBalanceMinor).toBe(60000); // 100000 - 40000
-      expect(statement.totalInvoicedMinor).toBe(100000);
-      expect(statement.totalPaidMinor).toBe(40000);
+      expect(statement.closingBalanceMinor).toBe("60000"); // 100000 - 40000
+      expect(statement.totalInvoicedMinor).toBe("100000");
+      expect(statement.totalPaidMinor).toBe("40000");
       expect(statement.items.map((item) => item.referenceNumber)).toEqual(["INV-0001", "TRX-1"]);
       // Scoped to this customer only; an unscoped query would pull in other customers' receipts.
       expect(mockTx.paymentAllocation.findMany.mock.calls[0][0].where.document.customerId).toBe(
@@ -435,58 +458,89 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
     });
 
     it("Tier 2: handles customer statement with zero transactions and verifies cross-tenant isolation", async () => {
-      const mockTx = {
-        customer: {
-          findFirst: vi.fn().mockResolvedValue(null),
-        },
-      };
-
-      const database = {
-        withScope: vi.fn().mockImplementation(async (_access, work) => work(mockTx)),
-      } as unknown as DatabaseService;
-
-      const businessAccess = {
-        resolve: vi.fn().mockResolvedValue(mockAccessTenant2),
-        assertAllowed: vi.fn().mockResolvedValue(undefined),
-      } as unknown as BusinessAccessService;
-
-      const service = new StatementsService(database, businessAccess);
+      const { service } = buildStatementsService({
+        customer: null,
+        access: mockAccessTenant2,
+      });
 
       await expect(
         service.customer(
           mockAccessTenant2.userPublicId,
           mockAccessTenant2.businessPublicId,
-          "c5555555-5555-4555-8555-555555555555",
+          customerPublicId,
         ),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("Tier 3: categorizes accounts receivable into aging buckets (Current, 1-30, 31-60, 61-90, 90+)", () => {
-      const openInvoices = [
-        { id: "inv-1", ageDays: 10, amountMinor: 10000n }, // Current (0-30)
-        { id: "inv-2", ageDays: 45, amountMinor: 20000n }, // 31-60
-        { id: "inv-3", ageDays: 75, amountMinor: 30000n }, // 61-90
-        { id: "inv-4", ageDays: 120, amountMinor: 40000n }, // 90+
-      ];
+    it("Tier 3: categorizes receivables into ageing buckets from each invoice's own due date", async () => {
+      const asOf = "2026-08-31";
+      const openInvoice = (
+        publicId: string,
+        number: string,
+        dueDate: string,
+        totalMinor: string,
+      ) => ({
+        publicId,
+        number,
+        issueDate: new Date("2026-01-01T00:00:00Z"),
+        dueDate: new Date(`${dueDate}T00:00:00Z`),
+        currencyCode: "SAR",
+        totalMinor,
+        customer: { publicId: customerPublicId, name: "Acme Industrial KSA" },
+      });
 
-      const buckets = { current: 0n, days31To60: 0n, days61To90: 0n, days90Plus: 0n };
+      const { service } = buildStatementsService({
+        invoices: [
+          openInvoice("inv-1", "INV-1001", "2026-08-21", "10000"), // 10 days late
+          openInvoice("inv-2", "INV-1002", "2026-07-17", "20000"), // 45 days late
+          openInvoice("inv-3", "INV-1003", "2026-06-17", "30000"), // 75 days late
+          openInvoice("inv-4", "INV-1004", "2026-05-03", "40000"), // 120 days late
+        ],
+      });
 
-      for (const inv of openInvoices) {
-        if (inv.ageDays <= 30) buckets.current += inv.amountMinor;
-        else if (inv.ageDays <= 60) buckets.days31To60 += inv.amountMinor;
-        else if (inv.ageDays <= 90) buckets.days61To90 += inv.amountMinor;
-        else buckets.days90Plus += inv.amountMinor;
-      }
+      const summary = await service.receivables(
+        mockAccessTenant1.userPublicId,
+        mockAccessTenant1.businessPublicId,
+        { asOf },
+      );
 
-      expect(buckets.current).toBe(10000n);
-      expect(buckets.days31To60).toBe(20000n);
-      expect(buckets.days61To90).toBe(30000n);
-      expect(buckets.days90Plus).toBe(40000n);
+      expect(summary.buckets).toEqual({
+        notDueMinor: "0",
+        days1To30Minor: "10000",
+        days31To60Minor: "20000",
+        days61To90Minor: "30000",
+        daysOver90Minor: "40000",
+      });
+      expect(summary.totalOutstandingMinor).toBe("100000");
+      expect(summary.totalOverdueMinor).toBe("100000");
     });
 
-    it("Tier 4: maintains strict currency isolation in statement balance computations", () => {
-      const statementCurrencies = ["SAR", "USD"];
-      expect(statementCurrencies).toHaveLength(2);
+    it("Tier 4: maintains strict currency isolation in statement balance computations", async () => {
+      const { service } = buildStatementsService({
+        invoices: [
+          acmeInvoice,
+          {
+            ...acmeInvoice,
+            publicId: "d2222222-2222-4222-8222-222222222222",
+            number: "INV-0002",
+            currencyCode: "USD",
+            totalMinor: "900000",
+          },
+        ],
+      });
+
+      const statement = await service.customer(
+        mockAccessTenant1.userPublicId,
+        mockAccessTenant1.businessPublicId,
+        customerPublicId,
+        { endDate: "2026-09-30" },
+      );
+
+      // bizOS has no exchange rate source, so the USD invoice is named and excluded rather than
+      // added to a SAR total at an implied 1:1 rate.
+      expect(statement.currency).toBe("SAR");
+      expect(statement.closingBalanceMinor).toBe("100000");
+      expect(statement.otherCurrencies).toEqual(["USD"]);
     });
   });
 

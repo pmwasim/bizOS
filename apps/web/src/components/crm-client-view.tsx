@@ -1,18 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Users,
-  Target,
-  Plus,
-  X,
-  ArrowRight,
-  MessageSquare,
-  PhoneCall,
-  Mail,
-  CheckCircle,
-  Sparkles,
-} from "lucide-react";
+import { Users, Target, Plus, X, ArrowRight, MessageSquare, Sparkles } from "lucide-react";
 
 import {
   type Lead,
@@ -23,14 +12,31 @@ import {
 } from "@bizo/contracts/crm";
 import { type Customer } from "@bizo/contracts/customers";
 import { formatMoney } from "@/lib/display";
+import { convertLeadAction, updateOpportunityStageAction } from "@/app/actions";
+import { ActionMessage } from "@/components/action-message";
 
-interface ActivityItem {
-  id: string;
-  type: "CALL" | "EMAIL" | "MEETING" | "CONVERSION" | "NOTE";
-  title: string;
-  description: string;
-  timestamp: string;
-  actor: string;
+function formatOpportunityTotals(
+  opportunities: Opportunity[],
+  fallbackCurrency: string,
+  currencyScale: number,
+): string {
+  const totalsByCurrency = new Map<string, number>();
+  for (const opportunity of opportunities) {
+    if (!opportunity.amountMinor) continue;
+    const currency = opportunity.currencyCode ?? fallbackCurrency;
+    totalsByCurrency.set(
+      currency,
+      (totalsByCurrency.get(currency) ?? 0) + Number(opportunity.amountMinor),
+    );
+  }
+
+  if (totalsByCurrency.size === 0) {
+    return formatMoney("0", fallbackCurrency, currencyScale);
+  }
+
+  return Array.from(totalsByCurrency, ([currency, totalMinor]) =>
+    formatMoney(String(totalMinor), currency, currencyScale),
+  ).join(" · ");
 }
 
 export function CrmClientView({
@@ -38,11 +44,15 @@ export function CrmClientView({
   initialLeads,
   initialOpportunities,
   customers: _customers,
+  currency,
+  currencyScale,
 }: {
   businessId: string;
   initialLeads: Lead[];
   initialOpportunities: Opportunity[];
   customers: Customer[];
+  currency: string;
+  currencyScale: number;
 }) {
   const [activeTab, setActiveTab] = useState<"kanban" | "leads" | "feed">("kanban");
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -50,162 +60,44 @@ export function CrmClientView({
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isOppModalOpen, setIsOppModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
 
-  // Default fallback leads/opps if initial are empty
-  const activeLeads: Lead[] = leads.length
-    ? leads
-    : [
-        {
-          id: "lead-1",
-          name: "Acme Logistics Corp",
-          company: "Acme Logistics",
-          email: "procurement@acmelogistics.com",
-          phone: "+1 555-0192",
-          source: "Inbound Web",
-          status: "QUALIFIED",
-          estimatedValue: "1500000",
-          currencyCode: "USD",
-          notes: "Interested in enterprise workflow & invoicing integration.",
-          convertedAt: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "lead-2",
-          name: "Global Freight Systems",
-          company: "Global Freight",
-          email: "contact@globalfreight.io",
-          phone: "+1 555-0144",
-          source: "Referral",
-          status: "NEW",
-          estimatedValue: "850000",
-          currencyCode: "USD",
-          notes: "Requires multi-currency tax calculation.",
-          convertedAt: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
+  // The customer activity feed is not derivable yet: bizOS has no activity or audit-event
+  // table to read from. It previously rendered three hard-coded entries naming staff and
+  // customers that do not exist in this business.
 
-  const activeOpportunities: Opportunity[] = opportunities.length
-    ? opportunities
-    : [
-        {
-          id: "opp-1",
-          name: "Acme Logistics ERP Upgrade",
-          stage: "PROPOSAL",
-          probability: 75,
-          amountMinor: "1500000",
-          currencyCode: "USD",
-          expectedCloseDate: "2026-09-15",
-          actualCloseDate: null,
-          notes: "Proposal submitted to CTO.",
-          lead: { id: "lead-1", name: "Acme Logistics Corp" },
-          quotation: { id: "quote-101", number: "QT-2026-0042" },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "opp-2",
-          name: "Global Freight API Contract",
-          stage: "QUALIFICATION",
-          probability: 50,
-          amountMinor: "850000",
-          currencyCode: "USD",
-          expectedCloseDate: "2026-10-01",
-          actualCloseDate: null,
-          notes: "Initial discovery call completed.",
-          lead: { id: "lead-2", name: "Global Freight Systems" },
-          quotation: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "opp-3",
-          name: "Apex Retailers Point of Sale",
-          stage: "CLOSED_WON",
-          probability: 100,
-          amountMinor: "2400000",
-          currencyCode: "USD",
-          expectedCloseDate: "2026-08-01",
-          actualCloseDate: "2026-08-02",
-          notes: "Contract signed and converted.",
-          lead: null,
-          quotation: { id: "quote-102", number: "QT-2026-0019" },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-
-  // Activity Feed Timeline Mock Data (FEAT-27)
-  const activities: ActivityItem[] = [
-    {
-      id: "act-1",
-      type: "CONVERSION",
-      title: "1-Click Deal Converted to Customer",
-      description: "Opportunity 'Apex Retailers Point of Sale' won and customer profile generated.",
-      timestamp: "2 hours ago",
-      actor: "Sarah Admin",
-    },
-    {
-      id: "act-2",
-      type: "CALL",
-      title: "Discovery Call Recorded",
-      description: "Call with CTO of Acme Logistics regarding custom fields and ZATCA compliance.",
-      timestamp: "Yesterday at 4:30 PM",
-      actor: "Alex Sales",
-    },
-    {
-      id: "act-3",
-      type: "EMAIL",
-      title: "Quotation QT-2026-0042 Sent",
-      description: "Email outbox delivered proposal PDF to procurement@acmelogistics.com.",
-      timestamp: "Aug 5, 2026",
-      actor: "System Outbox",
-    },
-  ];
-
-  // 1-Click Deal Conversion Handler (FEAT-28)
   async function handleConvertLead(leadId: string) {
     setLoading(true);
-    try {
-      const res = await fetch(`/api/businesses/${businessId}/leads/${leadId}/convert`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === leadId
-              ? { ...l, status: "CONVERTED" as const, convertedAt: new Date().toISOString() }
-              : l,
-          ),
-        );
-      } else {
-        // Fallback local update
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === leadId
-              ? { ...l, status: "CONVERTED" as const, convertedAt: new Date().toISOString() }
-              : l,
-          ),
-        );
-      }
-    } catch {
+    setError(undefined);
+
+    // Previously this marked the lead CONVERTED on success, on failure, and on exception
+    // alike, so a rejected conversion still showed the business a customer it did not have.
+    const result = await convertLeadAction(businessId, leadId);
+    if (result.error) {
+      setError(result.error);
+    } else {
       setLeads((prev) =>
-        prev.map((l) =>
-          l.id === leadId
-            ? { ...l, status: "CONVERTED" as const, convertedAt: new Date().toISOString() }
-            : l,
+        prev.map((lead) =>
+          lead.id === leadId
+            ? { ...lead, status: "CONVERTED" as const, convertedAt: new Date().toISOString() }
+            : lead,
         ),
       );
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }
 
-  // Update Opportunity Stage in Kanban
+  // Moving a card previously changed local state only, so the board looked saved and was not.
   async function updateOppStage(oppId: string, newStage: OpportunityStage) {
+    const previous = opportunities;
+    setError(undefined);
     setOpportunities((prev) => prev.map((o) => (o.id === oppId ? { ...o, stage: newStage } : o)));
+
+    const result = await updateOpportunityStageAction(businessId, oppId, newStage);
+    if (result.error) {
+      setOpportunities(previous);
+      setError(result.error);
+    }
   }
 
   const kanbanStages: OpportunityStage[] = [
@@ -245,6 +137,8 @@ export function CrmClientView({
         </div>
       </header>
 
+      <ActionMessage error={error} />
+
       {/* Tabs */}
       <div className="check-field" style={{ display: "flex", gap: "1rem", marginBottom: "2rem" }}>
         <button
@@ -281,12 +175,7 @@ export function CrmClientView({
           }}
         >
           {kanbanStages.map((stage) => {
-            const stageOpps = activeOpportunities.filter((o) => o.stage === stage);
-            const totalStageVal = stageOpps.reduce(
-              (sum, o) => sum + Number(o.amountMinor || "0"),
-              0,
-            );
-
+            const stageOpps = opportunities.filter((o) => o.stage === stage);
             return (
               <div
                 key={stage}
@@ -309,7 +198,8 @@ export function CrmClientView({
                     {opportunityStageLabel(stage)}
                   </strong>
                   <small style={{ color: "var(--muted-foreground)" }}>
-                    {stageOpps.length} deals · {formatMoney(String(totalStageVal), "USD", 2)}
+                    {stageOpps.length} deals ·{" "}
+                    {formatOpportunityTotals(stageOpps, currency, currencyScale)}
                   </small>
                 </div>
 
@@ -343,7 +233,11 @@ export function CrmClientView({
                       >
                         <strong style={{ color: "var(--primary)", fontSize: "0.95rem" }}>
                           {opp.amountMinor
-                            ? formatMoney(opp.amountMinor, opp.currencyCode || "USD", 2)
+                            ? formatMoney(
+                                opp.amountMinor,
+                                opp.currencyCode ?? currency,
+                                currencyScale,
+                              )
                             : "N/A"}
                         </strong>
                         <span className="status status-ready_to_send">{opp.probability}% win</span>
@@ -397,7 +291,7 @@ export function CrmClientView({
         <div className="recent-section">
           <div className="section-heading">
             <h2>Lead Directory & Instant Conversion</h2>
-            <small>{activeLeads.length} leads listed</small>
+            <small>{leads.length} leads listed</small>
           </div>
 
           <div className="data-list">
@@ -417,7 +311,7 @@ export function CrmClientView({
               <span style={{ width: "160px", textAlign: "right" }}>Action</span>
             </div>
 
-            {activeLeads.map((lead) => (
+            {leads.map((lead) => (
               <div className="data-row" key={lead.id}>
                 <span className="grow">
                   <strong>{lead.name}</strong>
@@ -430,7 +324,7 @@ export function CrmClientView({
                 <span style={{ width: "110px" }}>{lead.source || "Direct"}</span>
                 <strong style={{ width: "110px" }}>
                   {lead.estimatedValue
-                    ? formatMoney(lead.estimatedValue, lead.currencyCode || "USD", 2)
+                    ? formatMoney(lead.estimatedValue, lead.currencyCode ?? currency, currencyScale)
                     : "—"}
                 </strong>
                 <span style={{ width: "100px" }}>
@@ -464,66 +358,15 @@ export function CrmClientView({
       {/* TAB 3: CUSTOMER ACTIVITY FEED */}
       {activeTab === "feed" && (
         <div className="narrow-page" style={{ margin: "0 auto" }}>
-          <div className="section-heading">
-            <h2>Customer Interaction Feed</h2>
-            <small>Chronological log of emails, calls, and quote events</small>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {activities.map((act) => (
-              <div
-                key={act.id}
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius)",
-                  padding: "1.25rem",
-                  display: "flex",
-                  gap: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    background:
-                      act.type === "CONVERSION" ? "var(--success-bg)" : "var(--surface-subtle)",
-                    borderRadius: "50%",
-                    width: "42px",
-                    height: "42px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {act.type === "CONVERSION" && (
-                    <CheckCircle style={{ color: "var(--success)" }} size={20} />
-                  )}
-                  {act.type === "CALL" && (
-                    <PhoneCall style={{ color: "var(--primary)" }} size={20} />
-                  )}
-                  {act.type === "EMAIL" && <Mail style={{ color: "#b54708" }} size={20} />}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    <strong style={{ fontSize: "1rem" }}>{act.title}</strong>
-                    <small style={{ color: "var(--muted-foreground)" }}>{act.timestamp}</small>
-                  </div>
-                  <p
-                    style={{ margin: "0 0 0.5rem", color: "var(--foreground)", fontSize: "0.9rem" }}
-                  >
-                    {act.description}
-                  </p>
-                  <small style={{ color: "var(--muted-foreground)" }}>Logged by {act.actor}</small>
-                </div>
-              </div>
-            ))}
+          <div className="empty-state">
+            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>
+              The activity feed is not available yet
+            </h2>
+            <p style={{ margin: "0.4rem 0 0" }}>
+              bizOS does not yet record customer interactions as events, so there is no history to
+              show here. Quotation and invoice sends are recorded against those documents in the
+              meantime.
+            </p>
           </div>
         </div>
       )}

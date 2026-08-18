@@ -15,6 +15,16 @@ Rules:
 
 ## Entries
 
+- [2026-08-18 — TASK-02 multi-currency formatting sweep](2026-08-18-task-02-multi-currency-formatting-sweep.md)
+  - Agent: oscar · Status: Complete
+- [2026-08-18 — TASK-01 API contracts for BFF write actions](2026-08-18-task-01-api-contracts-for-bff-write-actions.md)
+  - Agent: jim · Status: Complete
+- [2026-08-17 — Take over bizOS autonomously: fabrication sweep, beta claims, MMF-2](2026-08-17-take-over-bizos-autonomously-fabrication-sweep-beta-claims-m.md)
+  - Agent: claude-cowork · Status: Ready for review
+- [2026-08-17 — Define the MMF and deliver "Money customers owe"](2026-08-17-define-the-mmf-and-deliver-money-customers-owe.md)
+  - Agent: claude-cowork · Status: Ready for review
+- [2026-08-17 — Close the MMF-1 write-back gap and assert A7, A8, A11](2026-08-17-close-the-mmf-1-write-back-gap-and-assert-a7-a8-a11.md)
+  - Agent: claude-cowork · Status: Ready for review
 - [2026-08-15 — Stabilize PR81 for production release](2026-08-15-stabilize-pr81-for-production-release.md)
   - Agent: claude-cowork · Status: Complete
 - [2026-08-15 — Prevent cumulative payment over-allocation across completed payments (Issue #59)](2026-08-15-prevent-cumulative-payment-over-allocation-across-completed-.md)

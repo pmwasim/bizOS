@@ -25,6 +25,9 @@ overrides:
   # Scoped to the 3.x line, which is what postcss pulls in; nanoid 4+ is ESM-only
   # and forcing it onto CJS consumers would repeat the brace-expansion breakage.
   "nanoid@<3.3.18": "3.3.18"
+  # GHSA-ggr8-5vv4-36mx: deepmerge-ts <8 stack exhaustion on recursive object graphs.
+  # Transitive via prisma > @prisma/config; 8.x is the patched line.
+  "deepmerge-ts@<8.0.0": "8.0.1"
   "postcss@<=8.5.17": "8.5.23"
   "sharp@<0.35.0": "0.35.0"
   "valibot@<=1.4.1": "1.4.2"

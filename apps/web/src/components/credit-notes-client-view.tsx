@@ -1,17 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { Plus, Receipt, X, FileText, CheckCircle } from "lucide-react";
 
-import {
-  type CreditNote,
-  type CreditNoteReason,
-  creditNoteReasonLabel,
-} from "@bizo/contracts/credit-notes";
+import { type CreditNote, creditNoteReasonLabel } from "@bizo/contracts/credit-notes";
 import { type Customer } from "@bizo/contracts/customers";
 import { type Invoice } from "@bizo/contracts/invoices";
+import { type ActionState, createCreditNoteAction } from "@/app/actions";
+import { ActionMessage } from "@/components/action-message";
+import { SubmitButton } from "@/components/submit-button";
 
 import { formatMoney } from "@/lib/display";
+
+function formatCreditNoteTotals(
+  creditNotes: CreditNote[],
+  fallbackCurrency: string,
+  fallbackScale: number,
+): string {
+  const totalsByCurrency = new Map<string, { minor: number; scale: number }>();
+  for (const creditNote of creditNotes) {
+    const key = `${creditNote.currencyCode}:${creditNote.currencyScale}`;
+    const current = totalsByCurrency.get(key);
+    totalsByCurrency.set(key, {
+      minor: (current?.minor ?? 0) + Number(creditNote.totalMinor),
+      scale: creditNote.currencyScale,
+    });
+  }
+
+  if (totalsByCurrency.size === 0) {
+    return formatMoney("0", fallbackCurrency, fallbackScale);
+  }
+
+  return Array.from(totalsByCurrency, ([key, total]) => {
+    const currency = key.split(":", 1)[0]!;
+    return formatMoney(String(total.minor), currency, total.scale);
+  }).join(" · ");
+}
 
 interface LineItem {
   id: string;
@@ -26,22 +50,24 @@ export function CreditNotesClientView({
   initialCreditNotes,
   customers,
   invoices,
+  currency,
+  currencyScale,
 }: {
   businessId: string;
   initialCreditNotes: CreditNote[];
   customers: Customer[];
   invoices: Invoice[];
+  currency: string;
+  currencyScale: number;
 }) {
-  const [creditNotes, setCreditNotes] = useState<CreditNote[]>(initialCreditNotes);
+  const creditNotes = initialCreditNotes;
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    createCreditNoteAction.bind(null, businessId),
+    {},
+  );
 
   // Form State
-  const [customerId, setCustomerId] = useState(customers[0]?.id || "");
-  const [referenceInvoiceId, setReferenceInvoiceId] = useState("");
-  const [reason, setReason] = useState<CreditNoteReason>("BILLING_ERROR");
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
-  const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<LineItem[]>([
     {
       id: "line-1",
@@ -75,106 +101,6 @@ export function CreditNotesClientView({
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
   }
 
-  async function handleCreateCreditNote(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-
-    const payload = {
-      customerId,
-      referenceInvoiceId: referenceInvoiceId || undefined,
-      reason,
-      issueDate,
-      notes: notes || undefined,
-      lines: lines.map((l) => ({
-        description: l.description,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        taxRatePercent: l.taxRatePercent,
-      })),
-    };
-
-    try {
-      const res = await fetch(`/api/businesses/${businessId}/credit-notes`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const created: CreditNote = await res.json();
-        setCreditNotes((prev) => [created, ...prev]);
-        setIsModalOpen(false);
-      } else {
-        // Fallback local update if API requires authenticated session in client context
-        const selectedCust = customers.find((c) => c.id === customerId);
-        const refInv = invoices.find((i) => i.id === referenceInvoiceId);
-
-        const subtotal = lines.reduce(
-          (sum, l) => sum + Number(l.quantity) * Number(l.unitPrice) * 100,
-          0,
-        );
-        const tax = lines.reduce(
-          (sum, l) =>
-            sum + (Number(l.quantity) * Number(l.unitPrice) * 100 * Number(l.taxRatePercent)) / 100,
-          0,
-        );
-
-        const mockNote: CreditNote = {
-          id: crypto.randomUUID(),
-          number: `CN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          status: "ISSUED",
-          reason,
-          issueDate,
-          currencyCode: "USD",
-          currencyScale: 2,
-          subtotalMinor: String(Math.round(subtotal)),
-          taxMinor: String(Math.round(tax)),
-          totalMinor: String(Math.round(subtotal + tax)),
-          notes: notes || null,
-          customer: {
-            id: customerId,
-            name: selectedCust?.name || "Customer",
-            email: selectedCust?.email || null,
-            phone: selectedCust?.phone || null,
-          },
-          referenceInvoice: refInv ? { id: refInv.id, number: refInv.number } : null,
-          lines: lines.map((l, index) => ({
-            position: index + 1,
-            description: l.description,
-            quantity: l.quantity,
-            unitPriceMinor: String(Math.round(Number(l.unitPrice) * 100)),
-            taxRatePpm: Number(l.taxRatePercent) * 10000,
-            subtotalMinor: String(Math.round(Number(l.quantity) * Number(l.unitPrice) * 100)),
-            taxMinor: String(
-              Math.round(
-                (Number(l.quantity) * Number(l.unitPrice) * 100 * Number(l.taxRatePercent)) / 100,
-              ),
-            ),
-            totalMinor: String(
-              Math.round(
-                Number(l.quantity) *
-                  Number(l.unitPrice) *
-                  100 *
-                  (1 + Number(l.taxRatePercent) / 100),
-              ),
-            ),
-          })),
-          allocations: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        setCreditNotes((prev) => [mockNote, ...prev]);
-        setIsModalOpen(false);
-      }
-    } catch {
-      setIsModalOpen(false);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const totalValueMinor = creditNotes.reduce((sum, cn) => sum + Number(cn.totalMinor), 0);
   const issuedCount = creditNotes.filter((cn) => cn.status === "ISSUED").length;
 
   return (
@@ -208,7 +134,7 @@ export function CreditNotesClientView({
         <a>
           <CheckCircle size={28} />
           <span>Total Credit Amount</span>
-          <strong>{formatMoney(String(totalValueMinor), "USD", 2)}</strong>
+          <strong>{formatCreditNoteTotals(creditNotes, currency, currencyScale)}</strong>
         </a>
       </div>
 
@@ -302,10 +228,12 @@ export function CreditNotesClientView({
               </button>
             </div>
 
-            <form onSubmit={handleCreateCreditNote} className="form-stack">
+            <ActionMessage error={state.error} />
+
+            <form action={formAction} className="form-stack">
               <label className="field">
                 <span>Customer</span>
-                <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
+                <select name="customerId" defaultValue={customers[0]?.id ?? ""} required>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -317,10 +245,7 @@ export function CreditNotesClientView({
               <div className="field-grid">
                 <label className="field">
                   <span>Reference Invoice (Optional)</span>
-                  <select
-                    value={referenceInvoiceId}
-                    onChange={(e) => setReferenceInvoiceId(e.target.value)}
-                  >
+                  <select name="referenceInvoiceId" defaultValue="">
                     <option value="">-- None (Standalone) --</option>
                     {invoices.map((inv) => (
                       <option key={inv.id} value={inv.id}>
@@ -332,10 +257,7 @@ export function CreditNotesClientView({
 
                 <label className="field">
                   <span>Reason</span>
-                  <select
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value as CreditNoteReason)}
-                  >
+                  <select name="reason" defaultValue="BILLING_ERROR">
                     <option value="RETURNED_GOODS">Returned Goods</option>
                     <option value="BILLING_ERROR">Billing Error</option>
                     <option value="DISCOUNT">Discount</option>
@@ -348,9 +270,9 @@ export function CreditNotesClientView({
               <label className="field">
                 <span>Issue Date</span>
                 <input
+                  name="issueDate"
                   type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
+                  defaultValue={new Date().toISOString().slice(0, 10)}
                   required
                 />
               </label>
@@ -375,12 +297,14 @@ export function CreditNotesClientView({
                     }}
                   >
                     <input
+                      name="description"
                       placeholder="Description"
                       value={l.description}
                       onChange={(e) => updateLine(l.id, "description", e.target.value)}
                       required
                     />
                     <input
+                      name="quantity"
                       placeholder="Qty"
                       type="number"
                       value={l.quantity}
@@ -388,6 +312,7 @@ export function CreditNotesClientView({
                       required
                     />
                     <input
+                      name="unitPrice"
                       placeholder="Unit Price"
                       type="number"
                       step="0.01"
@@ -396,6 +321,7 @@ export function CreditNotesClientView({
                       required
                     />
                     <input
+                      name="taxRatePercent"
                       placeholder="Tax %"
                       type="number"
                       value={l.taxRatePercent}
@@ -425,9 +351,8 @@ export function CreditNotesClientView({
               <label className="field">
                 <span>Notes / Reason Description</span>
                 <textarea
+                  name="notes"
                   rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
                   placeholder="Additional notes for customer credit..."
                 />
               </label>
@@ -447,9 +372,7 @@ export function CreditNotesClientView({
                 >
                   Cancel
                 </button>
-                <button className="button button-primary" type="submit" disabled={loading}>
-                  {loading ? "Creating..." : "Save & Issue Credit Note"}
-                </button>
+                <SubmitButton pendingText="Creating...">Save Credit Note (Draft)</SubmitButton>
               </div>
             </form>
           </div>

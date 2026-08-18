@@ -9,10 +9,14 @@ import {
   signUpRequestSchema,
 } from "@bizo/contracts/auth";
 import { createCustomerRequestSchema, type Customer } from "@bizo/contracts/customers";
+import { createCreditNoteRequestSchema, type CreditNote } from "@bizo/contracts/credit-notes";
 import { createDeliveryNoteRequestSchema, type DeliveryNote } from "@bizo/contracts/delivery-notes";
+import { createInventoryItemRequestSchema, type InventoryItem } from "@bizo/contracts/inventory";
+import { createProjectRequestSchema, type Project } from "@bizo/contracts/projects";
 import {
   createLeadRequestSchema,
   createOpportunityRequestSchema,
+  opportunityStageSchema,
   type Lead,
   type Opportunity,
 } from "@bizo/contracts/crm";
@@ -1020,4 +1024,142 @@ function readLinesFromFormData(formData: FormData): Array<Record<string, string>
     unitPrice: unitPrices[i] || "0",
     taxRatePercent: taxRates[i] || "0",
   }));
+}
+
+export async function convertLeadAction(businessId: string, leadId: string): Promise<ActionState> {
+  try {
+    await apiJson<Lead>(`/businesses/${businessId}/leads/${leadId}/convert`, {
+      method: "POST",
+      body: "{}",
+    });
+    return {};
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateOpportunityStageAction(
+  businessId: string,
+  opportunityId: string,
+  stage: string,
+): Promise<ActionState> {
+  const parsed = opportunityStageSchema.safeParse(stage);
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<Opportunity>(`/businesses/${businessId}/opportunities/${opportunityId}`, {
+      method: "PUT",
+      body: JSON.stringify({ stage: parsed.data }),
+    });
+    return {};
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createInventoryItemAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const optional = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value || null;
+  };
+  const taxRatePpm = optional("taxRatePpm");
+  const reorderLevel = optional("reorderLevel");
+
+  const parsed = createInventoryItemRequestSchema.safeParse({
+    sku: formData.get("sku"),
+    name: formData.get("name"),
+    description: optional("description"),
+    itemType: optional("itemType") ?? undefined,
+    unit: optional("unit"),
+    costPriceMinor: optional("costPriceMinor"),
+    sellingPriceMinor: optional("sellingPriceMinor"),
+    taxRatePpm: taxRatePpm === null ? undefined : Number(taxRatePpm),
+    reorderLevel: reorderLevel === null ? null : Number(reorderLevel),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<InventoryItem>(`/businesses/${businessId}/inventory`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/inventory`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createProjectAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const optional = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value || null;
+  };
+
+  const parsed = createProjectRequestSchema.safeParse({
+    name: formData.get("name"),
+    description: optional("description"),
+    customerId: optional("customerId") ?? undefined,
+    startDate: optional("startDate"),
+    endDate: optional("endDate"),
+    budgetMinor: optional("budgetMinor"),
+    notes: optional("notes"),
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson<Project>(`/businesses/${businessId}/projects`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/projects`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createCreditNoteAction(
+  businessId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const descriptions = formData.getAll("description").map(String);
+  const quantities = formData.getAll("quantity").map(String);
+  const unitPrices = formData.getAll("unitPrice").map(String);
+  const taxRates = formData.getAll("taxRatePercent").map(String);
+
+  const lines = descriptions.map((description, i) => ({
+    description,
+    quantity: quantities[i] ?? "",
+    unitPrice: unitPrices[i] ?? "",
+    taxRatePercent: taxRates[i] ?? "0",
+  }));
+
+  const parsed = createCreditNoteRequestSchema.safeParse({
+    customerId: formData.get("customerId"),
+    referenceInvoiceId: String(formData.get("referenceInvoiceId") ?? "").trim() || undefined,
+    reason: formData.get("reason"),
+    issueDate: String(formData.get("issueDate") ?? "").trim() || undefined,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+    lines,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  // The API creates the credit note as DRAFT; issuing is a separate action and is not triggered here.
+  try {
+    await apiJson<CreditNote>(`/businesses/${businessId}/credit-notes`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    redirect(`/b/${businessId}/credit-notes`);
+  } catch (error) {
+    return actionError(error);
+  }
 }

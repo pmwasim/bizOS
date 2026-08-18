@@ -2,6 +2,7 @@ import { Plus, Package } from "lucide-react";
 import Link from "next/link";
 
 import { type Product } from "@bizo/contracts/products";
+import { type BusinessSettings } from "@bizo/contracts/platform";
 
 import { apiJson } from "@/lib/api";
 import { formatMinor } from "@/lib/display";
@@ -12,7 +13,10 @@ export default async function ProductsPage({
   params: Promise<{ businessId: string }>;
 }) {
   const { businessId } = await params;
-  const products = await apiJson<Product[]>(`/businesses/${businessId}/products`);
+  const [products, settings] = await Promise.all([
+    apiJson<Product[]>(`/businesses/${businessId}/products`),
+    apiJson<BusinessSettings>(`/businesses/${businessId}/settings`),
+  ]);
   return (
     <div className="page">
       <header className="page-header">
@@ -34,7 +38,11 @@ export default async function ProductsPage({
                 <small>
                   {product.sku} &middot; {product.type} &middot;{" "}
                   {product.sellingPriceMinor
-                    ? formatMinor(product.sellingPriceMinor, 2, "USD")
+                    ? formatMinor(
+                        product.sellingPriceMinor,
+                        settings.currencyScale,
+                        settings.baseCurrency,
+                      )
                     : "No price"}
                 </small>
               </span>
