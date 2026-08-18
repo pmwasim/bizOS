@@ -788,14 +788,14 @@
     {
       "id": "0023",
       "title": "ADR-0023: Invoice settlement is derived, not stored",
-      "status": "Proposed",
+      "status": "Accepted",
       "date": "2026-08-15",
       "path": "docs/decisions/0023-invoice-settlement-is-derived.md"
     },
     {
       "id": "0024",
       "title": "ADR-0024: Receivables and statements are derived per currency, and never estimated",
-      "status": "Proposed",
+      "status": "Accepted",
       "date": "2026-08-17",
       "path": "docs/decisions/0024-receivables-and-statements-are-derived-per-currency.md"
     }

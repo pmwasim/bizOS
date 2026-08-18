@@ -109,8 +109,8 @@ First-level source areas. These are the natural units for a work claim
 | 0021 | ADR-0020: ERPNext foundation with a bizOS customer experience | Accepted |
 | 0022 | ADR-0022: Signed client-IP forwarding for throttling | Accepted Date: 2026-07-28 Deciders: Platform |
 | 0022 | ADR-0022: Ubuntu production hosting | Accepted |
-| 0023 | ADR-0023: Invoice settlement is derived, not stored | Proposed |
-| 0024 | ADR-0024: Receivables and statements are derived per currency, and never estimated | Proposed |
+| 0023 | ADR-0023: Invoice settlement is derived, not stored | Accepted |
+| 0024 | ADR-0024: Receivables and statements are derived per currency, and never estimated | Accepted |
 
 ## Governing documents
 
