@@ -1,8 +1,13 @@
 # ADR-0023: Invoice settlement is derived, not stored
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-08-15  
-Deciders: Product owner
+Deciders: Product owner  
+Accepted: 2026-08-18 — verified against implementation by Michael (orchestrator). `DocumentStatus`
+has exactly the five lifecycle members; no `amount_paid_minor` column; the swallowed denormalisation
+writes are gone; `PaymentsService.invoicePaymentSummary` derives paid/outstanding from `COMPLETED`
+payment allocations floored at zero and is exposed as
+`GET /businesses/:businessId/invoices/:invoiceId/payments` on `invoices.controller.ts`.
 
 ## Context
 

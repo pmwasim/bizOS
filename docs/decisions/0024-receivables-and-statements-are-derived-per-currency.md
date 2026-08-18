@@ -1,8 +1,18 @@
 # ADR-0024: Receivables and statements are derived per currency, and never estimated
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-08-17  
-Deciders: Product owner
+Deciders: Product owner  
+Accepted: 2026-08-18 — verified against implementation by Michael (orchestrator). Ageing lives in
+`statements/ageing.ts` with the five per-invoice buckets (not-yet-due / 1–30 / 31–60 / 61–90 /
+over-90), aged from due date and from issue date when none ("due on issue"); outstanding is total
+less `COMPLETED` payment allocations less `SENT` credit-note allocations, floored at zero
+(`ISSUED_STATUSES = SENT`); totals are in business base currency with other-currency documents
+excluded and named in `otherCurrencies` (never converted); opening balance sums entries strictly
+before `periodStart`; the fabricated-ageing/mock-fallback `statements-client-view.tsx` was deleted
+and rebuilt as `customer-statement.tsx` / `receivables-summary.tsx` / `payables-summary.tsx`, which
+fail closed. Follow-up (non-blocking): one residual `as never` enum-literal cast remains in
+`payments.service.ts`.
 
 ## Context
 
