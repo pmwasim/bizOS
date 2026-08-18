@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { Package, Plus, X } from "lucide-react";
 
-import { type InventoryItem, type InventoryItemType } from "@bizo/contracts/inventory";
+import { type InventoryItem } from "@bizo/contracts/inventory";
+import { type ActionState, createInventoryItemAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
+import { SubmitButton } from "@/components/submit-button";
 import { formatMoney } from "@/lib/display";
 
 export function InventoryClientView({
@@ -18,67 +20,18 @@ export function InventoryClientView({
   currency: string;
   currencyScale: number;
 }) {
-  const [items, setItems] = useState<InventoryItem[]>(initialItems);
+  const items = initialItems;
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | undefined>(undefined);
-
-  // Form State
-  const [sku, setSku] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [itemType, setItemType] = useState<InventoryItemType>("INVENTORY");
-  const [unit, setUnit] = useState("pcs");
-  const [costPriceMinor, setCostPriceMinor] = useState("5000");
-  const [sellingPriceMinor, setSellingPriceMinor] = useState("8500");
-  const [taxRatePpm, setTaxRatePpm] = useState(150000); // 15%
-  const [reorderLevel, setReorderLevel] = useState(10);
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    createInventoryItemAction.bind(null, businessId),
+    {},
+  );
 
   // Stock valuation and low-stock alerts are not derivable yet: InventoryItem records a
   // reorder level but bizOS has no quantity-on-hand column and no stock-movement ledger, so
   // there is nothing to value or to compare a threshold against. Both were previously shown
   // from an assumed batch quantity of 20 and an AVCO factor of 0.96 — invented numbers. They
   // return with the stock-ledger slice, not before.
-
-  async function handleAddItem(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-
-    const payload = {
-      sku,
-      name,
-      description: description || undefined,
-      itemType,
-      unit: unit || undefined,
-      costPriceMinor: costPriceMinor || undefined,
-      sellingPriceMinor: sellingPriceMinor || undefined,
-      taxRatePpm,
-      reorderLevel: reorderLevel !== undefined ? Number(reorderLevel) : undefined,
-    };
-
-    try {
-      const res = await fetch(`/api/businesses/${businessId}/inventory`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const newItem: InventoryItem = await res.json();
-        setItems((prev) => [newItem, ...prev]);
-        setIsModalOpen(false);
-        return;
-      }
-
-      // The server rejected the item. Adding it to the list anyway would tell the
-      // business it holds stock it does not hold.
-      setError("The item could not be saved. Nothing was added.");
-    } catch {
-      setError("The item could not be saved — bizOS could not be reached. Nothing was added.");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <>
@@ -238,26 +191,18 @@ export function InventoryClientView({
               </button>
             </div>
 
-            <ActionMessage error={error} />
+            <ActionMessage error={state.error} />
 
-            <form onSubmit={handleAddItem} className="form-stack">
+            <form action={formAction} className="form-stack">
               <div className="field-grid">
                 <label className="field">
                   <span>SKU</span>
-                  <input
-                    placeholder="e.g. SKU-PRO-009"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    required
-                  />
+                  <input name="sku" placeholder="e.g. SKU-PRO-009" required />
                 </label>
 
                 <label className="field">
                   <span>Item Type</span>
-                  <select
-                    value={itemType}
-                    onChange={(e) => setItemType(e.target.value as InventoryItemType)}
-                  >
+                  <select name="itemType" defaultValue="INVENTORY">
                     <option value="INVENTORY">INVENTORY (Physical)</option>
                     <option value="SERVICE">SERVICE (Labor)</option>
                     <option value="NON_INVENTORY">NON_INVENTORY</option>
@@ -267,51 +212,41 @@ export function InventoryClientView({
 
               <label className="field">
                 <span>Item Name</span>
-                <input
-                  placeholder="Product or service name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+                <input name="name" placeholder="Product or service name" required />
               </label>
 
               <label className="field">
                 <span>Description</span>
                 <textarea
+                  name="description"
                   rows={2}
                   placeholder="Detailed product specification..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
                 />
               </label>
 
               <div className="field-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
                 <label className="field">
                   <span>Unit</span>
-                  <input
-                    placeholder="e.g. pcs, hrs"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                  />
+                  <input name="unit" placeholder="e.g. pcs, hrs" defaultValue="pcs" />
                 </label>
 
                 <label className="field">
                   <span>Cost Price (Minor)</span>
                   <input
+                    name="costPriceMinor"
                     type="number"
                     placeholder="5000"
-                    value={costPriceMinor}
-                    onChange={(e) => setCostPriceMinor(e.target.value)}
+                    defaultValue="5000"
                   />
                 </label>
 
                 <label className="field">
                   <span>Selling Price (Minor)</span>
                   <input
+                    name="sellingPriceMinor"
                     type="number"
                     placeholder="8500"
-                    value={sellingPriceMinor}
-                    onChange={(e) => setSellingPriceMinor(e.target.value)}
+                    defaultValue="8500"
                   />
                 </label>
               </div>
@@ -319,20 +254,12 @@ export function InventoryClientView({
               <div className="field-grid">
                 <label className="field">
                   <span>Tax Rate (PPM: 150000 = 15%)</span>
-                  <input
-                    type="number"
-                    value={taxRatePpm}
-                    onChange={(e) => setTaxRatePpm(Number(e.target.value))}
-                  />
+                  <input name="taxRatePpm" type="number" defaultValue={150000} />
                 </label>
 
                 <label className="field">
                   <span>Reorder Level Threshold</span>
-                  <input
-                    type="number"
-                    value={reorderLevel}
-                    onChange={(e) => setReorderLevel(Number(e.target.value))}
-                  />
+                  <input name="reorderLevel" type="number" defaultValue={10} />
                 </label>
               </div>
 
@@ -351,9 +278,7 @@ export function InventoryClientView({
                 >
                   Cancel
                 </button>
-                <button className="button button-primary" type="submit" disabled={loading}>
-                  {loading ? "Saving..." : "Save Stock Item"}
-                </button>
+                <SubmitButton pendingText="Saving...">Save Stock Item</SubmitButton>
               </div>
             </form>
           </div>
