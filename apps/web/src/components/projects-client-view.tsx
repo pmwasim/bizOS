@@ -12,10 +12,14 @@ export function ProjectsClientView({
   businessId,
   initialProjects,
   customers,
+  currency,
+  currencyScale,
 }: {
   businessId: string;
   initialProjects: Project[];
   customers: Customer[];
+  currency: string;
+  currencyScale: number;
 }) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -161,7 +165,11 @@ export function ProjectsClientView({
               </span>
               <strong style={{ width: "130px", textAlign: "right" }}>
                 {project.budgetMinor
-                  ? formatMoney(project.budgetMinor, project.currencyCode ?? "USD", 2)
+                  ? formatMoney(
+                      project.budgetMinor,
+                      project.currencyCode ?? currency,
+                      currencyScale,
+                    )
                   : "—"}
               </strong>
             </div>

@@ -15,16 +15,44 @@ import { formatMoney } from "@/lib/display";
 import { convertLeadAction, updateOpportunityStageAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
 
+function formatOpportunityTotals(
+  opportunities: Opportunity[],
+  fallbackCurrency: string,
+  currencyScale: number,
+): string {
+  const totalsByCurrency = new Map<string, number>();
+  for (const opportunity of opportunities) {
+    if (!opportunity.amountMinor) continue;
+    const currency = opportunity.currencyCode ?? fallbackCurrency;
+    totalsByCurrency.set(
+      currency,
+      (totalsByCurrency.get(currency) ?? 0) + Number(opportunity.amountMinor),
+    );
+  }
+
+  if (totalsByCurrency.size === 0) {
+    return formatMoney("0", fallbackCurrency, currencyScale);
+  }
+
+  return Array.from(totalsByCurrency, ([currency, totalMinor]) =>
+    formatMoney(String(totalMinor), currency, currencyScale),
+  ).join(" · ");
+}
+
 export function CrmClientView({
   businessId,
   initialLeads,
   initialOpportunities,
   customers: _customers,
+  currency,
+  currencyScale,
 }: {
   businessId: string;
   initialLeads: Lead[];
   initialOpportunities: Opportunity[];
   customers: Customer[];
+  currency: string;
+  currencyScale: number;
 }) {
   const [activeTab, setActiveTab] = useState<"kanban" | "leads" | "feed">("kanban");
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -148,11 +176,6 @@ export function CrmClientView({
         >
           {kanbanStages.map((stage) => {
             const stageOpps = opportunities.filter((o) => o.stage === stage);
-            const totalStageVal = stageOpps.reduce(
-              (sum, o) => sum + Number(o.amountMinor || "0"),
-              0,
-            );
-
             return (
               <div
                 key={stage}
@@ -175,7 +198,8 @@ export function CrmClientView({
                     {opportunityStageLabel(stage)}
                   </strong>
                   <small style={{ color: "var(--muted-foreground)" }}>
-                    {stageOpps.length} deals · {formatMoney(String(totalStageVal), "USD", 2)}
+                    {stageOpps.length} deals ·{" "}
+                    {formatOpportunityTotals(stageOpps, currency, currencyScale)}
                   </small>
                 </div>
 
@@ -209,7 +233,11 @@ export function CrmClientView({
                       >
                         <strong style={{ color: "var(--primary)", fontSize: "0.95rem" }}>
                           {opp.amountMinor
-                            ? formatMoney(opp.amountMinor, opp.currencyCode || "USD", 2)
+                            ? formatMoney(
+                                opp.amountMinor,
+                                opp.currencyCode ?? currency,
+                                currencyScale,
+                              )
                             : "N/A"}
                         </strong>
                         <span className="status status-ready_to_send">{opp.probability}% win</span>
@@ -296,7 +324,7 @@ export function CrmClientView({
                 <span style={{ width: "110px" }}>{lead.source || "Direct"}</span>
                 <strong style={{ width: "110px" }}>
                   {lead.estimatedValue
-                    ? formatMoney(lead.estimatedValue, lead.currencyCode || "USD", 2)
+                    ? formatMoney(lead.estimatedValue, lead.currencyCode ?? currency, currencyScale)
                     : "—"}
                 </strong>
                 <span style={{ width: "100px" }}>

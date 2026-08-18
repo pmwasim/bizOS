@@ -2,6 +2,7 @@ import { Plus, Target } from "lucide-react";
 import Link from "next/link";
 
 import { opportunityStageLabel, type Opportunity } from "@bizo/contracts/crm";
+import { type BusinessSettings } from "@bizo/contracts/platform";
 
 import { apiJson } from "@/lib/api";
 import { formatMinor } from "@/lib/display";
@@ -12,7 +13,10 @@ export default async function OpportunitiesPage({
   params: Promise<{ businessId: string }>;
 }) {
   const { businessId } = await params;
-  const opportunities = await apiJson<Opportunity[]>(`/businesses/${businessId}/opportunities`);
+  const [opportunities, settings] = await Promise.all([
+    apiJson<Opportunity[]>(`/businesses/${businessId}/opportunities`),
+    apiJson<BusinessSettings>(`/businesses/${businessId}/settings`),
+  ]);
   return (
     <div className="page">
       <header className="page-header">
@@ -34,7 +38,11 @@ export default async function OpportunitiesPage({
                 <small>
                   {opportunityStageLabel(opp.stage)} &middot;{" "}
                   {opp.amountMinor
-                    ? formatMinor(opp.amountMinor, 2, opp.currencyCode ?? "USD")
+                    ? formatMinor(
+                        opp.amountMinor,
+                        settings.currencyScale,
+                        opp.currencyCode ?? settings.baseCurrency,
+                      )
                     : "No value"}
                 </small>
               </span>

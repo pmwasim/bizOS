@@ -10,9 +10,13 @@ import { formatMoney } from "@/lib/display";
 export function InventoryClientView({
   businessId,
   initialItems,
+  currency,
+  currencyScale,
 }: {
   businessId: string;
   initialItems: InventoryItem[];
+  currency: string;
+  currencyScale: number;
 }) {
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -165,10 +169,14 @@ export function InventoryClientView({
               </span>
               <span style={{ width: "80px" }}>{item.unit || "pcs"}</span>
               <span style={{ width: "110px", textAlign: "right" }}>
-                {item.costPriceMinor ? formatMoney(item.costPriceMinor, "USD", 2) : "—"}
+                {item.costPriceMinor
+                  ? formatMoney(item.costPriceMinor, currency, currencyScale)
+                  : "—"}
               </span>
               <strong style={{ width: "110px", textAlign: "right" }}>
-                {item.sellingPriceMinor ? formatMoney(item.sellingPriceMinor, "USD", 2) : "—"}
+                {item.sellingPriceMinor
+                  ? formatMoney(item.sellingPriceMinor, currency, currencyScale)
+                  : "—"}
               </strong>
               <span style={{ width: "90px", textAlign: "right" }}>
                 {(item.taxRatePpm / 10000).toFixed(0)}%

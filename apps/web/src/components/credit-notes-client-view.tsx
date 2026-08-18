@@ -14,6 +14,31 @@ import { ActionMessage } from "@/components/action-message";
 
 import { formatMoney } from "@/lib/display";
 
+function formatCreditNoteTotals(
+  creditNotes: CreditNote[],
+  fallbackCurrency: string,
+  fallbackScale: number,
+): string {
+  const totalsByCurrency = new Map<string, { minor: number; scale: number }>();
+  for (const creditNote of creditNotes) {
+    const key = `${creditNote.currencyCode}:${creditNote.currencyScale}`;
+    const current = totalsByCurrency.get(key);
+    totalsByCurrency.set(key, {
+      minor: (current?.minor ?? 0) + Number(creditNote.totalMinor),
+      scale: creditNote.currencyScale,
+    });
+  }
+
+  if (totalsByCurrency.size === 0) {
+    return formatMoney("0", fallbackCurrency, fallbackScale);
+  }
+
+  return Array.from(totalsByCurrency, ([key, total]) => {
+    const currency = key.split(":", 1)[0]!;
+    return formatMoney(String(total.minor), currency, total.scale);
+  }).join(" · ");
+}
+
 interface LineItem {
   id: string;
   description: string;
@@ -27,11 +52,15 @@ export function CreditNotesClientView({
   initialCreditNotes,
   customers,
   invoices,
+  currency,
+  currencyScale,
 }: {
   businessId: string;
   initialCreditNotes: CreditNote[];
   customers: Customer[];
   invoices: Invoice[];
+  currency: string;
+  currencyScale: number;
 }) {
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(initialCreditNotes);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -118,7 +147,6 @@ export function CreditNotesClientView({
     }
   }
 
-  const totalValueMinor = creditNotes.reduce((sum, cn) => sum + Number(cn.totalMinor), 0);
   const issuedCount = creditNotes.filter((cn) => cn.status === "ISSUED").length;
 
   return (
@@ -152,7 +180,7 @@ export function CreditNotesClientView({
         <a>
           <CheckCircle size={28} />
           <span>Total Credit Amount</span>
-          <strong>{formatMoney(String(totalValueMinor), "USD", 2)}</strong>
+          <strong>{formatCreditNoteTotals(creditNotes, currency, currencyScale)}</strong>
         </a>
       </div>
 

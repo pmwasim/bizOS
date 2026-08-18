@@ -1,5 +1,6 @@
 import { type Project } from "@bizo/contracts/projects";
 import { type Customer } from "@bizo/contracts/customers";
+import { type BusinessSettings } from "@bizo/contracts/platform";
 
 import { apiJson } from "@/lib/api";
 import { ProjectsClientView } from "@/components/projects-client-view";
@@ -11,20 +12,11 @@ export default async function ProjectsPage({
 }) {
   const { businessId } = await params;
 
-  let projects: Project[];
-  let customers: Customer[];
-
-  try {
-    projects = await apiJson<Project[]>(`/businesses/${businessId}/projects`);
-  } catch {
-    projects = [];
-  }
-
-  try {
-    customers = await apiJson<Customer[]>(`/businesses/${businessId}/customers`);
-  } catch {
-    customers = [];
-  }
+  const [projects, customers, settings] = await Promise.all([
+    apiJson<Project[]>(`/businesses/${businessId}/projects`),
+    apiJson<Customer[]>(`/businesses/${businessId}/customers`),
+    apiJson<BusinessSettings>(`/businesses/${businessId}/settings`),
+  ]);
 
   return (
     <div className="page">
@@ -32,6 +24,8 @@ export default async function ProjectsPage({
         businessId={businessId}
         initialProjects={projects}
         customers={customers}
+        currency={settings.baseCurrency}
+        currencyScale={settings.currencyScale}
       />
     </div>
   );

@@ -9,7 +9,7 @@ export function formatMoney(
   );
 }
 
-export function formatMinor(amountMinor: string | number, scale = 2, currency = "USD"): string {
+export function formatMinor(amountMinor: string | number, scale: number, currency: string): string {
   return formatMoney(String(amountMinor), currency, scale);
 }
 
