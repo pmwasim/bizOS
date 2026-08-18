@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { Plus, Receipt, X, FileText, CheckCircle } from "lucide-react";
 
-import {
-  type CreditNote,
-  type CreditNoteReason,
-  creditNoteReasonLabel,
-} from "@bizo/contracts/credit-notes";
+import { type CreditNote, creditNoteReasonLabel } from "@bizo/contracts/credit-notes";
 import { type Customer } from "@bizo/contracts/customers";
 import { type Invoice } from "@bizo/contracts/invoices";
+import { type ActionState, createCreditNoteAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
+import { SubmitButton } from "@/components/submit-button";
 
 import { formatMoney } from "@/lib/display";
 
@@ -62,17 +60,14 @@ export function CreditNotesClientView({
   currency: string;
   currencyScale: number;
 }) {
-  const [creditNotes, setCreditNotes] = useState<CreditNote[]>(initialCreditNotes);
+  const creditNotes = initialCreditNotes;
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | undefined>(undefined);
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    createCreditNoteAction.bind(null, businessId),
+    {},
+  );
 
   // Form State
-  const [customerId, setCustomerId] = useState(customers[0]?.id || "");
-  const [referenceInvoiceId, setReferenceInvoiceId] = useState("");
-  const [reason, setReason] = useState<CreditNoteReason>("BILLING_ERROR");
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
-  const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<LineItem[]>([
     {
       id: "line-1",
@@ -104,47 +99,6 @@ export function CreditNotesClientView({
 
   function updateLine(id: string, field: keyof LineItem, value: string) {
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
-  }
-
-  async function handleCreateCreditNote(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-
-    const payload = {
-      customerId,
-      referenceInvoiceId: referenceInvoiceId || undefined,
-      reason,
-      issueDate,
-      notes: notes || undefined,
-      lines: lines.map((l) => ({
-        description: l.description,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        taxRatePercent: l.taxRatePercent,
-      })),
-    };
-
-    try {
-      const res = await fetch(`/api/businesses/${businessId}/credit-notes`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const created: CreditNote = await res.json();
-        setCreditNotes((prev) => [created, ...prev]);
-        setIsModalOpen(false);
-      } else {
-        // A credit note reduces what a customer owes, and receivables now net issued credit
-        // notes off each invoice. Inventing one here would understate real debt.
-        setError("The credit note could not be issued. Nothing was created.");
-      }
-    } catch {
-      setError("The credit note could not be issued — bizOS could not be reached.");
-    } finally {
-      setLoading(false);
-    }
   }
 
   const issuedCount = creditNotes.filter((cn) => cn.status === "ISSUED").length;
@@ -274,12 +228,12 @@ export function CreditNotesClientView({
               </button>
             </div>
 
-            <ActionMessage error={error} />
+            <ActionMessage error={state.error} />
 
-            <form onSubmit={handleCreateCreditNote} className="form-stack">
+            <form action={formAction} className="form-stack">
               <label className="field">
                 <span>Customer</span>
-                <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
+                <select name="customerId" defaultValue={customers[0]?.id ?? ""} required>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -291,10 +245,7 @@ export function CreditNotesClientView({
               <div className="field-grid">
                 <label className="field">
                   <span>Reference Invoice (Optional)</span>
-                  <select
-                    value={referenceInvoiceId}
-                    onChange={(e) => setReferenceInvoiceId(e.target.value)}
-                  >
+                  <select name="referenceInvoiceId" defaultValue="">
                     <option value="">-- None (Standalone) --</option>
                     {invoices.map((inv) => (
                       <option key={inv.id} value={inv.id}>
@@ -306,10 +257,7 @@ export function CreditNotesClientView({
 
                 <label className="field">
                   <span>Reason</span>
-                  <select
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value as CreditNoteReason)}
-                  >
+                  <select name="reason" defaultValue="BILLING_ERROR">
                     <option value="RETURNED_GOODS">Returned Goods</option>
                     <option value="BILLING_ERROR">Billing Error</option>
                     <option value="DISCOUNT">Discount</option>
@@ -322,9 +270,9 @@ export function CreditNotesClientView({
               <label className="field">
                 <span>Issue Date</span>
                 <input
+                  name="issueDate"
                   type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
+                  defaultValue={new Date().toISOString().slice(0, 10)}
                   required
                 />
               </label>
@@ -349,12 +297,14 @@ export function CreditNotesClientView({
                     }}
                   >
                     <input
+                      name="description"
                       placeholder="Description"
                       value={l.description}
                       onChange={(e) => updateLine(l.id, "description", e.target.value)}
                       required
                     />
                     <input
+                      name="quantity"
                       placeholder="Qty"
                       type="number"
                       value={l.quantity}
@@ -362,6 +312,7 @@ export function CreditNotesClientView({
                       required
                     />
                     <input
+                      name="unitPrice"
                       placeholder="Unit Price"
                       type="number"
                       step="0.01"
@@ -370,6 +321,7 @@ export function CreditNotesClientView({
                       required
                     />
                     <input
+                      name="taxRatePercent"
                       placeholder="Tax %"
                       type="number"
                       value={l.taxRatePercent}
@@ -399,9 +351,8 @@ export function CreditNotesClientView({
               <label className="field">
                 <span>Notes / Reason Description</span>
                 <textarea
+                  name="notes"
                   rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
                   placeholder="Additional notes for customer credit..."
                 />
               </label>
@@ -421,9 +372,7 @@ export function CreditNotesClientView({
                 >
                   Cancel
                 </button>
-                <button className="button button-primary" type="submit" disabled={loading}>
-                  {loading ? "Creating..." : "Save & Issue Credit Note"}
-                </button>
+                <SubmitButton pendingText="Creating...">Save Credit Note (Draft)</SubmitButton>
               </div>
             </form>
           </div>
