@@ -36,6 +36,7 @@ import { scaledLimit } from "./security/throttle-policy.js";
 import { InternalAuthGuard } from "./security/internal-auth.guard.js";
 import { SecurityModule } from "./security/security.module.js";
 import { SystemAdminModule } from "./system-admin/system-admin.module.js";
+import { TaxModule } from "./tax/tax.module.js";
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { SystemAdminModule } from "./system-admin/system-admin.module.js";
     ProductsModule,
     PaymentsModule,
     StatementsModule,
+    TaxModule,
     CrmModule,
     ProjectsModule,
     InventoryModule,
