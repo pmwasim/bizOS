@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download } from "lucide-react";
 
 import { type Customer } from "@bizo/contracts/customers";
 import { type CustomerStatement, type ReceivablesSummary } from "@bizo/contracts/statements";
@@ -6,6 +6,7 @@ import { type CustomerStatement, type ReceivablesSummary } from "@bizo/contracts
 import { apiJson } from "@/lib/api";
 import { CustomerStatementPanel } from "@/components/customer-statement";
 import { ReceivablesSummaryPanel } from "@/components/receivables-summary";
+import { SendStatementForm } from "@/components/send-statement-form";
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -43,6 +44,7 @@ export default async function StatementsPage({
   const customerId = readParam(query, "customerId");
   const startDate = readParam(query, "startDate", DATE_ONLY);
   const endDate = readParam(query, "endDate", DATE_ONLY);
+  const justSent = readParam(query, "sent") === "1";
 
   const statementQuery = new URLSearchParams();
   if (startDate) statementQuery.set("startDate", startDate);
@@ -115,7 +117,40 @@ export default async function StatementsPage({
 
       {customerId ? (
         statement ? (
-          <CustomerStatementPanel statement={statement} />
+          (() => {
+            const pdfQuery = new URLSearchParams();
+            if (startDate) pdfQuery.set("startDate", startDate);
+            if (endDate) pdfQuery.set("endDate", endDate);
+            const pdfBase = `/api/businesses/${businessId}/statements/customers/${customerId}/pdf`;
+            const pdfSuffix = pdfQuery.size ? `?${pdfQuery.toString()}&download=1` : "?download=1";
+            const selected = (customers ?? []).find((customer) => customer.id === customerId);
+            return (
+              <>
+                {justSent ? (
+                  <div className="success-banner" role="status">
+                    <CheckCircle2 aria-hidden="true" />
+                    <span>
+                      <strong>Statement sent</strong>A PDF copy was emailed to the customer.
+                    </span>
+                  </div>
+                ) : null}
+                <div className="section-heading" style={{ gap: "0.75rem" }}>
+                  <a className="button button-secondary" href={`${pdfBase}${pdfSuffix}`}>
+                    <Download aria-hidden="true" size={17} /> Download PDF
+                  </a>
+                </div>
+                <CustomerStatementPanel statement={statement} />
+                <SendStatementForm
+                  businessId={businessId}
+                  customerId={customerId}
+                  customerName={statement.customerName}
+                  customerEmail={selected?.email ?? null}
+                  startDate={startDate}
+                  endDate={endDate}
+                />
+              </>
+            );
+          })()
         ) : (
           <div className="empty-state" role="alert">
             <AlertTriangle aria-hidden="true" size={30} />

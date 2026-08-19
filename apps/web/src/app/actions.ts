@@ -49,6 +49,7 @@ import {
   saveQuotationRequestSchema,
   sendQuotationRequestSchema,
 } from "@bizo/contracts/quotations";
+import { sendStatementRequestSchema } from "@bizo/contracts/statements";
 import {
   type OnboardingAnswers,
   type OnboardingRecommendation,
@@ -274,6 +275,42 @@ export async function sendQuotationAction(
   } catch (error) {
     return actionError(error);
   }
+}
+
+/**
+ * Email a customer statement. The endpoint is idempotent per customer + period + recipient, so a
+ * double submit does not send twice; on success we return to the same statement view with a banner.
+ */
+export async function sendStatementAction(
+  businessId: string,
+  customerId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const startDate = String(formData.get("startDate") ?? "").trim() || undefined;
+  const endDate = String(formData.get("endDate") ?? "").trim() || undefined;
+  const parsed = sendStatementRequestSchema.safeParse({
+    recipientEmail: formData.get("recipientEmail"),
+    message: String(formData.get("message") ?? "").trim() || null,
+    startDate,
+    endDate,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/statements/customers/${customerId}/send`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+  } catch (error) {
+    return actionError(error);
+  }
+
+  const query = new URLSearchParams({ customerId });
+  if (startDate) query.set("startDate", startDate);
+  if (endDate) query.set("endDate", endDate);
+  query.set("sent", "1");
+  redirect(`/b/${businessId}/statements?${query.toString()}`);
 }
 
 export async function createInvoiceFromQuotationAction(
