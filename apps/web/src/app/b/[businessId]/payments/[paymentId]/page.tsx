@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Download } from "lucide-react";
 import Link from "next/link";
 
 import { type Payment, paymentStatusLabel } from "@bizo/contracts/payments";
@@ -30,6 +30,7 @@ export default async function PaymentDetailPage({
   ]);
   const role = workspace.businesses.find((business) => business.id === businessId)?.role;
   const mayReverse = role !== undefined && ROLES_THAT_MAY_REVERSE.has(role);
+  const pdfPath = `/api/businesses/${businessId}/payments/${paymentId}/pdf`;
 
   return (
     <div className="page preview-page">
@@ -37,6 +38,11 @@ export default async function PaymentDetailPage({
         <Link className="back-link" href={`/b/${businessId}/payments`}>
           <ChevronLeft aria-hidden="true" size={18} /> Payments
         </Link>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <a className="button button-secondary" href={`${pdfPath}?download=1`}>
+            <Download aria-hidden="true" size={17} /> Download receipt
+          </a>
+        </div>
       </div>
 
       <header className="preview-title">

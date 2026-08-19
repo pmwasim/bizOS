@@ -4,11 +4,14 @@ import {
   deriveSettlementStatus,
   type InvoicePaymentSummary,
   type Payment,
+  paymentStatusLabel,
   type RecordPaymentRequest,
 } from "@bizo/contracts/payments";
 import { DocumentType, PaymentStatus, type Prisma, type PaymentType } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service.js";
+import { PdfService } from "../documents/pdf.service.js";
+import { type ReceiptSnapshot } from "../documents/receipt-snapshot.js";
 import {
   type AuthorizationAction,
   type AuthorizationObject,
@@ -38,11 +41,28 @@ type PaymentDetail = {
   }>;
 };
 
+type ReceiptCustomerRow = {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  postalCode: string | null;
+};
+
+type ReceiptAllocationRow = {
+  amountMinor: Prisma.Decimal;
+  document: { id: bigint; number: string; customer: ReceiptCustomerRow | null } | null;
+  purchaseOrder: { publicId: string; poNumber: string } | null;
+};
+
 @Injectable()
 export class PaymentsService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
+    @Inject(PdfService) private readonly pdf: PdfService,
   ) {}
 
   async create(
@@ -546,6 +566,195 @@ export class PaymentsService {
         currencyScale: invoice.currencyScale,
       };
     });
+  }
+
+  /**
+   * A printable receipt for a recorded payment: the amount tendered, how it was applied across
+   * invoices, and the balance each settled invoice still carries.
+   *
+   * Gated on the "export" action so it mirrors invoice/statement PDF export — read-only finance
+   * roles keep it. The snapshot is derived on read: there is no stored receipt, and each invoice's
+   * remaining balance is computed from `payment_allocations` the same way settlement is derived
+   * everywhere else (see {@link invoicePaymentSummary}).
+   */
+  async renderReceipt(
+    userPublicId: string,
+    businessPublicId: string,
+    paymentPublicId: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const access = await this.authorize(userPublicId, businessPublicId, "payments", "export");
+    const snapshot = await this.database.withScope(access, (transaction) =>
+      this.buildReceiptSnapshot(transaction, access, paymentPublicId),
+    );
+    return {
+      buffer: await this.pdf.renderReceipt(snapshot),
+      filename: this.receiptFilename(snapshot),
+    };
+  }
+
+  private async buildReceiptSnapshot(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    paymentPublicId: string,
+  ): Promise<ReceiptSnapshot> {
+    const payment = await transaction.payment.findFirst({
+      where: { businessId: access.businessId, publicId: paymentPublicId },
+      include: {
+        allocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            document: { include: { customer: true } },
+            purchaseOrder: { select: { publicId: true, poNumber: true } },
+          },
+        },
+      },
+    });
+    if (!payment) {
+      throw new NotFoundException("We could not find that payment.");
+    }
+
+    const business = (await transaction.business.findUniqueOrThrow({
+      where: { id: access.businessId },
+      include: { taxProfile: true },
+    })) as unknown as {
+      name: string;
+      legalName: string | null;
+      email: string | null;
+      phone: string | null;
+      addressLine1: string | null;
+      addressLine2: string | null;
+      city: string | null;
+      postalCode: string | null;
+      taxProfile: { name: string; registrationNumber: string | null } | null;
+    };
+
+    const allocations = payment.allocations as unknown as ReceiptAllocationRow[];
+
+    // The customer is inferred from the first invoice the payment settled. A payment that touches
+    // nothing customer-bearing (a purely on-account receipt) has no customer to name.
+    const customerRow = allocations.find((allocation) => allocation.document?.customer)?.document
+      ?.customer;
+
+    const scale = payment.currencyScale;
+    const allocationLines: ReceiptSnapshot["allocations"] = [];
+    let allocatedMinor = 0n;
+    for (const allocation of allocations) {
+      const amountMinor = BigInt(allocation.amountMinor.toFixed(0));
+      allocatedMinor += amountMinor;
+      if (allocation.document) {
+        allocationLines.push({
+          kind: "INVOICE",
+          reference: allocation.document.number,
+          amountMinor: amountMinor.toString(),
+          remainingMinor: (
+            await this.remainingOnDocument(transaction, access, allocation.document.id)
+          ).toString(),
+        });
+      } else if (allocation.purchaseOrder) {
+        allocationLines.push({
+          kind: "PURCHASE_ORDER",
+          reference: allocation.purchaseOrder.poNumber,
+          amountMinor: amountMinor.toString(),
+          remainingMinor: null,
+        });
+      } else {
+        allocationLines.push({
+          kind: "UNASSIGNED",
+          reference: "Unassigned",
+          amountMinor: amountMinor.toString(),
+          remainingMinor: null,
+        });
+      }
+    }
+
+    const amountMinor = BigInt(payment.amountMinor.toFixed(0));
+    const unallocatedMinor = amountMinor > allocatedMinor ? amountMinor - allocatedMinor : 0n;
+
+    return {
+      business: {
+        name: business.name,
+        legalName: business.legalName,
+        email: business.email,
+        phone: business.phone,
+        address: this.address(business),
+        taxName: business.taxProfile?.name ?? "Tax",
+        taxRegistrationNumber: business.taxProfile?.registrationNumber ?? null,
+      },
+      customer: customerRow
+        ? {
+            name: customerRow.name,
+            email: customerRow.email,
+            phone: customerRow.phone,
+            address: this.address(customerRow),
+          }
+        : null,
+      currencyCode: payment.currencyCode,
+      currencyScale: scale,
+      receiptNumber: this.receiptNumber(payment.publicId),
+      reference: payment.reference,
+      paymentDate: payment.paymentDate.toISOString().slice(0, 10),
+      method: payment.type === "INBOUND" ? "Payment received" : "Payment sent",
+      status: paymentStatusLabel(payment.status),
+      notes: payment.notes,
+      amountMinor: amountMinor.toString(),
+      allocatedMinor: allocatedMinor.toString(),
+      unallocatedMinor: unallocatedMinor.toString(),
+      allocations: allocationLines,
+    };
+  }
+
+  /**
+   * Remaining balance on an invoice: its total less every completed allocation against it. Derived
+   * on read so a reversal (which stops counting) leaves the figure correct with no compensating
+   * write. An overpayment settles to zero rather than a negative balance.
+   */
+  private async remainingOnDocument(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    documentId: bigint,
+  ): Promise<bigint> {
+    const document = await transaction.document.findFirst({
+      where: { businessId: access.businessId, id: documentId },
+      select: { totalMinor: true },
+    });
+    if (!document) {
+      return 0n;
+    }
+    const paidAllocations = (await transaction.paymentAllocation.findMany({
+      where: {
+        businessId: access.businessId,
+        documentId,
+        payment: { status: PaymentStatus.COMPLETED },
+      },
+      select: { amountMinor: true },
+    })) as Array<{ amountMinor: Prisma.Decimal }>;
+    const paidMinor = paidAllocations.reduce(
+      (total, allocation) => total + BigInt(allocation.amountMinor.toFixed(0)),
+      0n,
+    );
+    const totalMinor = BigInt(document.totalMinor.toFixed(0));
+    return totalMinor > paidMinor ? totalMinor - paidMinor : 0n;
+  }
+
+  private receiptNumber(publicId: string): string {
+    return `RCPT-${publicId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+  }
+
+  private receiptFilename(snapshot: ReceiptSnapshot): string {
+    return `receipt-${snapshot.receiptNumber}.pdf`;
+  }
+
+  private address(value: {
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    postalCode: string | null;
+  }): string[] {
+    return [
+      value.addressLine1,
+      value.addressLine2,
+      [value.city, value.postalCode].filter(Boolean).join(" "),
+    ].filter((line): line is string => Boolean(line));
   }
 
   private async authorize(

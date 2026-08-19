@@ -10,6 +10,7 @@ import { formatScaledInteger } from "@bizo/contracts/money";
 
 import { type InvoiceSnapshot } from "./invoice-snapshot.js";
 import { type QuotationSnapshot } from "./quotation-snapshot.js";
+import { type ReceiptSnapshot } from "./receipt-snapshot.js";
 import { type StatementSnapshot } from "./statement-snapshot.js";
 
 const AGEING_LABELS: Array<{ key: keyof StatementSnapshot["buckets"]; label: string }> = [
@@ -60,6 +61,197 @@ export class PdfService {
         `Payment is due by ${snapshot.dueDate}. Thank you for your business.`,
       extraCustomerLines: extras,
     });
+  }
+
+  /**
+   * A payment receipt: proof that a customer payment was recorded, showing the amount tendered, how
+   * it was applied across invoices, and the balance each invoice still carries.
+   *
+   * Like a statement this is derived on read with no stored version, so it gets its own layout
+   * rather than the line-item priced table of a commercial document.
+   */
+  renderReceipt(snapshot: ReceiptSnapshot, template?: DocumentTemplate): Promise<Buffer> {
+    const resolved = this.resolveTemplate(template);
+    return new Promise((resolve, reject) => {
+      const document = new PDFDocument({
+        size: "A4",
+        margin: 50,
+        info: {
+          Title: `Receipt ${snapshot.receiptNumber}`,
+          Author: snapshot.business.name,
+          Subject: `Receipt for ${snapshot.customer?.name ?? snapshot.business.name}`,
+        },
+      });
+      const chunks: Buffer[] = [];
+      document.on("data", (chunk: Buffer) => chunks.push(chunk));
+      document.on("end", () => resolve(Buffer.concat(chunks)));
+      document.on("error", reject);
+
+      const cobalt = resolved.accentColor;
+      const charcoal = "#172033";
+      const muted = "#667085";
+      const rule = "#dfe3ea";
+
+      document
+        .fillColor(cobalt)
+        .fontSize(12)
+        .font("Helvetica-Bold")
+        .text(resolved.headerText ?? snapshot.business.name);
+      document.fillColor(charcoal).fontSize(26).text("RECEIPT", 350, 50, {
+        align: "right",
+        width: 195,
+      });
+
+      document
+        .fillColor(charcoal)
+        .fontSize(16)
+        .font("Helvetica-Bold")
+        .text(snapshot.business.name, 50, 100);
+      if (snapshot.business.legalName) {
+        document.fillColor(muted).fontSize(9).font("Helvetica").text(snapshot.business.legalName);
+      }
+      document.fillColor(muted).fontSize(9).font("Helvetica");
+      for (const line of snapshot.business.address) document.text(line);
+      if (snapshot.business.email) document.text(snapshot.business.email);
+      if (snapshot.business.phone) document.text(snapshot.business.phone);
+      if (resolved.showTaxRegistration && snapshot.business.taxRegistrationNumber) {
+        document.text(
+          `${snapshot.business.taxName} number: ${snapshot.business.taxRegistrationNumber}`,
+        );
+      }
+
+      // Payment metadata block, right-aligned under the RECEIPT wordmark.
+      document
+        .fillColor(charcoal)
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .text(`No. ${snapshot.receiptNumber}`, 350, 100, { align: "right", width: 195 });
+      document.font("Helvetica").fillColor(muted).fontSize(9);
+      document.text(`Received ${snapshot.paymentDate}`, { align: "right", width: 195 });
+      document.text(snapshot.method, { align: "right", width: 195 });
+      document.text(`Status: ${snapshot.status}`, { align: "right", width: 195 });
+      if (snapshot.reference) {
+        document.text(`Reference: ${snapshot.reference}`, { align: "right", width: 195 });
+      }
+
+      // Received-from block.
+      document.fillColor(muted).font("Helvetica-Bold").fontSize(9).text("RECEIVED FROM", 50, 205);
+      document
+        .fillColor(charcoal)
+        .fontSize(13)
+        .text(snapshot.customer?.name ?? "On account", 50, 223);
+      if (snapshot.customer) {
+        document.font("Helvetica").fillColor(muted).fontSize(9);
+        for (const line of snapshot.customer.address) document.text(line);
+        if (snapshot.customer.email) document.text(snapshot.customer.email);
+        if (snapshot.customer.phone) document.text(snapshot.customer.phone);
+      }
+
+      // Allocations: what the payment settled, and the balance each invoice still carries.
+      let y = 300;
+      this.drawReceiptHeader(document, y, rule, muted);
+      y += 26;
+      if (snapshot.allocations.length === 0) {
+        document
+          .fillColor(muted)
+          .font("Helvetica-Oblique")
+          .fontSize(9)
+          .text("Received on account — not applied to a specific invoice.", 50, y + 8, {
+            width: 495,
+          });
+        y += 26;
+      }
+      for (const allocation of snapshot.allocations) {
+        if (y > 690) {
+          document.addPage();
+          y = 60;
+          this.drawReceiptHeader(document, y, rule, muted);
+          y += 26;
+        }
+        const label =
+          allocation.kind === "INVOICE"
+            ? `Invoice ${allocation.reference}`
+            : allocation.kind === "PURCHASE_ORDER"
+              ? `Purchase order ${allocation.reference}`
+              : allocation.reference;
+        const rowHeight = Math.max(28, document.heightOfString(label, { width: 300 }) + 14);
+        document.font("Helvetica").fontSize(9).fillColor(charcoal);
+        document.text(label, 50, y + 8, { width: 300 });
+        document.text(this.money(allocation.amountMinor, snapshot), 355, y + 8, {
+          align: "right",
+          width: 90,
+        });
+        document.text(
+          allocation.remainingMinor === null
+            ? "—"
+            : this.money(allocation.remainingMinor, snapshot),
+          455,
+          y + 8,
+          { align: "right", width: 90 },
+        );
+        document
+          .moveTo(50, y + rowHeight)
+          .lineTo(545, y + rowHeight)
+          .strokeColor(rule)
+          .stroke();
+        y += rowHeight;
+      }
+
+      // Totals: applied and (if any) the surplus left on account, then the amount received.
+      y += 18;
+      this.drawTotal(document, "Applied", snapshot.allocatedMinor, snapshot, y, muted);
+      if (BigInt(snapshot.unallocatedMinor) > 0n) {
+        y += 22;
+        this.drawTotal(document, "On account", snapshot.unallocatedMinor, snapshot, y, muted);
+      }
+      y += 24;
+      document
+        .roundedRect(350, y, 195, 42, 7)
+        .fill(cobalt)
+        .fillColor(readableTextColor(cobalt))
+        .font("Helvetica-Bold")
+        .fontSize(12)
+        .text("RECEIVED", 365, y + 14, { width: 75 });
+      document.text(this.money(snapshot.amountMinor, snapshot), 425, y + 14, {
+        align: "right",
+        width: 105,
+      });
+
+      const footer = snapshot.notes
+        ? snapshot.notes
+        : `Thank you. This receipt confirms ${snapshot.currencyCode} ${formatScaledInteger(
+            BigInt(snapshot.amountMinor),
+            snapshot.currencyScale,
+          )} received on ${snapshot.paymentDate}.`;
+      document
+        .fillColor(muted)
+        .font("Helvetica")
+        .fontSize(8)
+        .text(footer, 50, 770, { align: "center", width: 495 });
+      document.end();
+    });
+  }
+
+  private drawReceiptHeader(
+    document: PDFKit.PDFDocument,
+    y: number,
+    rule: string,
+    muted: string,
+  ): void {
+    document
+      .rect(50, y, 495, 26)
+      .fill("#f5f7fa")
+      .fillColor(muted)
+      .font("Helvetica-Bold")
+      .fontSize(8)
+      .text("APPLIED TO", 58, y + 9, { width: 287 })
+      .text("AMOUNT", 355, y + 9, { align: "right", width: 90 })
+      .text("BALANCE", 455, y + 9, { align: "right", width: 90 });
+    document
+      .moveTo(50, y + 26)
+      .lineTo(545, y + 26)
+      .strokeColor(rule)
+      .stroke();
   }
 
   /**

@@ -6,7 +6,7 @@ describe("EMPIRICAL STRESS TEST: Payments & Allocation Engine", () => {
   it("Stress PAY-1: Over-allocation detection asserts allocation sum <= payment amount", () => {
     const mockDb = {} as never;
     const mockAccess = {} as never;
-    const service = new PaymentsService(mockDb, mockAccess);
+    const service = new PaymentsService(mockDb, mockAccess, {} as never);
 
     const overAllocatedInput = {
       type: "BANK_TRANSFER",
@@ -37,7 +37,7 @@ describe("EMPIRICAL STRESS TEST: Payments & Allocation Engine", () => {
   it("Stress PAY-2: Exact allocation sum equal to payment amount passes assertion", () => {
     const mockDb = {} as never;
     const mockAccess = {} as never;
-    const service = new PaymentsService(mockDb, mockAccess);
+    const service = new PaymentsService(mockDb, mockAccess, {} as never);
 
     const exactInput = {
       type: "CASH",
@@ -126,7 +126,7 @@ describe("EMPIRICAL STRESS TEST: Payments & Allocation Engine", () => {
       assertAllowed: async () => {},
     } as never;
 
-    const service = new PaymentsService(mockDb, mockAccess);
+    const service = new PaymentsService(mockDb, mockAccess, {} as never);
 
     await service.markAsCompleted("u-1", "b-1", "pay-1", "req-1");
 
