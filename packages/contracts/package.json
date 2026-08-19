@@ -127,6 +127,10 @@
     "./supplier-bills": {
       "types": "./dist/supplier-bills.d.ts",
       "default": "./dist/supplier-bills.js"
+    },
+    "./tax": {
+      "types": "./dist/tax.d.ts",
+      "default": "./dist/tax.js"
     }
   },
   "scripts": {
