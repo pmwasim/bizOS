@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { supplierBillSchema, type SupplierBill } from "./supplier-bills.js";
+
 export const invoiceApprovalStatusSchema = z.enum([
   "NOT_RECORDED",
   "PENDING",
@@ -277,6 +279,20 @@ export const purchaseOrderSchema = z.strictObject({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
+
+/**
+ * One-click conversion of an APPROVED customer purchase order into a draft supplier bill takes no
+ * request body — the source purchase order id is the path parameter and every bill field is derived
+ * from it. The empty strict object documents that contract and rejects stray fields. The response is
+ * the created (or already-existing, on a repeat convert) draft supplier bill.
+ */
+export const convertPurchaseOrderToBillRequestSchema = z.strictObject({});
+export const convertPurchaseOrderToBillResponseSchema = supplierBillSchema;
+
+export type ConvertPurchaseOrderToBillRequest = z.infer<
+  typeof convertPurchaseOrderToBillRequestSchema
+>;
+export type ConvertPurchaseOrderToBillResponse = SupplierBill;
 
 export type CreatePurchaseOrderRequest = z.infer<typeof createPurchaseOrderRequestSchema>;
 export type UpdatePurchaseOrderRequest = z.infer<typeof updatePurchaseOrderRequestSchema>;

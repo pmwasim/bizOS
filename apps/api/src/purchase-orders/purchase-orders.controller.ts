@@ -109,6 +109,26 @@ export class PurchaseOrdersController {
     return this.purchaseOrders.archive(principal.userId, businessId, purchaseOrderId, requestId);
   }
 
+  /**
+   * One-click conversion of an APPROVED purchase order into a new DRAFT supplier bill. Idempotent:
+   * converting an already-converted purchase order returns the bill it already produced rather than
+   * a duplicate.
+   */
+  @Post(":purchaseOrderId/convert-to-bill")
+  convertToBill(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("purchaseOrderId") purchaseOrderId: string,
+    @RequestId() requestId: string,
+  ) {
+    return this.purchaseOrders.convertToBill(
+      principal.userId,
+      businessId,
+      purchaseOrderId,
+      requestId,
+    );
+  }
+
   @Patch(":purchaseOrderId/approval")
   updateApproval(
     @Principal() principal: AuthenticatedPrincipal,
