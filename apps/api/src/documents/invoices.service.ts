@@ -60,6 +60,27 @@ interface InvoiceLineRecord {
   unitPriceMinor: DecimalLike;
 }
 
+interface QuotationForInvoice {
+  currencyCode: string;
+  currencyScale: number;
+  customer: { name: string };
+  customerId: bigint;
+  id: bigint;
+  lines: InvoiceLineRecord[];
+  publicId: string;
+  status: DocumentStatus;
+  subtotalMinor: DecimalLike;
+  taxMinor: DecimalLike;
+  totalMinor: DecimalLike;
+}
+
+interface ReadyPurchaseOrderRef {
+  id: bigint;
+  poNumber: string;
+  projectReference: string | null;
+  publicId: string;
+}
+
 interface InvoiceRecord {
   archivedAt: Date | null;
   createdAt: Date;
@@ -252,127 +273,18 @@ export class InvoicesService {
         throw new Error("Business settings are incomplete.");
       }
 
-      const quotationLines = quotation.lines as InvoiceLineRecord[];
-      const lineInputs = quotationLines.map((line) => ({
-        description: line.description,
-        quantity: line.quantity.toString(),
-        unitPrice: formatScaledInteger(
-          BigInt(line.unitPriceMinor.toString()),
-          quotation.currencyScale,
-        ),
-        taxRatePercent:
-          formatScaledInteger(BigInt(line.taxRatePpm), 4).replace(/\.?0+$/, "") || "0",
-      }));
-
-      let calculated: ReturnType<typeof calculateInvoice>;
-      try {
-        calculated = calculateInvoice({ lines: lineInputs }, quotation.currencyScale);
-      } catch (error) {
-        throw new BadRequestException({
-          code: "INVALID_INVOICE_TOTAL",
-          detail: error instanceof Error ? error.message : "Check the invoice amounts.",
-        });
-      }
-
-      if (
-        calculated.subtotalMinor.toString() !== quotation.subtotalMinor.toString() ||
-        calculated.taxMinor.toString() !== quotation.taxMinor.toString() ||
-        calculated.totalMinor.toString() !== quotation.totalMinor.toString()
-      ) {
-        throw new BadRequestException({
-          code: "INVOICE_TOTAL_MISMATCH",
-          detail: "Copied quotation totals did not recalculate to the same amounts.",
-        });
-      }
-
-      const settings = (await transaction.businessSettings.update({
-        where: { businessId: access.businessId },
-        data: { nextInvoiceNumber: { increment: 1 } },
-        select: {
-          invoiceDueDays: true,
-          invoicePrefix: true,
-          nextInvoiceNumber: true,
-        },
-      })) as {
-        invoiceDueDays: number;
-        invoicePrefix: string;
-        nextInvoiceNumber: number;
-      };
-      const sequence = settings.nextInvoiceNumber - 1;
-      const issueDate = this.localDate(business.timeZone);
-      const dueDate = this.addDays(issueDate, settings.invoiceDueDays);
-
-      const document = (await transaction.document.create({
-        data: {
-          tenantId: access.tenantId,
-          businessId: access.businessId,
-          customerId: quotation.customerId,
-          type: DocumentType.INVOICE,
+      const document = await this.persistInvoiceFromQuotation(
+        transaction,
+        access,
+        quotation as unknown as QuotationForInvoice,
+        business,
+        requestId,
+        {
           status: DocumentStatus.READY_TO_SEND,
-          number: `${settings.invoicePrefix}-${String(sequence).padStart(4, "0")}`,
-          issueDate: this.toDatabaseDate(issueDate),
-          validUntil: this.toDatabaseDate(dueDate),
-          dueDate: this.toDatabaseDate(dueDate),
-          sourceQuotationId: quotation.id,
-          purchaseOrderId: readyPo?.id ?? null,
-          projectReference: readyPo?.projectReference ?? null,
-          poNumberSnapshot: readyPo?.poNumber ?? null,
-          currencyCode: quotation.currencyCode,
-          currencyScale: quotation.currencyScale,
-          subtotalMinor: calculated.subtotalMinor.toString(),
-          taxMinor: calculated.taxMinor.toString(),
-          totalMinor: calculated.totalMinor.toString(),
-          createdByMembershipId: access.membershipId,
-          lines: {
-            create: calculated.lines.map((line): Prisma.DocumentLineCreateWithoutDocumentInput => ({
-              position: line.position,
-              description: line.description,
-              quantity: line.quantity,
-              unitPriceMinor: line.unitPriceMinor.toString(),
-              taxRatePpm: line.taxRatePpm,
-              subtotalMinor: line.subtotalMinor.toString(),
-              taxMinor: line.taxMinor.toString(),
-              totalMinor: line.totalMinor.toString(),
-            })),
-          },
+          readyPo,
+          auditAfter: { configurationTemplateCode: conversionPolicy.templateCode },
         },
-        include: this.detailInclude(),
-      })) as unknown as InvoiceRecord;
-
-      await transaction.auditEvent.create({
-        data: {
-          tenantId: access.tenantId,
-          businessId: access.businessId,
-          actorUserId: access.userId,
-          action: "invoice.created",
-          targetType: "invoice",
-          targetPublicId: document.publicId,
-          requestId,
-          after: {
-            sourceQuotationId: quotation.publicId,
-            purchaseOrderId: readyPo?.publicId ?? null,
-            status: document.status,
-            configurationTemplateCode: conversionPolicy.templateCode,
-          },
-        },
-      });
-
-      if (this.erpnext.isConfigured()) {
-        try {
-          await this.erpnext.createDocument("Sales Invoice", {
-            customer: quotation.customer.name,
-            posting_date: issueDate,
-            due_date: dueDate,
-            items: calculated.lines.map((line) => ({
-              item_name: line.description,
-              qty: parseFloat(line.quantity.toString()),
-              rate: parseFloat(line.unitPriceMinor.toString()) / 10 ** business.currencyScale,
-            })),
-          });
-        } catch (error) {
-          console.error("Failed to sync invoice to ERPNext:", error);
-        }
-      }
+      );
 
       return this.mapInvoice(document);
     });
@@ -385,6 +297,232 @@ export class InvoicesService {
     });
 
     return invoice;
+  }
+
+  /**
+   * One-click conversion of an accepted quotation into a DRAFT invoice. Copies the quotation's
+   * customer, line items, and tax rates into a new invoice through the same creation path as
+   * {@link createFromQuotation} (see {@link persistInvoiceFromQuotation}).
+   *
+   * Idempotent: a quotation that has already been converted returns its existing invoice rather than
+   * minting a duplicate. The lookup runs inside the scoped transaction against `sourceQuotationId`,
+   * so two concurrent conversions of the same quotation cannot both create an invoice.
+   */
+  async convertFromQuotation(
+    userPublicId: string,
+    businessPublicId: string,
+    quotationPublicId: string,
+    requestId: string,
+  ): Promise<Invoice> {
+    const access = await this.authorize(userPublicId, businessPublicId, "create");
+
+    const { created, invoice } = await this.database.withScope(access, async (transaction) => {
+      const quotation = (await transaction.document.findFirst({
+        where: {
+          businessId: access.businessId,
+          publicId: quotationPublicId,
+          type: DocumentType.QUOTATION,
+        },
+        include: { customer: true, lines: { orderBy: { position: "asc" } } },
+      })) as unknown as QuotationForInvoice | null;
+      if (!quotation) {
+        throw new NotFoundException("We could not find that quotation.");
+      }
+
+      const existing = await transaction.document.findFirst({
+        where: {
+          businessId: access.businessId,
+          type: DocumentType.INVOICE,
+          sourceQuotationId: quotation.id,
+        },
+        include: this.detailInclude(),
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+      if (existing) {
+        return {
+          created: false,
+          invoice: this.mapInvoice(existing as unknown as InvoiceRecord),
+        };
+      }
+
+      if (quotation.status !== DocumentStatus.SENT) {
+        throw new BadRequestException({
+          code: "QUOTATION_NOT_CONVERTIBLE",
+          detail: "Send the quotation before converting it to an invoice.",
+        });
+      }
+
+      const business = (await transaction.business.findUniqueOrThrow({
+        where: { id: access.businessId },
+        include: { settings: true, taxProfile: true },
+      })) as unknown as SnapshotContext & { baseCurrency: string; currencyScale: number };
+      if (!business.settings || !business.taxProfile) {
+        throw new Error("Business settings are incomplete.");
+      }
+
+      const document = await this.persistInvoiceFromQuotation(
+        transaction,
+        access,
+        quotation,
+        business,
+        requestId,
+        { status: DocumentStatus.DRAFT, readyPo: null },
+      );
+
+      return { created: true, invoice: this.mapInvoice(document) };
+    });
+
+    if (created) {
+      await this.configuration.createDocumentWorkflowContext({
+        userPublicId,
+        businessPublicId,
+        documentId: invoice.id,
+        documentType: "INVOICE",
+      });
+    }
+
+    return invoice;
+  }
+
+  /**
+   * Shared invoice-creation path: copy a quotation's lines and tax rates, recalculate to prove the
+   * copied totals still balance, allocate the next invoice number, and persist the invoice document,
+   * its audit event, and the best-effort ERPNext mirror. Callers decide the starting status and any
+   * linked purchase order.
+   */
+  private async persistInvoiceFromQuotation(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    quotation: QuotationForInvoice,
+    business: SnapshotContext & { currencyScale: number },
+    requestId: string,
+    options: {
+      auditAfter?: Record<string, unknown>;
+      readyPo: ReadyPurchaseOrderRef | null;
+      status: DocumentStatus;
+    },
+  ): Promise<InvoiceRecord> {
+    const lineInputs = quotation.lines.map((line) => ({
+      description: line.description,
+      quantity: line.quantity.toString(),
+      unitPrice: formatScaledInteger(
+        BigInt(line.unitPriceMinor.toString()),
+        quotation.currencyScale,
+      ),
+      taxRatePercent: formatScaledInteger(BigInt(line.taxRatePpm), 4).replace(/\.?0+$/, "") || "0",
+    }));
+
+    let calculated: ReturnType<typeof calculateInvoice>;
+    try {
+      calculated = calculateInvoice({ lines: lineInputs }, quotation.currencyScale);
+    } catch (error) {
+      throw new BadRequestException({
+        code: "INVALID_INVOICE_TOTAL",
+        detail: error instanceof Error ? error.message : "Check the invoice amounts.",
+      });
+    }
+
+    if (
+      calculated.subtotalMinor.toString() !== quotation.subtotalMinor.toString() ||
+      calculated.taxMinor.toString() !== quotation.taxMinor.toString() ||
+      calculated.totalMinor.toString() !== quotation.totalMinor.toString()
+    ) {
+      throw new BadRequestException({
+        code: "INVOICE_TOTAL_MISMATCH",
+        detail: "Copied quotation totals did not recalculate to the same amounts.",
+      });
+    }
+
+    const settings = (await transaction.businessSettings.update({
+      where: { businessId: access.businessId },
+      data: { nextInvoiceNumber: { increment: 1 } },
+      select: {
+        invoiceDueDays: true,
+        invoicePrefix: true,
+        nextInvoiceNumber: true,
+      },
+    })) as {
+      invoiceDueDays: number;
+      invoicePrefix: string;
+      nextInvoiceNumber: number;
+    };
+    const sequence = settings.nextInvoiceNumber - 1;
+    const issueDate = this.localDate(business.timeZone);
+    const dueDate = this.addDays(issueDate, settings.invoiceDueDays);
+
+    const document = (await transaction.document.create({
+      data: {
+        tenantId: access.tenantId,
+        businessId: access.businessId,
+        customerId: quotation.customerId,
+        type: DocumentType.INVOICE,
+        status: options.status,
+        number: `${settings.invoicePrefix}-${String(sequence).padStart(4, "0")}`,
+        issueDate: this.toDatabaseDate(issueDate),
+        validUntil: this.toDatabaseDate(dueDate),
+        dueDate: this.toDatabaseDate(dueDate),
+        sourceQuotationId: quotation.id,
+        purchaseOrderId: options.readyPo?.id ?? null,
+        projectReference: options.readyPo?.projectReference ?? null,
+        poNumberSnapshot: options.readyPo?.poNumber ?? null,
+        currencyCode: quotation.currencyCode,
+        currencyScale: quotation.currencyScale,
+        subtotalMinor: calculated.subtotalMinor.toString(),
+        taxMinor: calculated.taxMinor.toString(),
+        totalMinor: calculated.totalMinor.toString(),
+        createdByMembershipId: access.membershipId,
+        lines: {
+          create: calculated.lines.map((line): Prisma.DocumentLineCreateWithoutDocumentInput => ({
+            position: line.position,
+            description: line.description,
+            quantity: line.quantity,
+            unitPriceMinor: line.unitPriceMinor.toString(),
+            taxRatePpm: line.taxRatePpm,
+            subtotalMinor: line.subtotalMinor.toString(),
+            taxMinor: line.taxMinor.toString(),
+            totalMinor: line.totalMinor.toString(),
+          })),
+        },
+      },
+      include: this.detailInclude(),
+    })) as unknown as InvoiceRecord;
+
+    await transaction.auditEvent.create({
+      data: {
+        tenantId: access.tenantId,
+        businessId: access.businessId,
+        actorUserId: access.userId,
+        action: "invoice.created",
+        targetType: "invoice",
+        targetPublicId: document.publicId,
+        requestId,
+        after: {
+          sourceQuotationId: quotation.publicId,
+          purchaseOrderId: options.readyPo?.publicId ?? null,
+          status: document.status,
+          ...options.auditAfter,
+        },
+      },
+    });
+
+    if (this.erpnext.isConfigured()) {
+      try {
+        await this.erpnext.createDocument("Sales Invoice", {
+          customer: quotation.customer.name,
+          posting_date: issueDate,
+          due_date: dueDate,
+          items: calculated.lines.map((line) => ({
+            item_name: line.description,
+            qty: parseFloat(line.quantity.toString()),
+            rate: parseFloat(line.unitPriceMinor.toString()) / 10 ** business.currencyScale,
+          })),
+        });
+      } catch (error) {
+        console.error("Failed to sync invoice to ERPNext:", error);
+      }
+    }
+
+    return document;
   }
 
   async list(userPublicId: string, businessPublicId: string): Promise<Invoice[]> {
