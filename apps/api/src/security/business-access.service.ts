@@ -38,11 +38,13 @@ export type AuthorizationAction =
   | "create"
   | "export"
   | "read"
+  | "refund"
   | "reverse"
   | "send"
   | "update"
   | "upload"
-  | "upload_evidence";
+  | "upload_evidence"
+  | "void";
 
 const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
   OWNER: [
@@ -89,6 +91,8 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:send",
     "payments:complete",
     "payments:reverse",
+    "payments:void",
+    "payments:refund",
     "crm:create",
     "crm:read",
     "crm:update",
@@ -143,6 +147,8 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "payments:send",
     "payments:complete",
     "payments:reverse",
+    "payments:void",
+    "payments:refund",
     "crm:create",
     "crm:read",
     "crm:update",

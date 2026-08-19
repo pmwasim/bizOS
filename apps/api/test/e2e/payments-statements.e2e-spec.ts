@@ -220,6 +220,8 @@ describe("Payments & Statements E2E Suite (FEAT-13 to FEAT-18)", () => {
         },
         paymentAllocation: { findMany: vi.fn().mockResolvedValue([]) },
         auditEvent: { create: vi.fn().mockResolvedValue(undefined) },
+        // reverse() now serializes behind a transaction-scoped advisory lock.
+        $executeRaw: vi.fn().mockResolvedValue(undefined),
       };
 
       const database = {

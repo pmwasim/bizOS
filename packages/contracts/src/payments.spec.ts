@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   deriveSettlementStatus,
   invoicePaymentSummarySchema,
+  paymentStatusLabel,
   recordPaymentRequestSchema,
+  refundPaymentRequestSchema,
   settlementStatusLabel,
 } from "./payments.js";
 
@@ -72,6 +74,33 @@ describe("recordPaymentRequestSchema", () => {
         }).success,
       ).toBe(false);
     }
+  });
+});
+
+describe("refundPaymentRequestSchema", () => {
+  it("accepts a positive minor-unit refund amount with an optional reason", () => {
+    expect(
+      refundPaymentRequestSchema.parse({ amountMinor: "5000", reason: "Returned goods" }),
+    ).toEqual({ amountMinor: "5000", reason: "Returned goods" });
+    expect(refundPaymentRequestSchema.parse({ amountMinor: "5000" })).toEqual({
+      amountMinor: "5000",
+    });
+  });
+
+  it.each(["0", "10.5", "-1", "01"])("rejects invalid refund amount %s", (amountMinor) => {
+    expect(refundPaymentRequestSchema.safeParse({ amountMinor }).success).toBe(false);
+  });
+
+  it("rejects a blank reason", () => {
+    expect(refundPaymentRequestSchema.safeParse({ amountMinor: "5000", reason: "" }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("paymentStatusLabel", () => {
+  it("labels the terminal VOIDED status", () => {
+    expect(paymentStatusLabel("VOIDED")).toBe("Voided");
   });
 });
 

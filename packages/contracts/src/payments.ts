@@ -12,12 +12,13 @@ const positiveMinorUnitValueSchema = z
 
 export const paymentTypeSchema = z.enum(["INBOUND", "OUTBOUND"]);
 
-export const paymentStatusSchema = z.enum(["DRAFT", "COMPLETED", "REVERSED"]);
+export const paymentStatusSchema = z.enum(["DRAFT", "COMPLETED", "REVERSED", "VOIDED"]);
 
 export const paymentStatusLabelByCode = {
   DRAFT: "Draft",
   COMPLETED: "Completed",
   REVERSED: "Reversed",
+  VOIDED: "Voided",
 } as const satisfies Record<z.infer<typeof paymentStatusSchema>, string>;
 
 export function paymentStatusLabel(status: z.infer<typeof paymentStatusSchema>): string {
@@ -51,11 +52,53 @@ export const recordPaymentRequestSchema = z.strictObject({
   allocations: z.array(paymentAllocationInputSchema).max(50),
 });
 
+const reasonSchema = z.string().trim().min(1).max(500);
+
+/**
+ * Void a DRAFT payment (it never settled anything). Terminal — a voided payment cannot be edited,
+ * completed, reversed, or refunded afterwards. An optional reason is captured for the audit trail.
+ */
+export const voidPaymentRequestSchema = z.strictObject({
+  reason: reasonSchema.nullable().optional(),
+});
+
+/**
+ * Reverse a COMPLETED payment. Its allocations immediately stop counting toward invoice settlement
+ * (settlement is derived from COMPLETED allocations only), so no compensating writes are needed.
+ */
+export const reversePaymentRequestSchema = z.strictObject({
+  reason: reasonSchema.nullable().optional(),
+});
+
+/**
+ * Record a refund against a COMPLETED payment. `amountMinor` is the positive magnitude returned to
+ * the customer; the cumulative refunded amount is fail-closed to never exceed the payment amount.
+ */
+export const refundPaymentRequestSchema = z.strictObject({
+  amountMinor: positiveMinorUnitValueSchema,
+  reason: reasonSchema.nullable().optional(),
+});
+
 export const paymentAllocationSchema = z.strictObject({
   id: z.string().uuid(),
   documentId: z.string().uuid().nullable(),
   purchaseOrderId: z.string().uuid().nullable(),
   amountMinor: minorUnitValueSchema,
+  createdAt: z.string().datetime(),
+});
+
+/**
+ * One recorded refund: a distinct, append-only negative movement returning money to the customer
+ * against a COMPLETED payment. `amountMinor` is the positive magnitude returned. The original
+ * payment amount is never mutated — the net position is derived from the payment amount less the sum
+ * of its refunds.
+ */
+export const paymentRefundSchema = z.strictObject({
+  id: z.string().uuid(),
+  amountMinor: positiveMinorUnitValueSchema,
+  currencyCode: z.string().regex(/^[A-Z]{3}$/),
+  currencyScale: z.number().int().min(0).max(4),
+  reason: z.string().nullable(),
   createdAt: z.string().datetime(),
 });
 
@@ -70,6 +113,11 @@ export const paymentSchema = z.strictObject({
   reference: z.string().nullable(),
   notes: z.string().nullable(),
   allocations: z.array(paymentAllocationSchema),
+  // Refund ledger against this payment, plus the derived totals: `refundedMinor` is the sum of the
+  // refunds and `netAmountMinor` is the payment amount less that sum (never below zero).
+  refunds: z.array(paymentRefundSchema),
+  refundedMinor: minorUnitValueSchema,
+  netAmountMinor: minorUnitValueSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -163,7 +211,11 @@ export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 export type PaymentAllocationInput = z.infer<typeof paymentAllocationInputSchema>;
 export type RecordPaymentRequest = z.infer<typeof recordPaymentRequestSchema>;
 export type PaymentAllocation = z.infer<typeof paymentAllocationSchema>;
+export type PaymentRefund = z.infer<typeof paymentRefundSchema>;
 export type Payment = z.infer<typeof paymentSchema>;
+export type VoidPaymentRequest = z.infer<typeof voidPaymentRequestSchema>;
+export type ReversePaymentRequest = z.infer<typeof reversePaymentRequestSchema>;
+export type RefundPaymentRequest = z.infer<typeof refundPaymentRequestSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type SettlementStatus = z.infer<typeof settlementStatusSchema>;
 export type CreateCustomerPaymentRequest = z.infer<typeof createCustomerPaymentRequestSchema>;

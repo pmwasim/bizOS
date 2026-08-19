@@ -12,7 +12,14 @@ import {
 } from "@nestjs/common";
 import { type Response } from "express";
 
-import { type RecordPaymentRequest, recordPaymentRequestSchema } from "@bizo/contracts/payments";
+import {
+  type RecordPaymentRequest,
+  recordPaymentRequestSchema,
+  type RefundPaymentRequest,
+  refundPaymentRequestSchema,
+  reversePaymentRequestSchema,
+  voidPaymentRequestSchema,
+} from "@bizo/contracts/payments";
 
 import { ContractPipe } from "../common/contract.pipe.js";
 import { RequestId } from "../common/request-id.decorator.js";
@@ -88,7 +95,45 @@ export class PaymentsController {
     @Param("businessId") businessId: string,
     @Param("paymentId") paymentId: string,
     @RequestId() requestId: string,
+    @Body() body: unknown,
   ) {
-    return this.payments.reverse(principal.userId, businessId, paymentId, requestId);
+    const { reason } = this.parseOptionalReason(reversePaymentRequestSchema, body);
+    return this.payments.reverse(principal.userId, businessId, paymentId, requestId, reason);
+  }
+
+  @Patch(":paymentId/status/void")
+  void(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("paymentId") paymentId: string,
+    @RequestId() requestId: string,
+    @Body() body: unknown,
+  ) {
+    const { reason } = this.parseOptionalReason(voidPaymentRequestSchema, body);
+    return this.payments.void(principal.userId, businessId, paymentId, requestId, reason);
+  }
+
+  @Post(":paymentId/refunds")
+  refund(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("paymentId") paymentId: string,
+    @Body(new ContractPipe(refundPaymentRequestSchema)) input: RefundPaymentRequest,
+    @RequestId() requestId: string,
+  ) {
+    return this.payments.refund(principal.userId, businessId, paymentId, input, requestId);
+  }
+
+  /**
+   * Reverse and void carry only an optional reason, and existing callers PATCH them with no body at
+   * all. Coerce a missing body to an empty object so the reason stays optional, while still running
+   * the request through the contract schema (via {@link ContractPipe}) for a consistent 400 shape.
+   */
+  private parseOptionalReason(
+    schema: typeof reversePaymentRequestSchema | typeof voidPaymentRequestSchema,
+    body: unknown,
+  ): { reason?: string | null } {
+    const value = body === undefined || body === null ? {} : body;
+    return new ContractPipe(schema).transform(value) as { reason?: string | null };
   }
 }

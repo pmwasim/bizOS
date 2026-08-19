@@ -6,6 +6,7 @@ import {
   type Payment,
   paymentStatusLabel,
   type RecordPaymentRequest,
+  type RefundPaymentRequest,
 } from "@bizo/contracts/payments";
 import { DocumentType, PaymentStatus, type Prisma, type PaymentType } from "@bizo/database";
 
@@ -38,6 +39,14 @@ type PaymentDetail = {
     createdAt: Date;
     document: { publicId: string } | null;
     purchaseOrder: { publicId: string } | null;
+  }>;
+  refunds: Array<{
+    publicId: string;
+    amountMinor: Prisma.Decimal;
+    currencyCode: string;
+    currencyScale: number;
+    reason: string | null;
+    createdAt: Date;
   }>;
 };
 
@@ -366,13 +375,18 @@ export class PaymentsService {
     businessPublicId: string,
     paymentPublicId: string,
     requestId: string,
+    reason?: string | null,
   ): Promise<Payment> {
     const access = await this.authorize(userPublicId, businessPublicId, "payments", "reverse");
     return this.database.withScope(access, async (transaction) => {
+      // Serialize concurrent void/reverse/refund of the same payment. The transaction-scoped
+      // advisory lock is released on commit or rollback, so the status recheck below is
+      // authoritative: a racing reversal has either not yet flipped the status, or already committed
+      // one this transaction will now read. Keyed on the payment's public id (hashed to the bigint
+      // the advisory-lock API expects), like the Sprint-2/3 converts.
+      await this.lockPayment(transaction, paymentPublicId);
       const existing = await this.requirePayment(transaction, access, paymentPublicId);
-      if (existing.status !== PaymentStatus.COMPLETED) {
-        throw new BadRequestException("Only completed payments can be reversed.");
-      }
+      this.assertReversible(existing);
 
       // Reversal is symmetric with completion: nothing to unwind on the invoice, because nothing
       // was written to it. Excluding this payment from the derived summary is what un-settles the
@@ -418,12 +432,177 @@ export class PaymentsService {
           action: "payment.reversed",
           targetType: "payment",
           targetPublicId: updated.publicId,
-          after: { status: PaymentStatus.REVERSED },
+          after: { status: PaymentStatus.REVERSED, reason: reason ?? null },
           requestId,
         },
       });
 
       return this.mapPayment(updated);
+    });
+  }
+
+  /**
+   * Void a DRAFT payment. A draft never settled anything, so there is nothing to unwind — voiding is
+   * a terminal status flip that fail-closes the payment against any further edit, completion,
+   * reversal, or refund. Only a DRAFT can be voided; anything else is rejected with a clear code.
+   */
+  async void(
+    userPublicId: string,
+    businessPublicId: string,
+    paymentPublicId: string,
+    requestId: string,
+    reason?: string | null,
+  ): Promise<Payment> {
+    const access = await this.authorize(userPublicId, businessPublicId, "payments", "void");
+    return this.database.withScope(access, async (transaction) => {
+      await this.lockPayment(transaction, paymentPublicId);
+      const existing = await this.requirePayment(transaction, access, paymentPublicId);
+      if (existing.status !== PaymentStatus.DRAFT) {
+        throw new BadRequestException({
+          code: "PAYMENT_NOT_DRAFT",
+          detail: `Only draft payments can be voided; this payment is ${paymentStatusLabel(
+            existing.status,
+          ).toLowerCase()}.`,
+        });
+      }
+
+      const updated = await transaction.payment.update({
+        where: { id: existing.id },
+        data: { status: PaymentStatus.VOIDED },
+        include: this.detailInclude(),
+      });
+
+      await transaction.auditEvent.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          actorUserId: access.userId,
+          action: "payment.voided",
+          targetType: "payment",
+          targetPublicId: updated.publicId,
+          after: { status: PaymentStatus.VOIDED, reason: reason ?? null },
+          requestId,
+        },
+      });
+
+      return this.mapPayment(updated);
+    });
+  }
+
+  /**
+   * Record a refund against a COMPLETED payment: money returned to the customer, captured as a
+   * distinct, append-only negative-movement row rather than by mutating the payment amount. The
+   * cumulative refunded amount is fail-closed to never exceed the payment amount, so the derived net
+   * position ({@link mapPayment}'s `netAmountMinor`) stays correct. Serialized with void/reverse via
+   * the same advisory lock so concurrent refunds cannot race past the balance check.
+   */
+  async refund(
+    userPublicId: string,
+    businessPublicId: string,
+    paymentPublicId: string,
+    input: RefundPaymentRequest,
+    requestId: string,
+  ): Promise<Payment> {
+    const access = await this.authorize(userPublicId, businessPublicId, "payments", "refund");
+    return this.database.withScope(access, async (transaction) => {
+      await this.lockPayment(transaction, paymentPublicId);
+      const existing = await this.requirePayment(transaction, access, paymentPublicId);
+      if (existing.status !== PaymentStatus.COMPLETED) {
+        throw new BadRequestException({
+          code: "PAYMENT_NOT_COMPLETED",
+          detail: `Only completed payments can be refunded; this payment is ${paymentStatusLabel(
+            existing.status,
+          ).toLowerCase()}.`,
+        });
+      }
+
+      const paymentAmountMinor = BigInt(existing.amountMinor.toFixed(0));
+      const alreadyRefundedMinor = existing.refunds.reduce(
+        (total, refund) => total + BigInt(refund.amountMinor.toFixed(0)),
+        0n,
+      );
+      const requestedMinor = BigInt(input.amountMinor);
+      const refundableMinor = paymentAmountMinor - alreadyRefundedMinor;
+
+      if (requestedMinor > refundableMinor) {
+        throw new BadRequestException({
+          code: "PAYMENT_REFUND_EXCEEDS_BALANCE",
+          detail: `Refund of ${requestedMinor} exceeds the refundable balance of ${
+            refundableMinor > 0n ? refundableMinor : 0n
+          } on this payment.`,
+        });
+      }
+
+      await transaction.paymentRefund.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          paymentId: existing.id,
+          amountMinor: input.amountMinor,
+          currencyCode: existing.currencyCode,
+          currencyScale: existing.currencyScale,
+          reason: input.reason ?? null,
+          createdByMembershipId: access.membershipId,
+        },
+      });
+
+      await transaction.auditEvent.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          actorUserId: access.userId,
+          action: "payment.refunded",
+          targetType: "payment",
+          targetPublicId: existing.publicId,
+          after: {
+            refundedAmountMinor: requestedMinor.toString(),
+            currencyCode: existing.currencyCode,
+            reason: input.reason ?? null,
+          },
+          requestId,
+        },
+      });
+
+      const refreshed = await this.requirePayment(transaction, access, paymentPublicId);
+      return this.mapPayment(refreshed);
+    });
+  }
+
+  /**
+   * Serialize concurrent void/reverse/refund of one payment behind a transaction-scoped advisory
+   * lock keyed on its public id, mirroring the Sprint-2/3 converts. Released automatically on commit
+   * or rollback, so the status/balance rechecks that follow are authoritative.
+   */
+  private async lockPayment(
+    transaction: Prisma.TransactionClient,
+    paymentPublicId: string,
+  ): Promise<void> {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment-mutate:${paymentPublicId}`}))`;
+  }
+
+  /**
+   * A payment is reversible only from COMPLETED. Every other state fails closed with its own code so
+   * the caller can tell "already reversed" from "never completed" from "voided".
+   */
+  private assertReversible(existing: PaymentDetail): void {
+    if (existing.status === PaymentStatus.COMPLETED) {
+      return;
+    }
+    if (existing.status === PaymentStatus.REVERSED) {
+      throw new BadRequestException({
+        code: "PAYMENT_ALREADY_REVERSED",
+        detail: "This payment has already been reversed.",
+      });
+    }
+    if (existing.status === PaymentStatus.VOIDED) {
+      throw new BadRequestException({
+        code: "PAYMENT_VOIDED",
+        detail: "A voided payment cannot be reversed.",
+      });
+    }
+    throw new BadRequestException({
+      code: "PAYMENT_NOT_COMPLETED",
+      detail: "Only completed payments can be reversed.",
     });
   }
 
@@ -797,6 +976,9 @@ export class PaymentsService {
           purchaseOrder: { select: { publicId: true } },
         },
       },
+      refunds: {
+        orderBy: { createdAt: "asc" as const },
+      },
     };
   }
 
@@ -816,6 +998,16 @@ export class PaymentsService {
   }
 
   private mapPayment(row: PaymentDetail): Payment {
+    const amountMinor = BigInt(row.amountMinor.toFixed(0));
+    const refundedMinor = (row.refunds ?? []).reduce(
+      (total, refund) => total + BigInt(refund.amountMinor.toFixed(0)),
+      0n,
+    );
+    // Net position is derived, never stored: the payment amount less what has been returned. Clamped
+    // at zero as a belt-and-braces guard — cumulative refunds are fail-closed to never exceed the
+    // amount in {@link refund}, so this can only bite if data were tampered with directly.
+    const netAmountMinor = amountMinor > refundedMinor ? amountMinor - refundedMinor : 0n;
+
     return {
       id: row.publicId,
       type: row.type,
@@ -833,6 +1025,16 @@ export class PaymentsService {
         purchaseOrderId: allocation.purchaseOrder?.publicId ?? null,
         createdAt: allocation.createdAt.toISOString(),
       })),
+      refunds: (row.refunds ?? []).map((refund) => ({
+        id: refund.publicId,
+        amountMinor: refund.amountMinor.toFixed(0),
+        currencyCode: refund.currencyCode,
+        currencyScale: refund.currencyScale,
+        reason: refund.reason,
+        createdAt: refund.createdAt.toISOString(),
+      })),
+      refundedMinor: refundedMinor.toString(),
+      netAmountMinor: netAmountMinor.toString(),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
