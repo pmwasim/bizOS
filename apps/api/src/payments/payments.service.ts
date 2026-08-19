@@ -104,9 +104,11 @@ export class PaymentsService {
           reference: input.reference,
           notes: input.notes,
           allocations: {
+            // tenantId/businessId are NOT set here: on a nested create the child inherits both from
+            // the parent payment's composite relation ([tenantId, businessId, paymentId]). Passing
+            // them explicitly is rejected by Prisma ("Unknown argument tenantId") because they are
+            // not scalars of PaymentAllocationUncheckedCreateWithoutPaymentInput.
             create: resolvedAllocations.map((allocation) => ({
-              tenantId: access.tenantId,
-              businessId: access.businessId,
               documentId: allocation.documentId,
               purchaseOrderId: allocation.purchaseOrderId,
               amountMinor: allocation.amountMinor,
@@ -198,9 +200,9 @@ export class PaymentsService {
           reference: input.reference,
           notes: input.notes,
           allocations: {
+            // See create(): the nested allocation inherits tenantId/businessId from the parent
+            // payment relation, so setting them here is rejected by Prisma.
             create: resolvedAllocations.map((allocation) => ({
-              tenantId: access.tenantId,
-              businessId: access.businessId,
               documentId: allocation.documentId,
               purchaseOrderId: allocation.purchaseOrderId,
               amountMinor: allocation.amountMinor,
