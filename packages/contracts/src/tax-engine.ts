@@ -66,6 +66,79 @@ export function validateTrn(countryCode: "SA" | "AE" | "IN", trn: string): boole
   return false;
 }
 
+/**
+ * Countries for which bizOS enforces a country-specific tax-identifier format.
+ *
+ * - **SA** (Saudi VAT): 15 digits that start and end with `3`.
+ * - **AE** (UAE TRN): 15 digits.
+ * - **IN** (India GSTIN): 15 characters — 2 state digits, a 10-character PAN, an entity digit, the
+ *   literal `Z`, and a final checksum character.
+ */
+export type SupportedTaxCountry = "SA" | "AE" | "IN";
+
+export const SUPPORTED_TAX_COUNTRIES: readonly SupportedTaxCountry[] = ["SA", "AE", "IN"];
+
+/**
+ * Type guard: is `countryCode` one bizOS validates tax IDs for? Case- and whitespace-insensitive so
+ * a stored `"sa"` or `" SA "` is still recognised.
+ */
+export function isSupportedTaxCountry(
+  countryCode: string | null | undefined,
+): countryCode is SupportedTaxCountry {
+  if (!countryCode) {
+    return false;
+  }
+  return (SUPPORTED_TAX_COUNTRIES as readonly string[]).includes(countryCode.trim().toUpperCase());
+}
+
+/**
+ * Canonical form used both to run the regexes and to compare two tax IDs for duplicate detection.
+ * Tax IDs for the supported countries are case-insensitive (SA/AE are digits; IN GSTINs are
+ * upper-case alphanumerics), so uppercasing gives a stable comparison key.
+ */
+export function normalizeTaxId(taxId: string): string {
+  return taxId.trim().toUpperCase();
+}
+
+const TAX_ID_FORMAT_HINTS: Record<SupportedTaxCountry, string> = {
+  SA: "Saudi VAT numbers are 15 digits that start and end with 3.",
+  AE: "UAE TRNs are 15 digits.",
+  IN: "Indian GSTINs are 15 characters: 2 state digits, a 10-character PAN, an entity digit, the letter Z, and a checksum character.",
+};
+
+/** Human-readable description of the expected tax-ID shape for a supported country. */
+export function taxIdFormatHint(countryCode: SupportedTaxCountry): string {
+  return TAX_ID_FORMAT_HINTS[countryCode];
+}
+
+export interface TaxIdValidationResult {
+  valid: boolean;
+  /** Present only when `valid` is `false`; a message safe to surface to the user. */
+  reason?: string;
+}
+
+/**
+ * Validate a party's tax identifier against the format for `countryCode`, reusing {@link validateTrn}
+ * for the per-country regex. Returns a structured result with a clear error message rather than
+ * throwing, so callers can decide how to surface it. Fail-closed: an unsupported country is invalid.
+ */
+export function validateTaxId(countryCode: string, taxId: string): TaxIdValidationResult {
+  const normalizedCountry = countryCode.trim().toUpperCase();
+  if (!isSupportedTaxCountry(normalizedCountry)) {
+    return {
+      valid: false,
+      reason: `Tax-ID validation is not supported for country ${normalizedCountry || "(none)"}.`,
+    };
+  }
+  if (validateTrn(normalizedCountry, normalizeTaxId(taxId))) {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    reason: `Invalid ${normalizedCountry} tax ID. ${taxIdFormatHint(normalizedCountry)}`,
+  };
+}
+
 export function calculateTax(req: TaxCalculationRequest): TaxCalculationResult {
   if (req.trn && !validateTrn(req.countryCode, req.trn)) {
     throw new Error(

@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const createSupplierRequestSchema = z.strictObject({
+import { isSupportedTaxCountry, validateTaxId } from "./tax-engine.js";
+
+const supplierRequestBaseSchema = z.strictObject({
   name: z.string().trim().min(1).max(200),
   contactName: z.string().trim().max(120).nullable().optional(),
   email: z.email().nullable().optional(),
@@ -19,7 +21,33 @@ export const createSupplierRequestSchema = z.strictObject({
   notes: z.string().trim().max(2000).nullable().optional(),
 });
 
-export const updateSupplierRequestSchema = createSupplierRequestSchema.partial();
+/**
+ * When both a supported `countryCode` (SA/AE/IN) and a `taxId` are present in the same payload,
+ * enforce the country-specific tax-ID format. When only one of the two is supplied (common on a
+ * partial update that touches just the tax ID), the authoritative check runs server-side in
+ * `SuppliersService`, which combines the incoming value with the stored record.
+ */
+function checkTaxId(
+  value: { countryCode?: string | null | undefined; taxId?: string | null | undefined },
+  ctx: z.RefinementCtx,
+): void {
+  if (value.taxId && isSupportedTaxCountry(value.countryCode)) {
+    const result = validateTaxId(value.countryCode, value.taxId);
+    if (!result.valid) {
+      ctx.addIssue({
+        code: "custom",
+        message: result.reason ?? "Invalid tax ID.",
+        path: ["taxId"],
+      });
+    }
+  }
+}
+
+export const createSupplierRequestSchema = supplierRequestBaseSchema.superRefine(checkTaxId);
+
+export const updateSupplierRequestSchema = supplierRequestBaseSchema
+  .partial()
+  .superRefine(checkTaxId);
 
 export const supplierSchema = z.strictObject({
   id: z.uuid(),
