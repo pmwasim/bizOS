@@ -44,6 +44,7 @@ enum PaymentStatus {
   DRAFT
   COMPLETED
   REVERSED
+  VOIDED
 }
 
 enum DocumentStatus {
@@ -215,6 +216,7 @@ model Membership {
   businessAccess           BusinessAccess[]
   documents                Document[]
   createdPayments          Payment[]
+  createdPaymentRefunds    PaymentRefund[]
   purchaseOrders           PurchaseOrder[]
   auditEvents              ConfigurationAuditEvent[]
   configurationAssignments BusinessConfigurationAssignment[]
@@ -268,30 +270,31 @@ model Business {
   access                   BusinessAccess[]
   settings                 BusinessSettings?
   taxProfile               TaxProfile?
-   customers                Customer[]
-   documents                Document[]
-   payments                 Payment[]
-   paymentAllocations       PaymentAllocation[]
-   purchaseOrders           PurchaseOrder[]
-   storedObjects            StoredObject[]
-   auditEvents              AuditEvent[]
+  customers                Customer[]
+  documents                Document[]
+  payments                 Payment[]
+  paymentAllocations       PaymentAllocation[]
+  paymentRefunds           PaymentRefund[]
+  purchaseOrders           PurchaseOrder[]
+  storedObjects            StoredObject[]
+  auditEvents              AuditEvent[]
   outboxEvents             OutboxEvent[]
   assignments              BusinessConfigurationAssignment[]
   documentWorkflowContexts DocumentWorkflowContext[]
   customFieldDefinitions   CustomFieldDefinition[]
-   featureFlags             FeatureFlag[]
-   customizationRequests    CustomizationRequest[]
-   apiKeys                  ApiKey[]
-   products                 Product[]
-   webhookSubscriptions     WebhookSubscription[]
-   suppliers                Supplier[]
-   leads                    Lead[]
-   opportunities            Opportunity[]
-   projects                 Project[]
-   inventoryItems           InventoryItem[]
-   creditNoteAllocations    CreditNoteAllocation[]
+  featureFlags             FeatureFlag[]
+  customizationRequests    CustomizationRequest[]
+  apiKeys                  ApiKey[]
+  products                 Product[]
+  webhookSubscriptions     WebhookSubscription[]
+  suppliers                Supplier[]
+  leads                    Lead[]
+  opportunities            Opportunity[]
+  projects                 Project[]
+  inventoryItems           InventoryItem[]
+  creditNoteAllocations    CreditNoteAllocation[]
 
-   @@unique([tenantId, id])
+  @@unique([tenantId, id])
   @@index([tenantId, name])
   @@map("businesses")
 }
@@ -314,16 +317,16 @@ model BusinessAccess {
 }
 
 model BusinessSettings {
-  businessId            BigInt   @id @map("business_id")
-  tenantId              BigInt   @map("tenant_id")
-  quotationPrefix       String   @default("Q") @map("quotation_prefix") @db.VarChar(12)
-  nextQuotationNumber   Int      @default(1) @map("next_quotation_number")
-  quotationValidityDays Int      @default(30) @map("quotation_validity_days") @db.SmallInt
-  invoicePrefix         String   @default("INV") @map("invoice_prefix") @db.VarChar(12)
-  nextInvoiceNumber     Int      @default(1) @map("next_invoice_number")
-  invoiceDueDays        Int      @default(30) @map("invoice_due_days") @db.SmallInt
-  paymentPrefix         String   @default("PAY") @map("payment_prefix") @db.VarChar(12)
-  nextPaymentNumber     Int      @default(1) @map("next_payment_number")
+  businessId            BigInt @id @map("business_id")
+  tenantId              BigInt @map("tenant_id")
+  quotationPrefix       String @default("Q") @map("quotation_prefix") @db.VarChar(12)
+  nextQuotationNumber   Int    @default(1) @map("next_quotation_number")
+  quotationValidityDays Int    @default(30) @map("quotation_validity_days") @db.SmallInt
+  invoicePrefix         String @default("INV") @map("invoice_prefix") @db.VarChar(12)
+  nextInvoiceNumber     Int    @default(1) @map("next_invoice_number")
+  invoiceDueDays        Int    @default(30) @map("invoice_due_days") @db.SmallInt
+  paymentPrefix         String @default("PAY") @map("payment_prefix") @db.VarChar(12)
+  nextPaymentNumber     Int    @default(1) @map("next_payment_number")
 
   salesOrderPrefix        String @default("SO") @map("sales_order_prefix") @db.VarChar(12)
   nextSalesOrderNumber    Int    @default(1) @map("next_sales_order_number")
@@ -338,9 +341,9 @@ model BusinessSettings {
   supplierBillPrefix      String @default("BILL") @map("supplier_bill_prefix") @db.VarChar(12)
   nextSupplierBillNumber  Int    @default(1) @map("next_supplier_bill_number")
 
-  defaultMessage        String?  @map("default_message") @db.VarChar(1000)
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  defaultMessage String?  @map("default_message") @db.VarChar(1000)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
 
@@ -381,10 +384,10 @@ model Customer {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business         Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  documents        Document[]
-  purchaseOrders   PurchaseOrder[]
-  projects         Project[]
+  business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  documents      Document[]
+  purchaseOrders PurchaseOrder[]
+  projects       Project[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, name])
@@ -428,25 +431,25 @@ model Document {
   createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business            Business                 @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer            Customer?                @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
-  supplier            Supplier?                @relation(fields: [tenantId, businessId, supplierId], references: [tenantId, businessId, id], onDelete: Restrict)
-  sourceQuotation     Document?                @relation("DocumentSourceQuotation", fields: [tenantId, businessId, sourceQuotationId], references: [tenantId, businessId, id], onDelete: Restrict)
-  derivedInvoices     Document[]               @relation("DocumentSourceQuotation")
-  sourceDocument      Document?                @relation("DocumentSourceDocument", fields: [tenantId, businessId, sourceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
-  derivedDocuments    Document[]               @relation("DocumentSourceDocument")
-  referenceDocument   Document?                @relation("DocumentReferenceDocument", fields: [tenantId, businessId, referenceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
-  referencingDocuments Document[]              @relation("DocumentReferenceDocument")
-  linkedPurchaseOrder PurchaseOrder?           @relation("DocumentLinkedPurchaseOrder", fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
-  lines               DocumentLine[]
-  versions            DocumentVersion[]
-  creator             Membership               @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
-  paymentAllocations  PaymentAllocation[]
-  purchaseOrders      PurchaseOrder[]          @relation("PurchaseOrderQuotation")
-  opportunities       Opportunity[]            @relation("OpportunityQuotation")
-  creditNoteAllocationsAsCreditNote CreditNoteAllocation[] @relation("CreditNoteAllocationCreditNote")
-  creditNoteAllocationsAsInvoice    CreditNoteAllocation[] @relation("CreditNoteAllocationInvoice")
-   workflowContext     DocumentWorkflowContext?
+  business                          Business                 @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer                          Customer?                @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  supplier                          Supplier?                @relation(fields: [tenantId, businessId, supplierId], references: [tenantId, businessId, id], onDelete: Restrict)
+  sourceQuotation                   Document?                @relation("DocumentSourceQuotation", fields: [tenantId, businessId, sourceQuotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  derivedInvoices                   Document[]               @relation("DocumentSourceQuotation")
+  sourceDocument                    Document?                @relation("DocumentSourceDocument", fields: [tenantId, businessId, sourceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  derivedDocuments                  Document[]               @relation("DocumentSourceDocument")
+  referenceDocument                 Document?                @relation("DocumentReferenceDocument", fields: [tenantId, businessId, referenceDocumentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  referencingDocuments              Document[]               @relation("DocumentReferenceDocument")
+  linkedPurchaseOrder               PurchaseOrder?           @relation("DocumentLinkedPurchaseOrder", fields: [tenantId, businessId, purchaseOrderId], references: [tenantId, businessId, id], onDelete: Restrict)
+  lines                             DocumentLine[]
+  versions                          DocumentVersion[]
+  creator                           Membership               @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  paymentAllocations                PaymentAllocation[]
+  purchaseOrders                    PurchaseOrder[]          @relation("PurchaseOrderQuotation")
+  opportunities                     Opportunity[]            @relation("OpportunityQuotation")
+  creditNoteAllocationsAsCreditNote CreditNoteAllocation[]   @relation("CreditNoteAllocationCreditNote")
+  creditNoteAllocationsAsInvoice    CreditNoteAllocation[]   @relation("CreditNoteAllocationInvoice")
+  workflowContext                   DocumentWorkflowContext?
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, type, number])
@@ -472,29 +475,29 @@ model Document {
 // the generated client had no accessors for them and every one of those queries failed at runtime.
 
 model Supplier {
-  id            BigInt   @id @default(autoincrement())
-  publicId      String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId      BigInt   @map("tenant_id")
-  businessId    BigInt   @map("business_id")
-  name          String   @db.VarChar(200)
-  contactName   String?  @map("contact_name") @db.VarChar(120)
-  email         String?  @db.VarChar(320)
-  phone         String?  @db.VarChar(40)
-  addressLine1  String?  @map("address_line_1") @db.VarChar(200)
-  addressLine2  String?  @map("address_line_2") @db.VarChar(200)
-  city          String?  @db.VarChar(120)
-  postalCode    String?  @map("postal_code") @db.VarChar(32)
-  countryCode   String?  @map("country_code") @db.Char(2)
-  taxId         String?  @map("tax_id") @db.VarChar(80)
-  taxName       String?  @map("tax_name") @db.VarChar(80)
-  bankName      String?  @map("bank_name") @db.VarChar(120)
-  iban          String?  @db.VarChar(34)
-  swiftCode     String?  @map("swift_code") @db.VarChar(11)
-  paymentTerms  Int?     @map("payment_terms") @db.SmallInt
-  notes         String?  @db.VarChar(2000)
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId     BigInt   @map("tenant_id")
+  businessId   BigInt   @map("business_id")
+  name         String   @db.VarChar(200)
+  contactName  String?  @map("contact_name") @db.VarChar(120)
+  email        String?  @db.VarChar(320)
+  phone        String?  @db.VarChar(40)
+  addressLine1 String?  @map("address_line_1") @db.VarChar(200)
+  addressLine2 String?  @map("address_line_2") @db.VarChar(200)
+  city         String?  @db.VarChar(120)
+  postalCode   String?  @map("postal_code") @db.VarChar(32)
+  countryCode  String?  @map("country_code") @db.Char(2)
+  taxId        String?  @map("tax_id") @db.VarChar(80)
+  taxName      String?  @map("tax_name") @db.VarChar(80)
+  bankName     String?  @map("bank_name") @db.VarChar(120)
+  iban         String?  @db.VarChar(34)
+  swiftCode    String?  @map("swift_code") @db.VarChar(11)
+  paymentTerms Int?     @map("payment_terms") @db.SmallInt
+  notes        String?  @db.VarChar(2000)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   documents      Document[]
@@ -684,10 +687,10 @@ model PurchaseOrder {
   quotation             Document?           @relation("PurchaseOrderQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
   supplier              Supplier?           @relation(fields: [tenantId, businessId, supplierId], references: [tenantId, businessId, id], onDelete: Restrict)
   creator               Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
-   approvalChangedByUser User?               @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
-   storedObjects         StoredObject[]
-   linkedInvoices        Document[]          @relation("DocumentLinkedPurchaseOrder")
-   paymentAllocations    PaymentAllocation[]
+  approvalChangedByUser User?               @relation("PurchaseOrderApprovalActor", fields: [approvalChangedByUserId], references: [id], onDelete: Restrict)
+  storedObjects         StoredObject[]
+  linkedInvoices        Document[]          @relation("DocumentLinkedPurchaseOrder")
+  paymentAllocations    PaymentAllocation[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status, createdAt])
@@ -849,10 +852,39 @@ model Payment {
   business    Business            @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   creator     Membership          @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
   allocations PaymentAllocation[]
+  refunds     PaymentRefund[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status, createdAt])
   @@map("payments")
+}
+
+// A refund is money returned to the customer against a COMPLETED payment. It is a distinct,
+// append-only negative movement — the original payment's amount is never mutated — so the net
+// customer/invoice position is derived (payment amount less the sum of its refunds), exactly like
+// settlement is derived from allocations. `amountMinor` is the positive magnitude returned; the
+// cumulative refunded amount is fail-closed to never exceed the payment amount. See
+// docs/decisions/0025-payment-void-reversal-refund.md.
+model PaymentRefund {
+  id                    BigInt   @id @default(autoincrement())
+  publicId              String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId              BigInt   @map("tenant_id")
+  businessId            BigInt   @map("business_id")
+  paymentId             BigInt   @map("payment_id")
+  amountMinor           Decimal  @map("amount_minor") @db.Decimal(38, 0)
+  currencyCode          String   @map("currency_code") @db.Char(3)
+  currencyScale         Int      @map("currency_scale") @db.SmallInt
+  reason                String?  @db.VarChar(500)
+  createdByMembershipId BigInt   @map("created_by_membership_id")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business Business   @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  payment  Payment    @relation(fields: [tenantId, businessId, paymentId], references: [tenantId, businessId, id], onDelete: Cascade)
+  creator  Membership @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, paymentId])
+  @@map("payment_refunds")
 }
 
 // Phase 4 — Configuration architecture. Platform-level catalog of ERP modules, versioned
@@ -1109,24 +1141,24 @@ model PlatformSystemAdmin {
   createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-   user        User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
-   auditEvents ConfigurationAuditEvent[]
+  user        User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  auditEvents ConfigurationAuditEvent[]
 
-   @@map("platform_system_admins")
+  @@map("platform_system_admins")
 }
 
 model ApiKey {
-  id           BigInt   @id @default(autoincrement())
-  publicId     String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId     BigInt   @map("tenant_id")
-  businessId   BigInt   @map("business_id")
-  name         String   @db.VarChar(120)
-  secretHash   String   @map("secret_hash") @db.VarChar(255)
-  scopes       String[] @default([]) @db.VarChar(80)
-  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz(3)
-  expiresAt    DateTime? @map("expires_at") @db.Timestamptz(3)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id         BigInt    @id @default(autoincrement())
+  publicId   String    @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId   BigInt    @map("tenant_id")
+  businessId BigInt    @map("business_id")
+  name       String    @db.VarChar(120)
+  secretHash String    @map("secret_hash") @db.VarChar(255)
+  scopes     String[]  @default([]) @db.VarChar(80)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
 
@@ -1136,18 +1168,18 @@ model ApiKey {
 }
 
 model WebhookSubscription {
-  id          BigInt   @id @default(autoincrement())
-  publicId    String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId    BigInt   @map("tenant_id")
-  businessId  BigInt   @map("business_id")
-  url         String   @db.VarChar(512)
-  events      String[] @default([]) @db.VarChar(120)
-  secretHash  String   @map("secret_hash") @db.VarChar(255)
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id         BigInt   @id @default(autoincrement())
+  publicId   String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId   BigInt   @map("tenant_id")
+  businessId BigInt   @map("business_id")
+  url        String   @db.VarChar(512)
+  events     String[] @default([]) @db.VarChar(120)
+  secretHash String   @map("secret_hash") @db.VarChar(255)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business  Business           @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
+  business   Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
   deliveries WebhookDelivery[]
 
   @@unique([tenantId, businessId, id])
@@ -1174,21 +1206,21 @@ model WebhookDelivery {
 }
 
 model Product {
-  id               BigInt   @id @default(autoincrement())
-  publicId         String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId         BigInt   @map("tenant_id")
-  businessId       BigInt   @map("business_id")
-  sku              String   @map("sku") @db.VarChar(60)
-  name             String   @db.VarChar(200)
-  description      String?  @db.VarChar(500)
-  type             String   @default("PRODUCT") @map("type") @db.VarChar(20)
-  unit             String?  @map("unit") @db.VarChar(20)
-  costPriceMinor   Decimal? @map("cost_price_minor") @db.Decimal(38, 0)
+  id                BigInt   @id @default(autoincrement())
+  publicId          String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId          BigInt   @map("tenant_id")
+  businessId        BigInt   @map("business_id")
+  sku               String   @map("sku") @db.VarChar(60)
+  name              String   @db.VarChar(200)
+  description       String?  @db.VarChar(500)
+  type              String   @default("PRODUCT") @map("type") @db.VarChar(20)
+  unit              String?  @map("unit") @db.VarChar(20)
+  costPriceMinor    Decimal? @map("cost_price_minor") @db.Decimal(38, 0)
   sellingPriceMinor Decimal? @map("selling_price_minor") @db.Decimal(38, 0)
-  taxRatePpm       Int      @default(0) @map("tax_rate_ppm")
-  isActive         Boolean  @default(true) @map("is_active")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  taxRatePpm        Int      @default(0) @map("tax_rate_ppm")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
 
