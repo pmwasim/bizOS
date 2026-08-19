@@ -1,10 +1,17 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 
 import {
   type CreateSupplierRequest,
   type Supplier,
   type UpdateSupplierRequest,
 } from "@bizo/contracts/suppliers";
+import { isSupportedTaxCountry, normalizeTaxId, validateTaxId } from "@bizo/contracts/tax-engine";
 import { type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
@@ -54,6 +61,9 @@ export class SuppliersService {
     const access = await this.authorize(userPublicId, businessPublicId, "create");
 
     return this.database.withScope(access, async (transaction) => {
+      this.assertValidTaxId(input.countryCode ?? null, input.taxId ?? null);
+      await this.assertNoDuplicateTaxId(transaction, access, input.taxId ?? null, null);
+
       const record = (await transaction.supplier.create({
         data: {
           tenantId: access.tenantId,
@@ -127,6 +137,12 @@ export class SuppliersService {
     const access = await this.authorize(userPublicId, businessPublicId, "update");
     return this.database.withScope(access, async (transaction) => {
       const existing = await this.findRecord(transaction, access, supplierPublicId);
+
+      const effectiveCountryCode =
+        input.countryCode !== undefined ? input.countryCode : existing.countryCode;
+      const effectiveTaxId = input.taxId !== undefined ? input.taxId : existing.taxId;
+      this.assertValidTaxId(effectiveCountryCode ?? null, effectiveTaxId ?? null);
+      await this.assertNoDuplicateTaxId(transaction, access, effectiveTaxId ?? null, existing.id);
 
       const record = (await transaction.supplier.update({
         where: { id: existing.id },
@@ -222,6 +238,56 @@ export class SuppliersService {
       throw new NotFoundException("We could not find that supplier.");
     }
     return record;
+  }
+
+  /**
+   * Enforce the country-specific tax-ID format (SA/AE/IN) server-side. Fail-closed: for a supported
+   * country an unparseable tax ID is rejected with a 400. Unsupported countries or a missing tax ID
+   * are left untouched so existing free-form tax IDs keep working.
+   */
+  private assertValidTaxId(countryCode: string | null, taxId: string | null): void {
+    if (!taxId || !isSupportedTaxCountry(countryCode)) {
+      return;
+    }
+    const result = validateTaxId(countryCode, taxId);
+    if (!result.valid) {
+      throw new BadRequestException({
+        code: "VALIDATION_FAILED",
+        detail: "Check the highlighted information and try again.",
+        errors: [{ field: "taxId", message: result.reason ?? "Invalid tax ID." }],
+      });
+    }
+  }
+
+  /**
+   * Reject a tax ID already used by another party in the same business. `excludeId` skips the record
+   * being updated so a party keeps its own tax ID. Comparison is scoped to the business (the shared
+   * `[tenantId, businessId, taxId]` index backs the lookup).
+   */
+  private async assertNoDuplicateTaxId(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    taxId: string | null,
+    excludeId: bigint | null,
+  ): Promise<void> {
+    if (!taxId) {
+      return;
+    }
+    const duplicate = (await transaction.supplier.findFirst({
+      where: {
+        businessId: access.businessId,
+        taxId,
+        ...(excludeId !== null ? { id: { not: excludeId } } : {}),
+      },
+      select: { publicId: true },
+    })) as { publicId: string } | null;
+    if (duplicate) {
+      throw new ConflictException({
+        code: "DUPLICATE_TAX_ID",
+        detail: `Another party in this business already uses tax ID ${normalizeTaxId(taxId)}.`,
+        errors: [{ field: "taxId", message: "This tax ID is already used by another supplier." }],
+      });
+    }
   }
 
   private mapSupplier(record: SupplierRecord): Supplier {
