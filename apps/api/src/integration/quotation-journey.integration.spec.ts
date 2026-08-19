@@ -25,6 +25,7 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
   let platform: PlatformService;
   let customers: CustomersService;
   let quotations: QuotationsService;
+  let sendQuotation: ReturnType<typeof vi.fn>;
 
   beforeAll(async () => {
     database = new DatabaseService();
@@ -36,13 +37,12 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
     } as never);
     platform = new PlatformService(database, access, configuration);
     customers = new CustomersService(database, access, { isConfigured: () => false } as never);
+    sendQuotation = vi.fn().mockResolvedValue("integration-message-1");
     quotations = new QuotationsService(
       database,
       access,
       new PdfService(),
-      {
-        sendQuotation: vi.fn().mockResolvedValue("integration-message-1"),
-      } as unknown as MailService,
+      { sendQuotation } as unknown as MailService,
       { isConfigured: () => false } as never,
       configuration,
     );
@@ -118,6 +118,22 @@ describe.runIf(databaseEnabled)("quotation journey with PostgreSQL boundaries", 
     expect(quotation.totalMinor).toBe("23000");
     expect(result.quotation.status).toBe("SENT");
     expect(result.delivery.status).toBe("SENT");
+    expect(sendQuotation).toHaveBeenCalledTimes(1);
+
+    // An identical resend must dedupe against the transactional outbox row written by the first
+    // send. This exercises the real advisory lock and the JSON-path published-row query in Postgres,
+    // so a duplicate submit reports the earlier delivery and puts nothing new on the wire.
+    const resend = await quotations.send(
+      owner.id,
+      business.id,
+      quotation.id,
+      { recipientEmail: `customer-${RUN_ID}@example.test`, message: null },
+      "integration-send-again",
+    );
+    expect(resend.delivery.status).toBe("ALREADY_SENT");
+    expect(resend.delivery.id).toBe(result.delivery.id);
+    expect(resend.delivery.sentAt).toBe(result.delivery.sentAt);
+    expect(sendQuotation).toHaveBeenCalledTimes(1);
 
     const outsider = await identity.signUp({
       displayName: "Other Owner",

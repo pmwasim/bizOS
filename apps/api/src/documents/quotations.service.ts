@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   BadRequestException,
   Inject,
@@ -25,6 +27,9 @@ import { calculateQuotation } from "./quotation-calculator.js";
 import { type QuotationSnapshot } from "./quotation-snapshot.js";
 import { type ErpnextClient } from "../erpnext/erpnext.client.js";
 import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
+
+/** The event type every quotation email shares in the outbox, so dedupe can scope to it. */
+const QUOTATION_EMAIL_EVENT = "quotation.email";
 
 interface DecimalLike {
   toString(): string;
@@ -266,6 +271,16 @@ export class QuotationsService {
     };
   }
 
+  /**
+   * Email a quotation to its recipient. Idempotent per quotation version + recipient + message.
+   *
+   * The send path mirrors the hardened statement delivery: an outbox row keyed on a freshness-aware
+   * idempotency key is written inside a scoped transaction guarded by a transaction-scoped advisory
+   * lock, so duplicate or concurrent sends dedupe onto the first delivery instead of double-emailing.
+   * Only a published (successfully sent) row blocks a resend; a prior failure left its row unpublished
+   * and must be allowed to retry. On the first send a DRAFT is finalized (its version snapshot frozen
+   * and status advanced to SENT) exactly once.
+   */
   async send(
     userPublicId: string,
     businessPublicId: string,
@@ -273,11 +288,45 @@ export class QuotationsService {
     input: SendQuotationRequest,
     requestId: string,
   ): Promise<{
-    delivery: { id: string; recipientEmail: string; sentAt: string; status: "SENT" };
+    delivery: {
+      id: string;
+      recipientEmail: string;
+      sentAt: string;
+      status: "ALREADY_SENT" | "SENT";
+    };
     quotation: Quotation;
   }> {
     const access = await this.authorize(userPublicId, businessPublicId, "send");
-    const finalized = await this.database.withScope(access, async (transaction) => {
+
+    // Load the current quotation up front so the idempotency key can fold in the version and figures
+    // that identify the exact content being sent, before any lock is taken.
+    const current = await this.findRecord(access, quotationPublicId);
+    const idempotencyKey = this.idempotencyKey(current, input.recipientEmail, input.message);
+
+    const prepared = await this.database.withScope(access, async (transaction) => {
+      // Serialize identical concurrent sends before the no-published-row check. The
+      // transaction-scoped advisory lock (keyed on the freshness-aware idempotency key) is released
+      // on commit or rollback, so two identical sends run one-after-another.
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`quotation-send:${idempotencyKey}`}))`;
+
+      const alreadySent = (await transaction.outboxEvent.findFirst({
+        where: {
+          businessId: access.businessId,
+          eventType: QUOTATION_EMAIL_EVENT,
+          publishedAt: { not: null },
+          payload: { path: ["idempotencyKey"], equals: idempotencyKey },
+        },
+        orderBy: { publishedAt: "desc" },
+      })) as { payload: { deliveryPublicId?: string }; publishedAt: Date | null } | null;
+
+      if (alreadySent) {
+        return {
+          deduped: true as const,
+          deliveryPublicId: alreadySent.payload.deliveryPublicId,
+          sentAt: alreadySent.publishedAt,
+        };
+      }
+
       const record = await this.findRecordInTransaction(transaction, access, quotationPublicId);
       const context = await this.loadSnapshotContext(transaction, access);
       let snapshot: QuotationSnapshot;
@@ -325,6 +374,28 @@ export class QuotationsService {
           message: input.message,
         },
       });
+
+      // The outbox row is written unpublished before the mail leaves, so a crash after sending cannot
+      // lose the record and a retry after a failure does not double-send.
+      const event = (await transaction.outboxEvent.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          eventType: QUOTATION_EMAIL_EVENT,
+          aggregateType: "quotation",
+          aggregatePublicId: record.publicId,
+          payload: {
+            idempotencyKey,
+            requestId,
+            recipientEmail: input.recipientEmail,
+            deliveryPublicId: delivery.publicId,
+            quotationNumber: record.number,
+            documentVersion: record.version,
+          },
+        },
+        select: { id: true },
+      })) as { id: string };
+
       await transaction.auditEvent.create({
         data: {
           tenantId: access.tenantId,
@@ -339,26 +410,46 @@ export class QuotationsService {
           requestId,
         },
       });
-      return { context, delivery, record: updated, snapshot };
+      return {
+        deduped: false as const,
+        context,
+        delivery,
+        eventId: event.id,
+        record: updated,
+        snapshot,
+      };
     });
 
-    const attachment = await this.pdf.renderQuotation(finalized.snapshot);
+    if (prepared.deduped) {
+      return {
+        quotation: this.mapQuotation(current),
+        delivery: {
+          id: prepared.deliveryPublicId ?? current.publicId,
+          status: "ALREADY_SENT",
+          recipientEmail: input.recipientEmail,
+          sentAt: (prepared.sentAt ?? new Date()).toISOString(),
+        },
+      };
+    }
+
+    const attachment = await this.pdf.renderQuotation(prepared.snapshot);
     let providerMessageId: string;
     try {
       providerMessageId = await this.mail.sendQuotation({
         attachment,
         body: input.message,
-        businessName: finalized.context.name,
-        filename: `${finalized.record.number}.pdf`,
-        quotationNumber: finalized.record.number,
+        businessName: prepared.context.name,
+        filename: `${prepared.record.number}.pdf`,
+        quotationNumber: prepared.record.number,
         recipient: input.recipientEmail,
       });
     } catch (error) {
-      await this.updateDelivery(
+      // Leave the outbox row unpublished (only its attempt count bumped) so the same request can be
+      // retried without the earlier intent being lost, and mark the delivery FAILED for the audit.
+      await this.markDeliveryFailed(
         access,
-        finalized.delivery.id,
-        DeliveryStatus.FAILED,
-        undefined,
+        prepared.delivery.id,
+        prepared.eventId,
         this.safeFailureReason(error),
       );
       throw new ServiceUnavailableException({
@@ -369,24 +460,71 @@ export class QuotationsService {
     }
 
     const sentAt = new Date();
-    await this.updateDelivery(
-      access,
-      finalized.delivery.id,
-      DeliveryStatus.SENT,
-      providerMessageId,
-      undefined,
-      sentAt,
-    );
+    await this.database.withScope(access, async (transaction) => {
+      await transaction.documentDelivery.update({
+        where: { id: prepared.delivery.id },
+        data: { status: DeliveryStatus.SENT, providerMessageId, sentAt },
+      });
+      await transaction.outboxEvent.update({
+        where: { id: prepared.eventId },
+        data: { publishedAt: sentAt, attempts: { increment: 1 } },
+      });
+    });
 
     return {
-      quotation: this.mapQuotation(finalized.record),
+      quotation: this.mapQuotation(prepared.record),
       delivery: {
-        id: finalized.delivery.publicId,
+        id: prepared.delivery.publicId,
         status: "SENT",
         recipientEmail: input.recipientEmail,
         sentAt: sentAt.toISOString(),
       },
     };
+  }
+
+  /**
+   * A key for "this version of this quotation to this recipient". Once a quotation is finalized its
+   * version snapshot is immutable, so the version pins the exact content; the totals are folded in as
+   * a defensive content signature, and the recipient and message complete the key. An identical
+   * resend collapses onto the same key and dedupes; a genuinely different send yields a new key.
+   */
+  private idempotencyKey(
+    record: QuotationRecord,
+    recipientEmail: string,
+    message: string | null,
+  ): string {
+    return createHash("sha256")
+      .update(
+        [
+          "quotation.v1",
+          record.publicId,
+          String(record.version),
+          record.subtotalMinor.toString(),
+          record.taxMinor.toString(),
+          record.totalMinor.toString(),
+          recipientEmail.trim().toLowerCase(),
+          message ?? "",
+        ].join(" "),
+      )
+      .digest("hex");
+  }
+
+  private async markDeliveryFailed(
+    access: BusinessAccessContext,
+    deliveryId: bigint,
+    eventId: string,
+    failureReason: string,
+  ): Promise<void> {
+    await this.database.withScope(access, async (transaction) => {
+      await transaction.documentDelivery.update({
+        where: { id: deliveryId },
+        data: { status: DeliveryStatus.FAILED, failureReason },
+      });
+      await transaction.outboxEvent.update({
+        where: { id: eventId },
+        data: { attempts: { increment: 1 } },
+      });
+    });
   }
 
   private async authorize(
@@ -541,27 +679,6 @@ export class QuotationsService {
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
     };
-  }
-
-  private async updateDelivery(
-    access: BusinessAccessContext,
-    deliveryId: bigint,
-    status: DeliveryStatus,
-    providerMessageId?: string,
-    failureReason?: string,
-    sentAt?: Date,
-  ): Promise<void> {
-    await this.database.withScope(access, async (transaction) => {
-      await transaction.documentDelivery.update({
-        where: { id: deliveryId },
-        data: {
-          status,
-          providerMessageId,
-          failureReason,
-          sentAt,
-        },
-      });
-    });
   }
 
   private address(value: {

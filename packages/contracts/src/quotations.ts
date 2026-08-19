@@ -76,7 +76,10 @@ export const quotationDeliveryResultSchema = z.strictObject({
   quotation: quotationSchema,
   delivery: z.strictObject({
     id: z.uuid(),
-    status: z.enum(["SENT"]),
+    // SENT: this call dispatched the email. ALREADY_SENT: an identical send had already been
+    // delivered, so the idempotent send path reported the earlier delivery and put nothing new on
+    // the wire.
+    status: z.enum(["SENT", "ALREADY_SENT"]),
     recipientEmail: z.email(),
     sentAt: z.iso.datetime(),
   }),
