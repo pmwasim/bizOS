@@ -35,6 +35,7 @@ import {
 import { parseDecimalToScaledInteger } from "@bizo/contracts/money";
 import { type Payment, recordPaymentRequestSchema } from "@bizo/contracts/payments";
 import {
+  type ConvertPurchaseOrderToBillResponse,
   createPurchaseOrderRequestSchema,
   type PurchaseOrder,
   updateApprovalStatusRequestSchema,
@@ -615,6 +616,31 @@ export async function updateApprovalStatusAction(
       body: JSON.stringify(parsed.data),
     });
     redirect(`/b/${businessId}/purchase-orders/${purchaseOrderId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+/**
+ * One-click convert: turn an APPROVED purchase order into the draft supplier bill it produces and
+ * land on that bill. The endpoint is idempotent, so re-running this on an already-converted purchase
+ * order redirects to the same draft rather than creating a duplicate.
+ */
+export async function convertPurchaseOrderToBillAction(
+  businessId: string,
+  purchaseOrderId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    const bill = await apiJson<ConvertPurchaseOrderToBillResponse>(
+      `/businesses/${businessId}/purchase-orders/${purchaseOrderId}/convert-to-bill`,
+      {
+        method: "POST",
+        body: "{}",
+      },
+    );
+    redirect(`/b/${businessId}/procurement/supplier-bills?bill=${bill.id}`);
   } catch (error) {
     return actionError(error);
   }
