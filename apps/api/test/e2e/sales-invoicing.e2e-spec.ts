@@ -369,6 +369,12 @@ describe("Sales & Invoicing E2E Suite (FEAT-05 to FEAT-11)", () => {
           update: vi.fn().mockResolvedValue(undefined),
         },
         auditEvent: { create: vi.fn().mockResolvedValue(undefined) },
+        outboxEvent: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: 301n }),
+          update: vi.fn().mockResolvedValue(undefined),
+        },
+        $executeRaw: vi.fn().mockResolvedValue(1),
       };
 
       const database = {
