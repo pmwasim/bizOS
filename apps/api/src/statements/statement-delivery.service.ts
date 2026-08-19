@@ -56,7 +56,9 @@ export class StatementDeliveryService {
     customerPublicId: string,
     query: StatementQuery = {},
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    // Exporting the statement PDF is a read-shaped capability, gated on the "export" action so it
+    // mirrors invoice/quotation PDF export (read-only finance roles keep it).
+    const access = await this.authorize(userPublicId, businessPublicId, "export");
     const statement = await this.statements.customer(
       userPublicId,
       businessPublicId,
@@ -84,9 +86,10 @@ export class StatementDeliveryService {
     input: SendStatementRequest,
     requestId: string,
   ): Promise<StatementDelivery> {
-    // Reading a statement is the capability this consumes; there is no separate statement-send
-    // permission, so exporting or emailing a statement is gated on being able to read it.
-    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    // Emailing a statement sends mail from the business identity, so it requires a send-capable
+    // permission ("send"), not merely read access. Read-only finance roles (ACCOUNTANT,
+    // EXTERNAL_AUDITOR) can export the PDF but must not be able to dispatch the email.
+    const access = await this.authorize(userPublicId, businessPublicId, "send");
     const statement = await this.statements.customer(
       userPublicId,
       businessPublicId,
@@ -100,6 +103,11 @@ export class StatementDeliveryService {
     // and send nothing. Only a published (successfully sent) row blocks a resend; a prior failure
     // left its row unpublished and must be allowed to retry.
     const prepared = await this.database.withScope(access, async (transaction) => {
+      // Serialize identical concurrent sends before the no-published-row check. The
+      // transaction-scoped advisory lock (keyed on the freshness-aware idempotency key) is released
+      // on commit or rollback, so two identical sends run one-after-another and only one dispatches.
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`statement-send:${idempotencyKey}`}))`;
+
       const alreadySent = (await transaction.outboxEvent.findFirst({
         where: {
           businessId: access.businessId,
@@ -190,8 +198,12 @@ export class StatementDeliveryService {
   }
 
   /**
-   * A stable key for "this statement to this recipient". The statement content is fixed by the
-   * customer and the reporting period, so those plus the recipient are what must not double-send.
+   * A key for "this version of this statement to this recipient". The key must dedupe an identical
+   * immediate retry, yet let a genuinely-changed statement re-send. When the UI omits explicit
+   * start/end dates the period is open-ended and constant, so the key also folds in the statement's
+   * freshness: its `asOf` date and a signature of the rendered figures (opening/closing balances,
+   * totals, and each line). A changed statement therefore yields a new key and is delivered, while
+   * an identical resend collapses onto the same key and dedupes.
    */
   private idempotencyKey(
     customerPublicId: string,
@@ -201,14 +213,41 @@ export class StatementDeliveryService {
     return createHash("sha256")
       .update(
         [
-          "statement.v1",
+          "statement.v2",
           customerPublicId,
           statement.periodStart ?? "",
           statement.periodEnd ?? "",
           recipientEmail.trim().toLowerCase(),
-        ].join(""),
+          statement.asOf ?? "",
+          this.contentSignature(statement),
+        ].join(" "),
       )
       .digest("hex");
+  }
+
+  /**
+   * A compact hash of the statement figures that advance as invoices, payments, and credits land.
+   * Two statements with the same balances and lines share a signature (an identical retry dedupes);
+   * any change to the balances or lines changes it (a fresh statement re-sends).
+   */
+  private contentSignature(statement: CustomerStatement): string {
+    const parts = [
+      statement.openingBalanceMinor,
+      statement.totalInvoicedMinor,
+      statement.totalPaidMinor,
+      statement.totalCreditedMinor,
+      statement.closingBalanceMinor,
+      ...statement.items.map((item) =>
+        [
+          item.date,
+          item.referenceNumber ?? "",
+          item.debitMinor,
+          item.creditMinor,
+          item.balanceMinor,
+        ].join("|"),
+      ),
+    ];
+    return createHash("sha256").update(parts.join(" ")).digest("hex");
   }
 
   private async markAttempt(access: BusinessAccessContext, eventId: string): Promise<void> {

@@ -105,6 +105,26 @@ describe("BusinessAccessService", () => {
     );
   });
 
+  it("lets read-only finance roles export statements but not email them", async () => {
+    const service = new BusinessAccessService({} as DatabaseService);
+
+    // Read-only finance roles can export the statement PDF but must not be able to send mail.
+    for (const role of [RoleCode.ACCOUNTANT, RoleCode.EXTERNAL_AUDITOR]) {
+      const access = { ...ownerAccess, role };
+      await expect(service.assertAllowed(access, "payments", "export")).resolves.toBeUndefined();
+      await expect(service.assertAllowed(access, "payments", "send")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    }
+
+    // Send-capable roles can email statements.
+    for (const role of [RoleCode.OWNER, RoleCode.ADMIN, RoleCode.MEMBER, RoleCode.STAFF]) {
+      const access = { ...ownerAccess, role };
+      await expect(service.assertAllowed(access, "payments", "send")).resolves.toBeUndefined();
+      await expect(service.assertAllowed(access, "payments", "export")).resolves.toBeUndefined();
+    }
+  });
+
   it("resolves access only through an active membership and the requested business", async () => {
     const findFirst = vi.fn().mockResolvedValue({
       business: {

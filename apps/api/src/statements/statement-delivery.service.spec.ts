@@ -1,4 +1,4 @@
-import { ServiceUnavailableException } from "@nestjs/common";
+import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { RoleCode } from "@bizo/database";
@@ -78,9 +78,10 @@ interface OutboxRow {
  * A minimal transactional outbox backed by an in-memory array, so the dedupe query and the publish
  * update behave across calls the way the real table does: only a published row blocks a resend.
  */
-function makeTransaction(rows: OutboxRow[]) {
+function makeTransaction(rows: OutboxRow[], executeRaw?: ReturnType<typeof vi.fn>) {
   let sequence = 0;
   return {
+    $executeRaw: executeRaw ?? vi.fn().mockResolvedValue(1),
     outboxEvent: {
       findFirst: vi.fn(async ({ where }: { where: { payload: { equals: string } } }) => {
         const key = where.payload.equals;
@@ -129,20 +130,28 @@ function makeTransaction(rows: OutboxRow[]) {
   };
 }
 
-function makeService(overrides: { rows?: OutboxRow[]; sendStatement?: ReturnType<typeof vi.fn> }) {
+function makeService(overrides: {
+  rows?: OutboxRow[];
+  sendStatement?: ReturnType<typeof vi.fn>;
+  assertAllowed?: ReturnType<typeof vi.fn>;
+  customer?: ReturnType<typeof vi.fn>;
+  executeRaw?: ReturnType<typeof vi.fn>;
+}) {
   const rows = overrides.rows ?? [];
-  const transaction = makeTransaction(rows);
+  const executeRaw = overrides.executeRaw ?? vi.fn().mockResolvedValue(1);
+  const transaction = makeTransaction(rows, executeRaw);
   const database = {
     withScope: vi.fn(async (_scope: unknown, work: (value: never) => Promise<unknown>) =>
       work(transaction as never),
     ),
   } as unknown as DatabaseService;
+  const assertAllowed = overrides.assertAllowed ?? vi.fn().mockResolvedValue(undefined);
   const businessAccess = {
     resolve: vi.fn().mockResolvedValue(access),
-    assertAllowed: vi.fn().mockResolvedValue(undefined),
+    assertAllowed,
   } as unknown as BusinessAccessService;
   const statements = {
-    customer: vi.fn().mockResolvedValue(statement()),
+    customer: overrides.customer ?? vi.fn().mockResolvedValue(statement()),
   } as unknown as StatementsService;
   const pdf = {
     renderStatement: vi.fn().mockResolvedValue(Buffer.from("%PDF-statement")),
@@ -151,7 +160,7 @@ function makeService(overrides: { rows?: OutboxRow[]; sendStatement?: ReturnType
   const mail = { sendStatement } as unknown as MailService;
 
   const service = new StatementDeliveryService(database, businessAccess, statements, pdf, mail);
-  return { service, sendStatement, transaction, rows };
+  return { service, sendStatement, transaction, rows, assertAllowed, executeRaw };
 }
 
 describe("StatementDeliveryService", () => {
@@ -232,5 +241,102 @@ describe("StatementDeliveryService", () => {
       "req-2",
     );
     expect(retry.status).toBe("SENT");
+  });
+
+  // F3: emailing must require a send-capable permission. A read-only user whose "send" authorization
+  // is denied cannot dispatch the statement, and no mail leaves.
+  it("denies the send to a payments:read-only user and authorizes on the send action", async () => {
+    const assertAllowed = vi.fn(async (_access: unknown, _object: unknown, action: string) => {
+      if (action === "send") throw new NotFoundException("We could not find that resource.");
+    });
+    const { service, sendStatement } = makeService({ assertAllowed });
+
+    await expect(
+      service.send(
+        access.userPublicId,
+        access.businessPublicId,
+        customerId,
+        { recipientEmail: "customer@example.test", message: null },
+        "req-1",
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(assertAllowed).toHaveBeenCalledWith(access, "payments", "send");
+    expect(sendStatement).not.toHaveBeenCalled();
+  });
+
+  // F4: a statement whose content has advanced (new asOf and balances) must re-send rather than be
+  // wrongly deduped, even though the customer, period, and recipient are unchanged.
+  it("re-sends when the statement content has advanced but dedupes identical content", async () => {
+    const advanced = statement();
+    advanced.asOf = "2026-08-31";
+    advanced.totalPaidMinor = "5000";
+    advanced.closingBalanceMinor = "6500";
+    advanced.buckets.notDueMinor = "6500";
+    const customer = vi
+      .fn()
+      .mockResolvedValueOnce(statement())
+      .mockResolvedValueOnce(statement())
+      .mockResolvedValueOnce(advanced);
+    const { service, sendStatement } = makeService({ customer });
+
+    const first = await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      customerId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-1",
+    );
+    expect(first.status).toBe("SENT");
+
+    // Identical content dedupes.
+    const identical = await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      customerId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-2",
+    );
+    expect(identical.status).toBe("ALREADY_SENT");
+    expect(sendStatement).toHaveBeenCalledTimes(1);
+
+    // Advanced content re-sends.
+    const fresh = await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      customerId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-3",
+    );
+    expect(fresh.status).toBe("SENT");
+    expect(sendStatement).toHaveBeenCalledTimes(2);
+  });
+
+  // F5: the advisory lock keyed on the idempotency key is taken before the no-published-row check,
+  // so identical concurrent sends serialize on it.
+  it("acquires the advisory lock before checking for a published outbox row", async () => {
+    const callOrder: string[] = [];
+    const executeRaw = vi.fn().mockImplementation(async () => {
+      callOrder.push("lock");
+      return 1;
+    });
+    const { service, transaction } = makeService({ executeRaw });
+    const findFirst = transaction.outboxEvent.findFirst;
+    findFirst.mockImplementation(async () => {
+      callOrder.push("check");
+      return null;
+    });
+
+    await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      customerId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-1",
+    );
+
+    expect(executeRaw).toHaveBeenCalled();
+    expect(callOrder[0]).toBe("lock");
+    expect(callOrder).toContain("check");
   });
 });
