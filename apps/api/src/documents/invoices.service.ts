@@ -202,68 +202,12 @@ export class InvoicesService {
         throw new NotFoundException("We could not find that quotation.");
       }
 
-      type ReadyPurchaseOrder = {
-        approvalStatus: Parameters<typeof derivePurchaseOrderReadiness>[0]["approvalStatus"];
-        id: bigint;
-        poNumber: string;
-        projectReference: string | null;
-        publicId: string;
-        status: PurchaseOrderStatus;
-        storedObjects: Array<{ kind: StoredObjectKind }>;
-      };
-      const linkedPurchaseOrders = (await transaction.purchaseOrder.findMany({
-        where: {
-          businessId: access.businessId,
-          quotationId: quotation.id,
-          status: PurchaseOrderStatus.ACTIVE,
-        },
-        include: {
-          storedObjects: {
-            where: {
-              supersededAt: null,
-              kind: { in: [StoredObjectKind.PURCHASE_ORDER, StoredObjectKind.APPROVAL_EVIDENCE] },
-            },
-            select: { kind: true },
-          },
-        },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      })) as unknown as ReadyPurchaseOrder[];
-
-      const readinessItems: Array<{ po: ReadyPurchaseOrder; readiness: Readiness }> =
-        linkedPurchaseOrders.map((po) => ({
-          po,
-          readiness: derivePurchaseOrderReadiness({
-            status: po.status,
-            approvalStatus: po.approvalStatus,
-            hasPoFile: po.storedObjects.some(
-              (item) => item.kind === StoredObjectKind.PURCHASE_ORDER,
-            ),
-            hasApprovalEvidence: po.storedObjects.some(
-              (item) => item.kind === StoredObjectKind.APPROVAL_EVIDENCE,
-            ),
-            quotationLinked: true,
-          }),
-        }));
-      const rollup = bestReadiness(
-        readinessItems.map((item) => item.readiness),
-        { customerPoRequired: conversionPolicy.customerPoRequired },
+      const { readyPo } = await this.resolveQuotationReadiness(
+        transaction,
+        access,
+        quotation,
+        conversionPolicy,
       );
-      if (
-        !canCreateInvoiceFromQuotation({
-          customerPoRequired: conversionPolicy.customerPoRequired,
-          quotationStatus: quotation.status,
-          purchaseOrderReadiness: rollup,
-        })
-      ) {
-        throw new BadRequestException({
-          code: "QUOTATION_NOT_READY",
-          detail: conversionPolicy.customerPoRequired
-            ? "This quotation is not ready to invoice yet. Finish purchase-order approval first."
-            : "Send the quotation before creating an invoice.",
-        });
-      }
-      const readyPo =
-        readinessItems.find((item) => item.readiness.code === "READY_TO_INVOICE")?.po ?? null;
 
       const business = (await transaction.business.findUniqueOrThrow({
         where: { id: access.businessId },
@@ -300,13 +244,93 @@ export class InvoicesService {
   }
 
   /**
+   * Apply the configuration-aware purchase-order readiness gate for turning a quotation into an
+   * invoice. Rolls up the readiness of every ACTIVE purchase order linked to the quotation and
+   * throws {@link BadRequestException} unless the configured policy allows the conversion. Shared by
+   * {@link createFromQuotation} and {@link convertFromQuotation} so both honour the same gate.
+   */
+  private async resolveQuotationReadiness(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    quotation: { id: bigint; status: DocumentStatus },
+    conversionPolicy: { customerPoRequired: boolean },
+  ): Promise<{ readyPo: ReadyPurchaseOrderRef | null }> {
+    type ReadyPurchaseOrder = {
+      approvalStatus: Parameters<typeof derivePurchaseOrderReadiness>[0]["approvalStatus"];
+      id: bigint;
+      poNumber: string;
+      projectReference: string | null;
+      publicId: string;
+      status: PurchaseOrderStatus;
+      storedObjects: Array<{ kind: StoredObjectKind }>;
+    };
+    const linkedPurchaseOrders = (await transaction.purchaseOrder.findMany({
+      where: {
+        businessId: access.businessId,
+        quotationId: quotation.id,
+        status: PurchaseOrderStatus.ACTIVE,
+      },
+      include: {
+        storedObjects: {
+          where: {
+            supersededAt: null,
+            kind: { in: [StoredObjectKind.PURCHASE_ORDER, StoredObjectKind.APPROVAL_EVIDENCE] },
+          },
+          select: { kind: true },
+        },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    })) as unknown as ReadyPurchaseOrder[];
+
+    const readinessItems: Array<{ po: ReadyPurchaseOrder; readiness: Readiness }> =
+      linkedPurchaseOrders.map((po) => ({
+        po,
+        readiness: derivePurchaseOrderReadiness({
+          status: po.status,
+          approvalStatus: po.approvalStatus,
+          hasPoFile: po.storedObjects.some((item) => item.kind === StoredObjectKind.PURCHASE_ORDER),
+          hasApprovalEvidence: po.storedObjects.some(
+            (item) => item.kind === StoredObjectKind.APPROVAL_EVIDENCE,
+          ),
+          quotationLinked: true,
+        }),
+      }));
+    const rollup = bestReadiness(
+      readinessItems.map((item) => item.readiness),
+      { customerPoRequired: conversionPolicy.customerPoRequired },
+    );
+    if (
+      !canCreateInvoiceFromQuotation({
+        customerPoRequired: conversionPolicy.customerPoRequired,
+        quotationStatus: quotation.status,
+        purchaseOrderReadiness: rollup,
+      })
+    ) {
+      throw new BadRequestException({
+        code: "QUOTATION_NOT_READY",
+        detail: conversionPolicy.customerPoRequired
+          ? "This quotation is not ready to invoice yet. Finish purchase-order approval first."
+          : "Send the quotation before creating an invoice.",
+      });
+    }
+    const readyPo =
+      readinessItems.find((item) => item.readiness.code === "READY_TO_INVOICE")?.po ?? null;
+    return { readyPo };
+  }
+
+  /**
    * One-click conversion of an accepted quotation into a DRAFT invoice. Copies the quotation's
    * customer, line items, and tax rates into a new invoice through the same creation path as
    * {@link createFromQuotation} (see {@link persistInvoiceFromQuotation}).
    *
    * Idempotent: a quotation that has already been converted returns its existing invoice rather than
-   * minting a duplicate. The lookup runs inside the scoped transaction against `sourceQuotationId`,
-   * so two concurrent conversions of the same quotation cannot both create an invoice.
+   * minting a duplicate. A transaction-scoped Postgres advisory lock keyed on the quotation is taken
+   * before the `sourceQuotationId` recheck, so two concurrent conversions of the same quotation
+   * serialize and cannot both create an invoice.
+   *
+   * The same configuration-aware purchase-order readiness gate that {@link createFromQuotation}
+   * enforces is applied here, so a business on a PO-approval workflow cannot convert a quotation
+   * whose purchase order is not ready to invoice.
    */
   async convertFromQuotation(
     userPublicId: string,
@@ -315,8 +339,18 @@ export class InvoicesService {
     requestId: string,
   ): Promise<Invoice> {
     const access = await this.authorize(userPublicId, businessPublicId, "create");
+    const conversionPolicy = await this.configuration.getInvoiceConversionPolicy(
+      userPublicId,
+      businessPublicId,
+    );
 
     const { created, invoice } = await this.database.withScope(access, async (transaction) => {
+      // Serialize concurrent converts of the same quotation. The transaction-scoped advisory lock is
+      // released automatically on commit or rollback, so the dedup recheck below is authoritative:
+      // a racing convert either has not yet inserted its invoice, or already committed one we will
+      // see. Keyed on the quotation's public id (hashed to the bigint the advisory-lock API expects).
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`invoice-convert:${quotationPublicId}`}))`;
+
       const quotation = (await transaction.document.findFirst({
         where: {
           businessId: access.businessId,
@@ -345,12 +379,12 @@ export class InvoicesService {
         };
       }
 
-      if (quotation.status !== DocumentStatus.SENT) {
-        throw new BadRequestException({
-          code: "QUOTATION_NOT_CONVERTIBLE",
-          detail: "Send the quotation before converting it to an invoice.",
-        });
-      }
+      const { readyPo } = await this.resolveQuotationReadiness(
+        transaction,
+        access,
+        quotation,
+        conversionPolicy,
+      );
 
       const business = (await transaction.business.findUniqueOrThrow({
         where: { id: access.businessId },
@@ -366,7 +400,7 @@ export class InvoicesService {
         quotation,
         business,
         requestId,
-        { status: DocumentStatus.DRAFT, readyPo: null },
+        { status: DocumentStatus.DRAFT, readyPo },
       );
 
       return { created: true, invoice: this.mapInvoice(document) };

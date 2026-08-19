@@ -435,9 +435,16 @@ function sentQuotationRecord() {
   };
 }
 
-function convertConfiguration() {
+function convertConfiguration(
+  policy: { customerPoRequired: boolean } = { customerPoRequired: false },
+) {
   return {
-    getInvoiceConversionPolicy: vi.fn(),
+    getInvoiceConversionPolicy: vi.fn().mockResolvedValue({
+      customerPoRequired: policy.customerPoRequired,
+      approvalEvidenceRequired: policy.customerPoRequired,
+      templateCode: policy.customerPoRequired ? "service-po-approval" : "default-erp",
+      templateVersion: "1.0.0",
+    }),
     createDocumentWorkflowContext: vi.fn().mockResolvedValue({
       id: "ctx",
       documentId: "doc",
@@ -484,12 +491,15 @@ describe("InvoicesService.convertFromQuotation", () => {
       linkedPurchaseOrder: null,
     });
     const documentCreate = vi.fn().mockResolvedValue(created);
+    const executeRaw = vi.fn().mockResolvedValue(1);
     const transaction = {
+      $executeRaw: executeRaw,
       document: {
         // First findFirst resolves the quotation; second is the idempotency lookup (no existing).
         findFirst: vi.fn().mockResolvedValueOnce(sentQuotationRecord()).mockResolvedValueOnce(null),
         create: documentCreate,
       },
+      purchaseOrder: { findMany: vi.fn().mockResolvedValue([]) },
       business: {
         findUniqueOrThrow: vi.fn().mockResolvedValue({
           timeZone: "Asia/Riyadh",
@@ -527,12 +537,15 @@ describe("InvoicesService.convertFromQuotation", () => {
       }),
     );
     expect(config.createDocumentWorkflowContext).toHaveBeenCalledOnce();
+    // F2: the advisory lock is taken to serialize concurrent converts of the same quotation.
+    expect(executeRaw).toHaveBeenCalled();
   });
 
   it("is idempotent: returns the existing invoice without creating a duplicate", async () => {
     const existing = baseInvoiceRecord({ status: DocumentStatus.DRAFT });
     const documentCreate = vi.fn();
     const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       document: {
         findFirst: vi
           .fn()
@@ -559,6 +572,7 @@ describe("InvoicesService.convertFromQuotation", () => {
 
   it("throws NotFound when the quotation does not exist", async () => {
     const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       document: { findFirst: vi.fn().mockResolvedValue(null) },
     };
     const config = convertConfiguration();
@@ -572,5 +586,76 @@ describe("InvoicesService.convertFromQuotation", () => {
         "request-1",
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  // F1: a business on the service-po-approval workflow (customerPoRequired) must not be able to
+  // convert a quotation whose linked purchase order is not ready to invoice.
+  it("rejects the convert when the configured PO-approval readiness is not met", async () => {
+    const documentCreate = vi.fn();
+    const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      document: {
+        // quotation lookup, then the dedup recheck (no existing invoice yet).
+        findFirst: vi.fn().mockResolvedValueOnce(sentQuotationRecord()).mockResolvedValueOnce(null),
+        create: documentCreate,
+      },
+      // No linked, ready purchase order exists, so readiness stays MISSING_CUSTOMER_PO.
+      purchaseOrder: { findMany: vi.fn().mockResolvedValue([]) },
+      auditEvent: { create: vi.fn() },
+    };
+    const config = convertConfiguration({ customerPoRequired: true });
+    const service = buildService(transaction, config);
+
+    await expect(
+      service.convertFromQuotation(
+        access.userPublicId,
+        access.businessPublicId,
+        "11111111-1111-4111-8111-111111111111",
+        "request-1",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(documentCreate).not.toHaveBeenCalled();
+  });
+
+  // F2: the advisory lock is acquired before the dedup recheck, and once a racing convert has
+  // committed its invoice the recheck sees it and returns that invoice instead of minting a second.
+  it("takes the advisory lock before the dedup recheck and returns the raced-in invoice", async () => {
+    const existing = baseInvoiceRecord({ status: DocumentStatus.DRAFT });
+    const callOrder: string[] = [];
+    const executeRaw = vi.fn().mockImplementation(async () => {
+      callOrder.push("lock");
+      return 1;
+    });
+    const findFirst = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        callOrder.push("quotation");
+        return sentQuotationRecord();
+      })
+      .mockImplementationOnce(async () => {
+        callOrder.push("dedup");
+        return existing;
+      });
+    const documentCreate = vi.fn();
+    const transaction = {
+      $executeRaw: executeRaw,
+      document: { findFirst, create: documentCreate },
+      auditEvent: { create: vi.fn() },
+    };
+    const config = convertConfiguration();
+    const service = buildService(transaction, config);
+
+    const invoice = await service.convertFromQuotation(
+      access.userPublicId,
+      access.businessPublicId,
+      "11111111-1111-4111-8111-111111111111",
+      "request-1",
+    );
+
+    expect(invoice.id).toBe(existing.publicId);
+    expect(documentCreate).not.toHaveBeenCalled();
+    // The lock is held before any read that the recheck depends on.
+    expect(callOrder[0]).toBe("lock");
+    expect(callOrder).toContain("dedup");
   });
 });
