@@ -1,3 +1,4 @@
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { type CreateSupplierRequest } from "@bizo/contracts/suppliers";
@@ -6,7 +7,7 @@ import { type DatabaseService } from "../database/database.service.js";
 import { type BusinessAccessService } from "../security/business-access.service.js";
 import { SuppliersService } from "../suppliers/suppliers.service.js";
 
-const buildInput = (): CreateSupplierRequest => ({
+const buildInput = (overrides: Partial<CreateSupplierRequest> = {}): CreateSupplierRequest => ({
   name: "Acme Supplies",
   contactName: "Jane Doe",
   email: "jane@acme.test",
@@ -14,6 +15,32 @@ const buildInput = (): CreateSupplierRequest => ({
   taxId: "TAX-12345",
   paymentTerms: 30,
   notes: "Preferred vendor",
+  ...overrides,
+});
+
+const supplierRecord = (overrides: Record<string, unknown> = {}) => ({
+  id: 10n,
+  publicId: "sup-001",
+  name: "Acme Supplies",
+  contactName: "Jane Doe",
+  email: "jane@acme.test",
+  phone: "+1234567890",
+  addressLine1: null,
+  addressLine2: null,
+  city: null,
+  postalCode: null,
+  countryCode: null,
+  taxId: "TAX-12345",
+  taxName: null,
+  bankName: null,
+  iban: null,
+  swiftCode: null,
+  paymentTerms: 30,
+  notes: "Preferred vendor",
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...overrides,
 });
 
 describe("SuppliersService", () => {
@@ -28,61 +55,27 @@ describe("SuppliersService", () => {
     userPublicId: "user-001",
   };
 
-  const buildDatabase = (): DatabaseService => {
+  /**
+   * `findFirst` serves two callers: the record lookup (`where.publicId`) and the duplicate tax-ID
+   * probe (`where.taxId`). `duplicateTaxId` controls whether the probe reports a clash.
+   */
+  const buildDatabase = (options: { duplicateTaxId?: boolean } = {}): DatabaseService => {
     const transaction = {
       supplier: {
         create: vi.fn().mockImplementation(async (args: { data: Record<string, unknown> }) => ({
-          publicId: "sup-001",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          isActive: true,
+          ...supplierRecord(),
           ...args.data,
         })),
-        findFirst: vi.fn().mockResolvedValue({
-          publicId: "sup-001",
-          name: "Acme Supplies",
-          contactName: "Jane Doe",
-          email: "jane@acme.test",
-          phone: "+1234567890",
-          addressLine1: null,
-          addressLine2: null,
-          city: null,
-          postalCode: null,
-          countryCode: null,
-          taxId: "TAX-12345",
-          taxName: null,
-          bankName: null,
-          iban: null,
-          swiftCode: null,
-          paymentTerms: 30,
-          notes: "Preferred vendor",
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+        findFirst: vi.fn().mockImplementation(async (args: { where: Record<string, unknown> }) => {
+          if ("taxId" in args.where) {
+            return options.duplicateTaxId ? { publicId: "sup-999" } : null;
+          }
+          return supplierRecord();
         }),
         findMany: vi.fn().mockResolvedValue([]),
-        update: vi.fn().mockImplementation(async (args: Record<string, unknown>) => ({
-          publicId: "sup-001",
-          name: "Acme Supplies",
-          contactName: "Jane Doe",
-          email: "jane@acme.test",
-          phone: "+1234567890",
-          addressLine1: null,
-          addressLine2: null,
-          city: null,
-          postalCode: null,
-          countryCode: null,
-          taxId: "TAX-12345",
-          taxName: null,
-          bankName: null,
-          iban: null,
-          swiftCode: null,
-          paymentTerms: 30,
-          notes: "Preferred vendor",
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ...(args.data as object),
+        update: vi.fn().mockImplementation(async (args: { data: Record<string, unknown> }) => ({
+          ...supplierRecord(),
+          ...args.data,
         })),
       },
       auditEvent: { create: vi.fn().mockResolvedValue({}) },
@@ -111,6 +104,92 @@ describe("SuppliersService", () => {
     expect(result.taxId).toBe("TAX-12345");
     expect(result.paymentTerms).toBe(30);
     expect(result.isActive).toBe(true);
+  });
+
+  it("creates a supplier with a valid country-specific tax ID (SA/AE/IN)", async () => {
+    const service = new SuppliersService(buildDatabase(), buildAccessService());
+
+    await expect(
+      service.create(
+        "user-001",
+        "biz-001",
+        buildInput({ countryCode: "SA", taxId: "310000000000003" }),
+        "req-sa",
+      ),
+    ).resolves.toMatchObject({ taxId: "310000000000003" });
+
+    await expect(
+      service.create(
+        "user-001",
+        "biz-001",
+        buildInput({ countryCode: "AE", taxId: "100000000000003" }),
+        "req-ae",
+      ),
+    ).resolves.toMatchObject({ taxId: "100000000000003" });
+
+    await expect(
+      service.create(
+        "user-001",
+        "biz-001",
+        buildInput({ countryCode: "IN", taxId: "27AAAAA0000A1Z5" }),
+        "req-in",
+      ),
+    ).resolves.toMatchObject({ taxId: "27AAAAA0000A1Z5" });
+  });
+
+  it("rejects an invalid country-specific tax ID on create", async () => {
+    const service = new SuppliersService(buildDatabase(), buildAccessService());
+
+    await expect(
+      service.create(
+        "user-001",
+        "biz-001",
+        buildInput({ countryCode: "SA", taxId: "110000000000001" }),
+        "req-bad-sa",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.create(
+        "user-001",
+        "biz-001",
+        buildInput({ countryCode: "IN", taxId: "INVALID" }),
+        "req-bad-in",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects a duplicate tax ID on create", async () => {
+    const service = new SuppliersService(
+      buildDatabase({ duplicateTaxId: true }),
+      buildAccessService(),
+    );
+
+    await expect(
+      service.create(
+        "user-001",
+        "biz-001",
+        buildInput({ countryCode: "SA", taxId: "310000000000003" }),
+        "req-dup",
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("rejects a duplicate tax ID on update", async () => {
+    const service = new SuppliersService(
+      buildDatabase({ duplicateTaxId: true }),
+      buildAccessService(),
+    );
+
+    await expect(
+      service.update(
+        "user-001",
+        "biz-001",
+        "sup-001",
+        { taxId: "310000000000003", countryCode: "SA" },
+        "req-dup-upd",
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it("lists suppliers", async () => {

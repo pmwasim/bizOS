@@ -1,4 +1,4 @@
-import { ServiceUnavailableException } from "@nestjs/common";
+import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { DocumentStatus, RoleCode } from "@bizo/database";
@@ -197,7 +197,9 @@ describe("QuotationsService delivery", () => {
       version: 1,
     };
     const deliveryUpdate = vi.fn().mockResolvedValue(undefined);
+    const outboxUpdate = vi.fn().mockResolvedValue(undefined);
     const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       document: {
         findFirst: vi.fn().mockResolvedValue(record),
         update: vi.fn().mockResolvedValue({ ...record, status: DocumentStatus.SENT, sentAt: now }),
@@ -223,6 +225,11 @@ describe("QuotationsService delivery", () => {
           publicId: "292cbaf9-17d8-4129-8fbf-c59e32fd5587",
         }),
         update: deliveryUpdate,
+      },
+      outboxEvent: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: "evt-1" }),
+        update: outboxUpdate,
       },
       auditEvent: { create: vi.fn().mockResolvedValue(undefined) },
     };
@@ -263,16 +270,17 @@ describe("QuotationsService delivery", () => {
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(deliveryUpdate).toHaveBeenCalledWith({
       where: { id: 20n },
-      data: {
-        status: "FAILED",
-        providerMessageId: undefined,
-        failureReason: "ECONNREFUSED",
-        sentAt: undefined,
-      },
+      data: { status: "FAILED", failureReason: "ECONNREFUSED" },
     });
     expect(transaction.document.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "SENT" }) }),
     );
+    // The outbox row is left unpublished on failure (only its attempt count bumped) so a retry is
+    // allowed rather than the send being wrongly deduped.
+    expect(outboxUpdate).toHaveBeenCalledWith({
+      where: { id: "evt-1" },
+      data: { attempts: { increment: 1 } },
+    });
   });
 
   it("renders sent quotation PDFs from the frozen document snapshot", async () => {
@@ -385,3 +393,306 @@ describe("QuotationsService delivery", () => {
     expect(transaction.business.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 });
+
+interface OutboxRow {
+  id: string;
+  payload: { idempotencyKey: string } & Record<string, unknown>;
+  publishedAt: Date | null;
+}
+
+/**
+ * A send harness whose outbox is a real in-memory array, so the dedupe query and the publish update
+ * behave across calls the way the table does: only a published row blocks a resend. The quotation
+ * document is a single mutable record that finalizes DRAFT -> SENT on the first send.
+ */
+function makeSendHarness(overrides: {
+  assertAllowed?: ReturnType<typeof vi.fn>;
+  sendQuotation?: ReturnType<typeof vi.fn>;
+  executeRaw?: ReturnType<typeof vi.fn>;
+  rows?: OutboxRow[];
+}) {
+  const now = new Date("2026-07-27T09:00:00.000Z");
+  const record: Record<string, unknown> = {
+    id: 10n,
+    publicId: "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+    createdAt: now,
+    updatedAt: now,
+    currencyCode: "SAR",
+    currencyScale: 2,
+    customer: {
+      publicId: "f3fb94c1-a48a-4f09-82fc-93477534b1f4",
+      name: "Customer",
+      email: "customer@example.test",
+      phone: null,
+      addressLine1: null,
+      addressLine2: null,
+      city: null,
+      postalCode: null,
+      countryCode: null,
+    },
+    issueDate: now,
+    validUntil: new Date("2026-08-26T00:00:00.000Z"),
+    lines: [
+      {
+        description: "Service",
+        position: 1,
+        quantity: "1",
+        unitPriceMinor: "10000",
+        taxRatePpm: 0,
+        subtotalMinor: "10000",
+        taxMinor: "0",
+        totalMinor: "10000",
+      },
+    ],
+    number: "Q-0001",
+    sentAt: null,
+    status: DocumentStatus.DRAFT,
+    subtotalMinor: "10000",
+    taxMinor: "0",
+    totalMinor: "10000",
+    version: 1,
+  };
+
+  const rows = overrides.rows ?? [];
+  const executeRaw = overrides.executeRaw ?? vi.fn().mockResolvedValue(1);
+  let deliverySequence = 0;
+  const transaction = {
+    $executeRaw: executeRaw,
+    document: {
+      findFirst: vi.fn(async () => record),
+      update: vi.fn(async ({ data }: { data: { status: string; sentAt: Date } }) => {
+        record.status = data.status;
+        record.sentAt = data.sentAt;
+        return record;
+      }),
+    },
+    business: {
+      findUniqueOrThrow: vi.fn(async () => ({
+        name: "Acme Services",
+        legalName: null,
+        email: null,
+        phone: null,
+        addressLine1: null,
+        addressLine2: null,
+        city: null,
+        postalCode: null,
+        settings: {},
+        taxProfile: { name: "Tax", registrationNumber: null },
+      })),
+    },
+    documentVersion: {
+      create: vi.fn().mockResolvedValue(undefined),
+      findFirst: vi.fn().mockResolvedValue({ snapshot: {} }),
+    },
+    documentDelivery: {
+      create: vi.fn(async () => {
+        deliverySequence += 1;
+        return { id: BigInt(20 + deliverySequence), publicId: `delivery-${deliverySequence}` };
+      }),
+      update: vi.fn().mockResolvedValue(undefined),
+    },
+    outboxEvent: {
+      findFirst: vi.fn(async ({ where }: { where: { payload: { equals: string } } }) => {
+        const key = where.payload.equals;
+        return (
+          rows.find((row) => row.publishedAt !== null && row.payload.idempotencyKey === key) ?? null
+        );
+      }),
+      create: vi.fn(async ({ data }: { data: { payload: OutboxRow["payload"] } }) => {
+        const row: OutboxRow = {
+          id: `evt-${rows.length + 1}`,
+          publishedAt: null,
+          payload: data.payload,
+        };
+        rows.push(row);
+        return { id: row.id };
+      }),
+      update: vi.fn(
+        async ({ where, data }: { where: { id: string }; data: { publishedAt?: Date } }) => {
+          const row = rows.find((candidate) => candidate.id === where.id);
+          if (row && data.publishedAt) row.publishedAt = data.publishedAt;
+          return row;
+        },
+      ),
+    },
+    auditEvent: { create: vi.fn().mockResolvedValue(undefined) },
+  };
+  const database = {
+    withScope: vi
+      .fn()
+      .mockImplementation(async (_scope: unknown, work: (value: never) => Promise<unknown>) =>
+        work(transaction as never),
+      ),
+  } as unknown as DatabaseService;
+  const assertAllowed = overrides.assertAllowed ?? vi.fn().mockResolvedValue(undefined);
+  const businessAccess = {
+    resolve: vi.fn().mockResolvedValue(access),
+    assertAllowed,
+  } as unknown as BusinessAccessService;
+  const pdf = {
+    renderQuotation: vi.fn().mockResolvedValue(Buffer.from("%PDF-test")),
+  } as unknown as PdfService;
+  const sendQuotation = overrides.sendQuotation ?? vi.fn().mockResolvedValue("mail-1");
+  const mail = { sendQuotation } as unknown as MailService;
+  const service = new QuotationsService(
+    database,
+    businessAccess,
+    pdf,
+    mail,
+    { isConfigured: () => false, createDocument: () => undefined } as unknown as ErpnextClient,
+    configuration,
+  );
+  return { service, sendQuotation, transaction, rows, assertAllowed, executeRaw, record };
+}
+
+const quotationId = "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048";
+
+describe("QuotationsService.send idempotency", () => {
+  it("emails the quotation once and dedupes an identical resend", async () => {
+    const { service, sendQuotation, transaction } = makeSendHarness({});
+
+    const first = await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      quotationId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-1",
+    );
+    expect(first.delivery.status).toBe("SENT");
+    expect(sendQuotation).toHaveBeenCalledTimes(1);
+
+    const second = await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      quotationId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-2",
+    );
+    expect(second.delivery.status).toBe("ALREADY_SENT");
+    // The second request must not put another message on the wire, nor finalize a second version.
+    expect(sendQuotation).toHaveBeenCalledTimes(1);
+    expect(second.delivery.sentAt).toBe(first.delivery.sentAt);
+    expect(second.delivery.id).toBe(first.delivery.id);
+    expect(transaction.documentVersion.create).toHaveBeenCalledTimes(1);
+    expect(transaction.documentDelivery.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a different recipient as a distinct send", async () => {
+    const { service, sendQuotation } = makeSendHarness({});
+
+    await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      quotationId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-1",
+    );
+    const other = await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      quotationId,
+      { recipientEmail: "accounts@example.test", message: null },
+      "req-2",
+    );
+
+    expect(other.delivery.status).toBe("SENT");
+    expect(sendQuotation).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves the outbox row unpublished when the mail fails, so a resend is allowed", async () => {
+    const failing = vi
+      .fn()
+      .mockRejectedValueOnce({ code: "ECONNREFUSED" })
+      .mockResolvedValue("mail-2");
+    const { service, rows } = makeSendHarness({ sendQuotation: failing });
+
+    await expect(
+      service.send(
+        access.userPublicId,
+        access.businessPublicId,
+        quotationId,
+        { recipientEmail: "customer@example.test", message: null },
+        "req-1",
+      ),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.publishedAt).toBeNull();
+
+    // A retry now succeeds because no published row blocks it.
+    const retry = await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      quotationId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-2",
+    );
+    expect(retry.delivery.status).toBe("SENT");
+  });
+
+  // The advisory lock keyed on the idempotency key is taken before the no-published-row check, so
+  // identical concurrent sends serialize on it.
+  it("acquires the advisory lock before checking for a published outbox row", async () => {
+    const callOrder: string[] = [];
+    const executeRaw = vi.fn().mockImplementation(async () => {
+      callOrder.push("lock");
+      return 1;
+    });
+    const { service, transaction } = makeSendHarness({ executeRaw });
+    transaction.outboxEvent.findFirst.mockImplementation(async () => {
+      callOrder.push("check");
+      return null;
+    });
+
+    await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      quotationId,
+      { recipientEmail: "customer@example.test", message: null },
+      "req-1",
+    );
+
+    expect(executeRaw).toHaveBeenCalled();
+    expect(callOrder[0]).toBe("lock");
+    expect(callOrder).toContain("check");
+  });
+
+  // Emailing must require a send-capable permission. A user whose "send" authorization is denied
+  // cannot dispatch the quotation, and no mail leaves.
+  it("denies the send to a quotations read-only user and authorizes on the send action", async () => {
+    const assertAllowed = vi.fn(async (_access: unknown, _object: unknown, action: string) => {
+      if (action === "send") throw new NotFoundException("We could not find that resource.");
+    });
+    const { service, sendQuotation } = makeSendHarness({ assertAllowed });
+
+    await expect(
+      service.send(
+        access.userPublicId,
+        access.businessPublicId,
+        quotationId,
+        { recipientEmail: "customer@example.test", message: null },
+        "req-1",
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(assertAllowed).toHaveBeenCalledWith(access, "quotations", "send");
+    expect(sendQuotation).not.toHaveBeenCalled();
+  });
+
+  // Exporting the PDF is a read-shaped capability gated on "export", so a read-only finance role can
+  // download it even though it cannot dispatch the email.
+  it("authorizes the PDF export on the export action", async () => {
+    const { service } = makeSendHarness({});
+    const access2 = businessAccessSpy(service);
+
+    await service.renderPdf(access.userPublicId, access.businessPublicId, quotationId);
+
+    expect(access2).toHaveBeenCalledWith(access, "quotations", "export");
+  });
+});
+
+/** Reach into the service's injected BusinessAccessService mock to read its assertAllowed spy. */
+function businessAccessSpy(service: QuotationsService): ReturnType<typeof vi.fn> {
+  return (service as unknown as { businessAccess: { assertAllowed: ReturnType<typeof vi.fn> } })
+    .businessAccess.assertAllowed;
+}

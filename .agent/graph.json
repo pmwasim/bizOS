@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 177,
-      "testFiles": 55,
+      "sourceFiles": 183,
+      "testFiles": 57,
       "areas": [
         {
           "name": "ai",
@@ -247,6 +247,12 @@
           "testFiles": 2
         },
         {
+          "name": "tax",
+          "path": "apps/api/src/tax",
+          "sourceFiles": 6,
+          "testFiles": 2
+        },
+        {
           "name": "webhooks",
           "path": "apps/api/src/webhooks",
           "sourceFiles": 4,
@@ -354,8 +360,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 46,
-      "testFiles": 16,
+      "sourceFiles": 48,
+      "testFiles": 17,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -527,19 +533,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 125,
+      "sourceFiles": 128,
       "testFiles": 5,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 73,
+          "sourceFiles": 75,
           "testFiles": 3
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 41,
+          "sourceFiles": 42,
           "testFiles": 0
         },
         {
