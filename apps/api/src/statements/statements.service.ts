@@ -8,6 +8,7 @@ import {
   type StatementLineItem,
   type StatementQuery,
 } from "@bizo/contracts/statements";
+import { DocumentType } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service.js";
 import {
@@ -40,9 +41,10 @@ const ISSUED_STATUSES = { in: ["SENT"] } as const;
 type TransactionLike = Parameters<Parameters<DatabaseService["withScope"]>[1]>[0];
 
 /**
- * Minimal row shapes for the three ledger sources. The `where` clauses cast enum values through
- * `never`, which collapses Prisma's inference on the result, so the fields used here are named
- * explicitly rather than left implicitly `any`.
+ * Minimal row shapes for the three ledger sources. Document types come from the `DocumentType` enum,
+ * but the remaining `where` clauses still cast status filters through `never`, which collapses
+ * Prisma's inference on the result, so the fields used here are named explicitly rather than left
+ * implicitly `any`.
  */
 interface DecimalLike {
   toString(): string;
@@ -321,7 +323,7 @@ export class StatementsService {
     const invoiceRows = (await transaction.document.findMany({
       where: {
         businessId,
-        type: "INVOICE" as never,
+        type: DocumentType.INVOICE,
         status: ISSUED_STATUSES as never,
         ...customerFilter,
       },
@@ -350,7 +352,7 @@ export class StatementsService {
         where: {
           businessId,
           document: {
-            type: "INVOICE" as never,
+            type: DocumentType.INVOICE,
             status: ISSUED_STATUSES as never,
             ...customerFilter,
           },
@@ -366,7 +368,7 @@ export class StatementsService {
           businessId,
           creditNote: { status: ISSUED_STATUSES as never },
           invoice: {
-            type: "INVOICE" as never,
+            type: DocumentType.INVOICE,
             status: ISSUED_STATUSES as never,
             ...customerFilter,
           },
