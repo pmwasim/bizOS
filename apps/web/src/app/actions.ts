@@ -1007,6 +1007,7 @@ export async function createSupplierAction(
     contactName: optional("contactName"),
     email: optional("email"),
     phone: optional("phone"),
+    countryCode: optional("countryCode"),
     taxId: optional("taxId"),
     paymentTerms: paymentTerms ? Number(paymentTerms) : null,
     notes: optional("notes"),
