@@ -157,6 +157,43 @@ describe("PayablesService.payables", () => {
     expect(summary.otherCurrencies).toEqual(["USD"]);
   });
 
+  it("keeps the other-currencies warning when the base-currency total is zero (B9)", async () => {
+    const { service } = buildService({
+      baseCurrency: "SAR",
+      bills: [
+        bill("b-1", {
+          issueDate: "2026-05-01",
+          dueDate: "2026-05-31",
+          totalMinor: "50000",
+          currency: "USD",
+        }),
+        bill("b-2", {
+          issueDate: "2026-04-01",
+          dueDate: "2026-04-30",
+          totalMinor: "80000",
+          currency: "EUR",
+        }),
+      ],
+    });
+
+    const summary = await service.payables("user-1", "biz-1", { asOf: AS_OF });
+
+    // Every bill is in a foreign currency, so the SAR total is zero — but a zero base-currency total
+    // is not "nothing owed". The exclusion warning has to survive it, or the surface would imply the
+    // business is all settled when it is not. Honest multi-currency grouping, fail-closed (ADR-0024).
+    expect(summary.totalOutstandingMinor).toBe("0");
+    expect(summary.totalOverdueMinor).toBe("0");
+    expect(summary.suppliers).toEqual([]);
+    expect(summary.otherCurrencies).toEqual(["EUR", "USD"]);
+    expect(summary.buckets).toEqual({
+      notDueMinor: "0",
+      days1To30Minor: "0",
+      days31To60Minor: "0",
+      days61To90Minor: "0",
+      daysOver90Minor: "0",
+    });
+  });
+
   it("groups by supplier and leads with the largest balance (B7)", async () => {
     const { service } = buildService({
       bills: [
