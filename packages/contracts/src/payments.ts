@@ -102,12 +102,41 @@ export const voidCustomerPaymentRequestSchema = z.strictObject({
   reason: z.string().trim().min(1).max(500),
 });
 
+export const settlementStatusSchema = z.enum(["UNPAID", "PARTIALLY_PAID", "PAID"]);
+
+export const settlementStatusLabelByCode = {
+  UNPAID: "Unpaid",
+  PARTIALLY_PAID: "Partially paid",
+  PAID: "Paid",
+} as const satisfies Record<z.infer<typeof settlementStatusSchema>, string>;
+
+export function settlementStatusLabel(status: z.infer<typeof settlementStatusSchema>): string {
+  return settlementStatusLabelByCode[status];
+}
+
+/**
+ * Settlement is derived, never stored: an invoice is PAID once completed, non-reversed allocations
+ * cover its total, PARTIALLY_PAID while some (but not all) of it is covered, and UNPAID otherwise.
+ * Reversing or voiding a payment simply drops its allocations from `paidMinor`, so the status falls
+ * back on its own. Kept as a pure function so the API and the web derive the same answer.
+ */
+export function deriveSettlementStatus(paidMinor: bigint, totalMinor: bigint): SettlementStatus {
+  if (paidMinor <= 0n) {
+    return "UNPAID";
+  }
+  if (paidMinor >= totalMinor) {
+    return "PAID";
+  }
+  return "PARTIALLY_PAID";
+}
+
 export const invoicePaymentSummarySchema = z.strictObject({
   id: z.uuid(),
   number: z.string(),
   totalMinor: minorUnitValueSchema,
   paidMinor: minorUnitValueSchema,
   outstandingMinor: minorUnitValueSchema,
+  settlementStatus: settlementStatusSchema,
   currencyCode: z.string().regex(/^[A-Z]{3}$/),
   currencyScale: z.number().int().min(0).max(4),
 });
@@ -136,6 +165,7 @@ export type RecordPaymentRequest = z.infer<typeof recordPaymentRequestSchema>;
 export type PaymentAllocation = z.infer<typeof paymentAllocationSchema>;
 export type Payment = z.infer<typeof paymentSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
+export type SettlementStatus = z.infer<typeof settlementStatusSchema>;
 export type CreateCustomerPaymentRequest = z.infer<typeof createCustomerPaymentRequestSchema>;
 export type VoidCustomerPaymentRequest = z.infer<typeof voidCustomerPaymentRequestSchema>;
 export type InvoicePaymentSummary = z.infer<typeof invoicePaymentSummarySchema>;

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { recordPaymentRequestSchema } from "./payments.js";
+import {
+  deriveSettlementStatus,
+  invoicePaymentSummarySchema,
+  recordPaymentRequestSchema,
+  settlementStatusLabel,
+} from "./payments.js";
 
 const invoiceId = "11111111-1111-4111-8111-111111111111";
 const purchaseOrderId = "22222222-2222-4222-8222-222222222222";
@@ -67,5 +72,47 @@ describe("recordPaymentRequestSchema", () => {
         }).success,
       ).toBe(false);
     }
+  });
+});
+
+describe("deriveSettlementStatus", () => {
+  it("returns UNPAID when nothing is paid", () => {
+    expect(deriveSettlementStatus(0n, 10000n)).toBe("UNPAID");
+  });
+
+  it("returns PARTIALLY_PAID when some but not all is paid", () => {
+    expect(deriveSettlementStatus(4000n, 10000n)).toBe("PARTIALLY_PAID");
+  });
+
+  it("returns PAID once paid reaches or exceeds the total", () => {
+    expect(deriveSettlementStatus(10000n, 10000n)).toBe("PAID");
+    expect(deriveSettlementStatus(12000n, 10000n)).toBe("PAID");
+  });
+
+  it("exposes human-readable labels", () => {
+    expect(settlementStatusLabel("PARTIALLY_PAID")).toBe("Partially paid");
+  });
+});
+
+describe("invoicePaymentSummarySchema", () => {
+  const summary = {
+    id: invoiceId,
+    number: "INV-001",
+    totalMinor: "10000",
+    paidMinor: "4000",
+    outstandingMinor: "6000",
+    settlementStatus: "PARTIALLY_PAID" as const,
+    currencyCode: "SAR",
+    currencyScale: 2,
+  };
+
+  it("accepts a summary carrying a derived settlement status", () => {
+    expect(invoicePaymentSummarySchema.parse(summary)).toEqual(summary);
+  });
+
+  it("rejects an unknown settlement status", () => {
+    expect(
+      invoicePaymentSummarySchema.safeParse({ ...summary, settlementStatus: "OVERPAID" }).success,
+    ).toBe(false);
   });
 });

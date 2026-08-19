@@ -174,6 +174,155 @@ describe("PaymentsService", () => {
     expect(transaction.payment.create).not.toHaveBeenCalled();
   });
 
+  it("accepts a partial allocation smaller than the payment amount", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      currencyCode: "SAR",
+    });
+
+    const created = await service.create(
+      access.userPublicId,
+      access.businessPublicId,
+      {
+        type: "INBOUND",
+        paymentDate: "2026-08-07",
+        amountMinor: "10000",
+        currencyCode: "SAR",
+        reference: null,
+        notes: null,
+        allocations: [
+          {
+            documentId: "11111111-1111-4111-8111-111111111111",
+            amountMinor: "4000",
+          },
+        ],
+      },
+      "req-partial",
+    );
+
+    expect(created.id).toBe(paymentRow.publicId);
+    expect(transaction.payment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          allocations: {
+            create: [expect.objectContaining({ documentId: 101n, amountMinor: "4000" })],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("rejects an allocation whose invoice currency differs from the payment currency", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      currencyCode: "USD",
+    });
+
+    await expect(
+      service.create(
+        access.userPublicId,
+        access.businessPublicId,
+        {
+          type: "INBOUND",
+          paymentDate: "2026-08-07",
+          amountMinor: "10000",
+          currencyCode: "SAR",
+          reference: null,
+          notes: null,
+          allocations: [
+            {
+              documentId: "11111111-1111-4111-8111-111111111111",
+              amountMinor: "10000",
+            },
+          ],
+        },
+        "req-cross-currency",
+      ),
+    ).rejects.toThrow("Payment currency SAR does not match invoice currency USD.");
+
+    expect(transaction.payment.create).not.toHaveBeenCalled();
+  });
+
+  it("derives PAID from multiple completed allocations that cover the invoice total", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+      currencyCode: "SAR",
+      currencyScale: 2,
+    });
+    transaction.paymentAllocation.findMany.mockResolvedValueOnce([
+      { amountMinor: decimal("4000") },
+      { amountMinor: decimal("6000") },
+    ]);
+
+    const summary = await service.invoicePaymentSummary(
+      access.userPublicId,
+      access.businessPublicId,
+      "inv-1",
+    );
+
+    expect(summary.paidMinor).toBe("10000");
+    expect(summary.outstandingMinor).toBe("0");
+    expect(summary.settlementStatus).toBe("PAID");
+  });
+
+  it("derives PARTIALLY_PAID when only some of the invoice is settled", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+      currencyCode: "SAR",
+      currencyScale: 2,
+    });
+    transaction.paymentAllocation.findMany.mockResolvedValueOnce([
+      { amountMinor: decimal("4000") },
+    ]);
+
+    const summary = await service.invoicePaymentSummary(
+      access.userPublicId,
+      access.businessPublicId,
+      "inv-1",
+    );
+
+    expect(summary.paidMinor).toBe("4000");
+    expect(summary.outstandingMinor).toBe("6000");
+    expect(summary.settlementStatus).toBe("PARTIALLY_PAID");
+  });
+
+  it("derives UNPAID and only counts COMPLETED (non-reversed) allocations", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+      currencyCode: "SAR",
+      currencyScale: 2,
+    });
+    transaction.paymentAllocation.findMany.mockResolvedValueOnce([]);
+
+    const summary = await service.invoicePaymentSummary(
+      access.userPublicId,
+      access.businessPublicId,
+      "inv-1",
+    );
+
+    expect(summary.paidMinor).toBe("0");
+    expect(summary.outstandingMinor).toBe("10000");
+    expect(summary.settlementStatus).toBe("UNPAID");
+    expect(transaction.paymentAllocation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          payment: { status: PaymentStatus.COMPLETED },
+        }),
+      }),
+    );
+  });
+
   it("uses dedicated authorization actions for completion and reversal", async () => {
     transaction.payment.findFirst.mockResolvedValueOnce(paymentRow);
     transaction.payment.update.mockResolvedValueOnce({
