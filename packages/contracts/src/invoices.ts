@@ -45,6 +45,13 @@ export const createInvoiceFromQuotationRequestSchema = z.strictObject({
   quotationId: z.uuid(),
 });
 
+/**
+ * The one-click convert endpoint takes the quotation id from the URL path, so its request body
+ * carries no fields. It stays a schema (rather than nothing) so the BFF and controller validate the
+ * shape and reject stray properties, matching every other write contract.
+ */
+export const convertQuotationToInvoiceRequestSchema = z.strictObject({});
+
 export const updateInvoiceRequestSchema = z.strictObject({
   issueDate: z.iso.date().optional(),
   dueDate: z.iso.date().optional(),
@@ -121,6 +128,12 @@ export const invoiceSchema = z.strictObject({
   updatedAt: z.iso.datetime(),
 });
 
+/**
+ * Converting a quotation returns the draft invoice it produced (or, when the quotation was already
+ * converted, the invoice that already exists). Either way the response is a full invoice.
+ */
+export const convertQuotationToInvoiceResponseSchema = invoiceSchema;
+
 export const invoiceDeliveryResultSchema = z.strictObject({
   invoice: invoiceSchema,
   delivery: z.strictObject({
@@ -135,6 +148,12 @@ export type InvoiceStatus = z.infer<typeof invoiceStatusSchema>;
 export type Invoice = z.infer<typeof invoiceSchema>;
 export type CreateInvoiceFromQuotationRequest = z.infer<
   typeof createInvoiceFromQuotationRequestSchema
+>;
+export type ConvertQuotationToInvoiceRequest = z.infer<
+  typeof convertQuotationToInvoiceRequestSchema
+>;
+export type ConvertQuotationToInvoiceResponse = z.infer<
+  typeof convertQuotationToInvoiceResponseSchema
 >;
 export type UpdateInvoiceRequest = z.infer<typeof updateInvoiceRequestSchema>;
 export type SendInvoiceRequest = z.infer<typeof sendInvoiceRequestSchema>;

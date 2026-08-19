@@ -13,12 +13,16 @@ import { ContractPipe } from "../common/contract.pipe.js";
 import { RequestId } from "../common/request-id.decorator.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
+import { InvoicesService } from "./invoices.service.js";
 import { QuotationsService } from "./quotations.service.js";
 import { scaledThrottle } from "../security/throttle-policy.js";
 
 @Controller("businesses/:businessId/quotations")
 export class QuotationsController {
-  constructor(@Inject(QuotationsService) private readonly quotations: QuotationsService) {}
+  constructor(
+    @Inject(QuotationsService) private readonly quotations: QuotationsService,
+    @Inject(InvoicesService) private readonly invoices: InvoicesService,
+  ) {}
 
   @Post()
   create(
@@ -55,6 +59,21 @@ export class QuotationsController {
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader("Content-Disposition", `inline; filename="${result.filename}"`);
     return new StreamableFile(result.buffer);
+  }
+
+  /**
+   * One-click conversion of an accepted quotation into a new DRAFT invoice. Idempotent: converting
+   * an already-converted quotation returns the invoice it already produced rather than a duplicate.
+   * The quotation id comes from the path, so the body is empty.
+   */
+  @Post(":quotationId/convert")
+  convert(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("quotationId") quotationId: string,
+    @RequestId() requestId: string,
+  ) {
+    return this.invoices.convertFromQuotation(principal.userId, businessId, quotationId, requestId);
   }
 
   @Throttle(scaledThrottle({ default: { limit: 10, ttl: 60_000 } }))

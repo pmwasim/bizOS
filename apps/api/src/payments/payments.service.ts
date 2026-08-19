@@ -5,7 +5,7 @@ import {
   type Payment,
   type RecordPaymentRequest,
 } from "@bizo/contracts/payments";
-import { PaymentStatus, type Prisma, type PaymentType } from "@bizo/database";
+import { DocumentType, PaymentStatus, type Prisma, type PaymentType } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service.js";
 import {
@@ -517,7 +517,7 @@ export class PaymentsService {
         where: {
           businessId: access.businessId,
           publicId: invoicePublicId,
-          type: "INVOICE" as never,
+          type: DocumentType.INVOICE,
         },
         select: {
           id: true,

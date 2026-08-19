@@ -201,3 +201,43 @@ export const payablesQuerySchema = z.object({
 });
 
 export type PayablesQuery = z.infer<typeof payablesQuerySchema>;
+
+/**
+ * Emailing a customer statement.
+ *
+ * A statement is derived on read, so there is no stored document to send — the recipient and the
+ * period define the message. `message` is an optional covering note; a null value lets the API pick
+ * a default body.
+ */
+export const sendStatementRequestSchema = z
+  .strictObject({
+    recipientEmail: z.email("Enter a valid email address.").max(320),
+    message: z.string().trim().max(2000).nullable(),
+    /** The reporting period to email, matching what the sender is viewing. Omit for all activity. */
+    startDate: dateOnlySchema.optional(),
+    endDate: dateOnlySchema.optional(),
+  })
+  .refine(
+    (request) => !request.startDate || !request.endDate || request.startDate <= request.endDate,
+    "The start date must not be after the end date.",
+  );
+
+export type SendStatementRequest = z.infer<typeof sendStatementRequestSchema>;
+
+/**
+ * The outcome of a statement send.
+ *
+ * `status` distinguishes a fresh delivery (`SENT`) from a request that matched one already sent
+ * (`ALREADY_SENT`). The send is idempotent per customer + period + recipient: asking twice emails
+ * once, and the second call reports the delivery the first produced rather than sending again.
+ */
+export const statementDeliverySchema = z.object({
+  id: z.string(),
+  status: z.enum(["SENT", "ALREADY_SENT"]),
+  recipientEmail: z.email(),
+  periodStart: dateOnlySchema.nullable(),
+  periodEnd: dateOnlySchema.nullable(),
+  sentAt: z.string(),
+});
+
+export type StatementDelivery = z.infer<typeof statementDeliverySchema>;

@@ -5,6 +5,7 @@ import {
   type PayablesSummary,
   type PayableSupplier,
 } from "@bizo/contracts/statements";
+import { DocumentType } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service.js";
 import { BusinessAccessService } from "../security/business-access.service.js";
@@ -86,7 +87,7 @@ export class PayablesService {
       const billRows = (await transaction.document.findMany({
         where: {
           businessId: access.businessId,
-          type: "SUPPLIER_BILL" as never,
+          type: DocumentType.SUPPLIER_BILL,
           status: OWED_BILL_STATUSES as never,
         },
         include: { supplier: { select: { publicId: true, name: true } } },

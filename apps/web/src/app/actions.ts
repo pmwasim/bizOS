@@ -49,6 +49,7 @@ import {
   saveQuotationRequestSchema,
   sendQuotationRequestSchema,
 } from "@bizo/contracts/quotations";
+import { sendStatementRequestSchema } from "@bizo/contracts/statements";
 import {
   type OnboardingAnswers,
   type OnboardingRecommendation,
@@ -276,6 +277,42 @@ export async function sendQuotationAction(
   }
 }
 
+/**
+ * Email a customer statement. The endpoint is idempotent per customer + period + recipient, so a
+ * double submit does not send twice; on success we return to the same statement view with a banner.
+ */
+export async function sendStatementAction(
+  businessId: string,
+  customerId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const startDate = String(formData.get("startDate") ?? "").trim() || undefined;
+  const endDate = String(formData.get("endDate") ?? "").trim() || undefined;
+  const parsed = sendStatementRequestSchema.safeParse({
+    recipientEmail: formData.get("recipientEmail"),
+    message: String(formData.get("message") ?? "").trim() || null,
+    startDate,
+    endDate,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/statements/customers/${customerId}/send`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+  } catch (error) {
+    return actionError(error);
+  }
+
+  const query = new URLSearchParams({ customerId });
+  if (startDate) query.set("startDate", startDate);
+  if (endDate) query.set("endDate", endDate);
+  query.set("sent", "1");
+  redirect(`/b/${businessId}/statements?${query.toString()}`);
+}
+
 export async function createInvoiceFromQuotationAction(
   businessId: string,
   quotationId: string,
@@ -290,6 +327,31 @@ export async function createInvoiceFromQuotationAction(
       method: "POST",
       body: JSON.stringify(parsed.data),
     });
+    redirect(`/b/${businessId}/invoices/${invoice.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+/**
+ * One-click convert: accept a quotation and land on the draft invoice it produces. The endpoint is
+ * idempotent, so re-running this on an already-converted quotation redirects to the same draft
+ * rather than creating a duplicate.
+ */
+export async function convertQuotationToInvoiceAction(
+  businessId: string,
+  quotationId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    const invoice = await apiJson<Invoice>(
+      `/businesses/${businessId}/quotations/${quotationId}/convert`,
+      {
+        method: "POST",
+        body: "{}",
+      },
+    );
     redirect(`/b/${businessId}/invoices/${invoice.id}`);
   } catch (error) {
     return actionError(error);

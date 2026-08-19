@@ -31,6 +31,16 @@ export interface InvoiceMessage {
   recipient: string;
 }
 
+export interface StatementMessage {
+  attachment: Buffer;
+  body: string | null;
+  businessName: string;
+  filename: string;
+  /** A human reference for the subject line, e.g. "as of 2026-08-18". */
+  reference: string;
+  recipient: string;
+}
+
 export interface PasswordResetMessage {
   displayName: string;
   expiresInMinutes: number;
@@ -107,6 +117,18 @@ export class MailService implements OnModuleDestroy {
       filename: message.filename,
       documentLabel: "invoice",
       documentNumber: message.invoiceNumber,
+      recipient: message.recipient,
+    });
+  }
+
+  async sendStatement(message: StatementMessage): Promise<string> {
+    return this.sendAttachmentEmail({
+      attachment: message.attachment,
+      body: message.body,
+      businessName: message.businessName,
+      filename: message.filename,
+      documentLabel: "statement",
+      documentNumber: message.reference,
       recipient: message.recipient,
     });
   }
