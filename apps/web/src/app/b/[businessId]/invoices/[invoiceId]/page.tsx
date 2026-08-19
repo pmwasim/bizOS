@@ -3,7 +3,11 @@ import Link from "next/link";
 
 import { invoiceStatusLabel, type Invoice } from "@bizo/contracts/invoices";
 
-import { type Payment } from "@bizo/contracts/payments";
+import {
+  deriveSettlementStatus,
+  settlementStatusLabel,
+  type Payment,
+} from "@bizo/contracts/payments";
 
 import { ArchiveInvoiceButton, MarkInvoiceReadyButton } from "@/components/invoice-actions";
 import { SendInvoiceForm } from "@/components/send-invoice-form";
@@ -42,8 +46,9 @@ export default async function InvoiceDetailPage({
   }, 0n);
   const invoiceTotalMinor = BigInt(invoice.totalMinor);
   const amountDueMinor = invoiceTotalMinor - amountPaidMinor;
-  const paymentStatus =
-    amountPaidMinor === 0n ? "Unpaid" : amountDueMinor <= 0n ? "Paid" : "Partially Paid";
+  const paymentStatus = settlementStatusLabel(
+    deriveSettlementStatus(amountPaidMinor, invoiceTotalMinor),
+  );
 
   return (
     <div className="page preview-page">

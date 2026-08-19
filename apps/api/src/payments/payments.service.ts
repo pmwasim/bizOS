@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import {
+  deriveSettlementStatus,
   type InvoicePaymentSummary,
   type Payment,
   type RecordPaymentRequest,
@@ -58,48 +59,7 @@ export class PaymentsService {
         access,
         input.currencyCode,
       );
-      const resolvedAllocations = await Promise.all(
-        input.allocations.map(async (allocation) => {
-          const targetCount =
-            Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
-          if (targetCount !== 1) {
-            throw new BadRequestException(
-              "Each allocation must reference exactly one invoice or purchase order.",
-            );
-          }
-
-          let documentId: bigint | null = null;
-          let purchaseOrderId: bigint | null = null;
-
-          if (allocation.documentId) {
-            const document = await transaction.document.findFirst({
-              where: { businessId: access.businessId, publicId: allocation.documentId },
-            });
-            if (!document) {
-              throw new NotFoundException(`Invoice with ID ${allocation.documentId} not found.`);
-            }
-            documentId = document.id;
-          }
-
-          if (allocation.purchaseOrderId) {
-            const purchaseOrder = await transaction.purchaseOrder.findFirst({
-              where: { businessId: access.businessId, publicId: allocation.purchaseOrderId },
-            });
-            if (!purchaseOrder) {
-              throw new NotFoundException(
-                `Purchase Order with ID ${allocation.purchaseOrderId} not found.`,
-              );
-            }
-            purchaseOrderId = purchaseOrder.id;
-          }
-
-          return {
-            documentId,
-            purchaseOrderId,
-            amountMinor: allocation.amountMinor,
-          };
-        }),
-      );
+      const resolvedAllocations = await this.resolveAllocations(transaction, access, input);
 
       const created = await transaction.payment.create({
         data: {
@@ -192,48 +152,7 @@ export class PaymentsService {
         access,
         input.currencyCode,
       );
-      const resolvedAllocations = await Promise.all(
-        input.allocations.map(async (allocation) => {
-          const targetCount =
-            Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
-          if (targetCount !== 1) {
-            throw new BadRequestException(
-              "Each allocation must reference exactly one invoice or purchase order.",
-            );
-          }
-
-          let documentId: bigint | null = null;
-          let purchaseOrderId: bigint | null = null;
-
-          if (allocation.documentId) {
-            const document = await transaction.document.findFirst({
-              where: { businessId: access.businessId, publicId: allocation.documentId },
-            });
-            if (!document) {
-              throw new NotFoundException(`Invoice with ID ${allocation.documentId} not found.`);
-            }
-            documentId = document.id;
-          }
-
-          if (allocation.purchaseOrderId) {
-            const purchaseOrder = await transaction.purchaseOrder.findFirst({
-              where: { businessId: access.businessId, publicId: allocation.purchaseOrderId },
-            });
-            if (!purchaseOrder) {
-              throw new NotFoundException(
-                `Purchase Order with ID ${allocation.purchaseOrderId} not found.`,
-              );
-            }
-            purchaseOrderId = purchaseOrder.id;
-          }
-
-          return {
-            documentId,
-            purchaseOrderId,
-            amountMinor: allocation.amountMinor,
-          };
-        }),
-      );
+      const resolvedAllocations = await this.resolveAllocations(transaction, access, input);
 
       await transaction.paymentAllocation.deleteMany({
         where: { paymentId: existing.id },
@@ -488,6 +407,68 @@ export class PaymentsService {
     });
   }
 
+  /**
+   * Resolve each allocation's public target id to an internal row id, enforcing that the target
+   * exists and — for invoices — that it shares the payment's currency. A payment can only settle an
+   * invoice denominated in the same currency: allocating minor units across currencies would compare
+   * unlike quantities, so a mismatch is rejected fail-closed rather than silently coerced.
+   */
+  private async resolveAllocations(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    input: RecordPaymentRequest,
+  ): Promise<
+    Array<{ documentId: bigint | null; purchaseOrderId: bigint | null; amountMinor: string }>
+  > {
+    return Promise.all(
+      input.allocations.map(async (allocation) => {
+        const targetCount =
+          Number(Boolean(allocation.documentId)) + Number(Boolean(allocation.purchaseOrderId));
+        if (targetCount !== 1) {
+          throw new BadRequestException(
+            "Each allocation must reference exactly one invoice or purchase order.",
+          );
+        }
+
+        let documentId: bigint | null = null;
+        let purchaseOrderId: bigint | null = null;
+
+        if (allocation.documentId) {
+          const document = await transaction.document.findFirst({
+            where: { businessId: access.businessId, publicId: allocation.documentId },
+          });
+          if (!document) {
+            throw new NotFoundException(`Invoice with ID ${allocation.documentId} not found.`);
+          }
+          if (document.currencyCode !== input.currencyCode) {
+            throw new BadRequestException(
+              `Payment currency ${input.currencyCode} does not match invoice currency ${document.currencyCode}.`,
+            );
+          }
+          documentId = document.id;
+        }
+
+        if (allocation.purchaseOrderId) {
+          const purchaseOrder = await transaction.purchaseOrder.findFirst({
+            where: { businessId: access.businessId, publicId: allocation.purchaseOrderId },
+          });
+          if (!purchaseOrder) {
+            throw new NotFoundException(
+              `Purchase Order with ID ${allocation.purchaseOrderId} not found.`,
+            );
+          }
+          purchaseOrderId = purchaseOrder.id;
+        }
+
+        return {
+          documentId,
+          purchaseOrderId,
+          amountMinor: allocation.amountMinor,
+        };
+      }),
+    );
+  }
+
   private assertAllocationTotal(input: RecordPaymentRequest): void {
     const allocatedMinor = input.allocations.reduce(
       (total, allocation) => total + BigInt(allocation.amountMinor),
@@ -560,6 +541,7 @@ export class PaymentsService {
         totalMinor: totalMinor.toString(),
         paidMinor: paidMinor.toString(),
         outstandingMinor: outstandingMinor.toString(),
+        settlementStatus: deriveSettlementStatus(paidMinor, totalMinor),
         currencyCode: invoice.currencyCode,
         currencyScale: invoice.currencyScale,
       };
