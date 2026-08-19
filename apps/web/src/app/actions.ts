@@ -296,6 +296,31 @@ export async function createInvoiceFromQuotationAction(
   }
 }
 
+/**
+ * One-click convert: accept a quotation and land on the draft invoice it produces. The endpoint is
+ * idempotent, so re-running this on an already-converted quotation redirects to the same draft
+ * rather than creating a duplicate.
+ */
+export async function convertQuotationToInvoiceAction(
+  businessId: string,
+  quotationId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    const invoice = await apiJson<Invoice>(
+      `/businesses/${businessId}/quotations/${quotationId}/convert`,
+      {
+        method: "POST",
+        body: "{}",
+      },
+    );
+    redirect(`/b/${businessId}/invoices/${invoice.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function updateInvoiceAction(
   businessId: string,
   invoiceId: string,
