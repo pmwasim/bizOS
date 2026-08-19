@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Put } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Res,
+  StreamableFile,
+} from "@nestjs/common";
+import { type Response } from "express";
 
 import { type RecordPaymentRequest, recordPaymentRequestSchema } from "@bizo/contracts/payments";
 
@@ -34,6 +46,19 @@ export class PaymentsController {
     @Param("paymentId") paymentId: string,
   ) {
     return this.payments.get(principal.userId, businessId, paymentId);
+  }
+
+  @Get(":paymentId/pdf")
+  async pdf(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("paymentId") paymentId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const result = await this.payments.renderReceipt(principal.userId, businessId, paymentId);
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader("Content-Disposition", `inline; filename="${result.filename}"`);
+    return new StreamableFile(result.buffer);
   }
 
   @Put(":paymentId")

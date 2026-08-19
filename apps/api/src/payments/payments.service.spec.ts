@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaymentStatus } from "@bizo/database";
 
 import { type DatabaseService } from "../database/database.service.js";
+import { PdfService } from "../documents/pdf.service.js";
 import { type BusinessAccessService } from "../security/business-access.service.js";
 import { PaymentsService } from "./payments.service.js";
 
@@ -73,6 +74,7 @@ describe("PaymentsService", () => {
     service = new PaymentsService(
       database as unknown as DatabaseService,
       businessAccess as unknown as BusinessAccessService,
+      new PdfService(),
     );
   });
 
