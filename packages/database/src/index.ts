@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/client/client.js";
 
 export {
+  ApiKeyStatus,
   ConfigurationVersionStatus,
   DeliveryStatus,
   DocumentStatus,
