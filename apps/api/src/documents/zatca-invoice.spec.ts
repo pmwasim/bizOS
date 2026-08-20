@@ -183,3 +183,33 @@ describe("isZatcaCountry", () => {
     expect(isZatcaCountry(undefined)).toBe(false);
   });
 });
+
+describe("ZATCA address & country fidelity (review fixes)", () => {
+  it("emits the seller city and postal code as CityName/PostalZone, not a street line", () => {
+    const snapshot = saSnapshot();
+    snapshot.business.address = ["King Fahd Road"];
+    snapshot.business.city = "Riyadh";
+    snapshot.business.postalCode = "11564";
+    const xml = buildZatcaXmlFromSnapshot(context(snapshot));
+    expect(xml).toContain("<cbc:CityName>Riyadh</cbc:CityName>");
+    expect(xml).toContain("<cbc:PostalZone>11564</cbc:PostalZone>");
+    // The city/postal must not be mislabelled as an AdditionalStreetName.
+    expect(xml).not.toContain("<cbc:AdditionalStreetName>Riyadh 11564</cbc:AdditionalStreetName>");
+  });
+
+  it("omits the buyer country when it was never recorded (no SA fabrication)", () => {
+    const snapshot = saSnapshot();
+    snapshot.customer.countryCode = null;
+    const xml = buildZatcaXmlFromSnapshot(context(snapshot));
+    // Only the seller's Country element is present; the buyer's is omitted rather than defaulted.
+    expect(xml.match(/<cac:Country>/g) ?? []).toHaveLength(1);
+  });
+
+  it("preserves a recorded foreign buyer country", () => {
+    const snapshot = saSnapshot();
+    snapshot.customer.countryCode = "AE";
+    const xml = buildZatcaXmlFromSnapshot(context(snapshot));
+    expect(xml.match(/<cac:Country>/g) ?? []).toHaveLength(2);
+    expect(xml).toContain("<cbc:IdentificationCode>AE</cbc:IdentificationCode>");
+  });
+});

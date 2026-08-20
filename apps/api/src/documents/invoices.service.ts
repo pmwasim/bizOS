@@ -1057,7 +1057,10 @@ export class InvoicesService {
   ): Promise<{ record: InvoiceRecord; sellerCountryCode: string; snapshot: InvoiceSnapshot }> {
     return this.database.withScope(access, async (transaction) => {
       const record = await this.findRecordInTransaction(transaction, access, invoicePublicId);
-      if (!FINALIZED_STATUSES.has(record.status)) {
+      // A sent invoice keeps its immutable finalized snapshot after being archived, so ARCHIVED is
+      // allowed through here; the version lookup below still rejects an archived draft that never
+      // had a finalized snapshot.
+      if (!FINALIZED_STATUSES.has(record.status) && record.status !== DocumentStatus.ARCHIVED) {
         throw new BadRequestException({
           code: "INVOICE_NOT_FINALIZED",
           detail: "A ZATCA e-invoice can only be generated for a finalized (sent) invoice.",
@@ -1092,6 +1095,15 @@ export class InvoicesService {
         throw new BadRequestException({
           code: "ZATCA_COUNTRY_UNSUPPORTED",
           detail: "ZATCA e-invoicing is only available for businesses registered in Saudi Arabia.",
+        });
+      }
+      // ZATCA reports tax in SAR. bizOS stores no FX conversion, so a non-SAR invoice cannot be
+      // relabelled as SAR without corrupting the figures — reject it fail-closed rather than emit
+      // wrong tax amounts.
+      if (snapshot.currencyCode.trim().toUpperCase() !== "SAR") {
+        throw new BadRequestException({
+          code: "ZATCA_CURRENCY_UNSUPPORTED",
+          detail: "A ZATCA e-invoice can only be generated for an invoice denominated in SAR.",
         });
       }
 
@@ -1218,6 +1230,8 @@ export class InvoicesService {
         email: context.email,
         phone: context.phone,
         address: this.address(context),
+        city: context.city,
+        postalCode: context.postalCode,
         countryCode: context.countryCode,
         taxName: context.taxProfile.name,
         taxRegistrationNumber: context.taxProfile.registrationNumber,
@@ -1227,6 +1241,8 @@ export class InvoicesService {
         email: record.customer.email,
         phone: record.customer.phone,
         address: this.address(record.customer),
+        city: record.customer.city,
+        postalCode: record.customer.postalCode,
         countryCode: record.customer.countryCode,
       },
       number: record.number,

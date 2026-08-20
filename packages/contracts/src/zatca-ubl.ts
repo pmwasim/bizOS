@@ -36,8 +36,9 @@ export interface ZatcaUblParty {
   registrationName: string;
   /** VAT registration number, when the party has one (always present for the seller). */
   vatNumber?: string | null;
-  /** ISO 3166-1 alpha-2 country code, for example `SA`. */
-  countryCode: string;
+  /** ISO 3166-1 alpha-2 country code, for example `SA`. Required for the seller; omitted (rather
+   * than fabricated) for a buyer whose country was never recorded. */
+  countryCode?: string | null;
   addressLines?: string[];
   city?: string | null;
   postalCode?: string | null;
@@ -141,10 +142,7 @@ function partyXml(party: ZatcaUblParty, scale: number): string {
   if (!name) {
     throw new ZatcaUblError("Party registration name is required.");
   }
-  const country = party.countryCode.trim().toUpperCase();
-  if (!country) {
-    throw new ZatcaUblError("Party country code is required.");
-  }
+  const country = (party.countryCode ?? "").trim().toUpperCase();
   const streetLines = (party.addressLines ?? [])
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
@@ -166,9 +164,11 @@ function partyXml(party: ZatcaUblParty, scale: number): string {
       `<cbc:PostalZone>${escapeXml(party.postalCode.trim())}</cbc:PostalZone>`,
     );
   }
-  postalAddressChildren.push(
-    `<cac:Country><cbc:IdentificationCode>${escapeXml(country)}</cbc:IdentificationCode></cac:Country>`,
-  );
+  if (country) {
+    postalAddressChildren.push(
+      `<cac:Country><cbc:IdentificationCode>${escapeXml(country)}</cbc:IdentificationCode></cac:Country>`,
+    );
+  }
 
   const taxScheme = party.vatNumber?.trim()
     ? `<cac:PartyTaxScheme>` +

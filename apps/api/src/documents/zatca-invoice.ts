@@ -62,6 +62,20 @@ export interface ZatcaSnapshotContext {
   sellerCountryCode: string;
 }
 
+function zatcaStreetLines(party: {
+  address?: string[];
+  city?: string | null;
+  postalCode?: string | null;
+}): string[] {
+  // `address` bundles a trailing "<city> <postal>" element; drop it so partyXml renders the city and
+  // postal code from their dedicated fields rather than mislabelling them as an extra street line.
+  const cityPostal = [party.city ?? "", party.postalCode ?? ""]
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .join(" ");
+  return (party.address ?? []).filter((line) => cityPostal === "" || line.trim() !== cityPostal);
+}
+
 function resolveSeller(snapshot: InvoiceSnapshot, sellerCountryCode: string): ZatcaUblParty {
   const registrationName = (snapshot.business.legalName ?? snapshot.business.name).trim();
   const vatNumber = snapshot.business.taxRegistrationNumber?.trim();
@@ -74,16 +88,23 @@ function resolveSeller(snapshot: InvoiceSnapshot, sellerCountryCode: string): Za
     registrationName,
     vatNumber,
     countryCode: sellerCountryCode,
-    addressLines: snapshot.business.address,
+    addressLines: zatcaStreetLines(snapshot.business),
+    city: snapshot.business.city ?? null,
+    postalCode: snapshot.business.postalCode ?? null,
   };
 }
 
-function resolveBuyer(snapshot: InvoiceSnapshot, sellerCountryCode: string): ZatcaUblParty {
+function resolveBuyer(snapshot: InvoiceSnapshot): ZatcaUblParty {
+  // Never fabricate the buyer's country: an unrecorded country is omitted (an optional UBL field)
+  // rather than defaulted to the seller's SA, which would misrepresent foreign/export customers and
+  // can change the tax interpretation of the invoice.
   return {
     registrationName: snapshot.customer.name.trim(),
     // Buyer VAT is not modelled on the customer record; omitted for B2C/simplified invoices.
-    countryCode: snapshot.customer.countryCode?.trim() || sellerCountryCode,
-    addressLines: snapshot.customer.address,
+    countryCode: snapshot.customer.countryCode?.trim() || null,
+    addressLines: zatcaStreetLines(snapshot.customer),
+    city: snapshot.customer.city ?? null,
+    postalCode: snapshot.customer.postalCode ?? null,
   };
 }
 
@@ -162,7 +183,7 @@ export function buildZatcaXmlFromSnapshot(context: ZatcaSnapshotContext): string
     taxCurrency: ZATCA_TAX_CURRENCY,
     currencyScale: snapshot.currencyScale,
     seller: resolveSeller(snapshot, context.sellerCountryCode),
-    buyer: resolveBuyer(snapshot, context.sellerCountryCode),
+    buyer: resolveBuyer(snapshot),
     lines,
     taxSubtotals: subtotals,
     lineExtensionMinor: snapshot.subtotalMinor,
