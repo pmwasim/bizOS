@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { toReturnSummaryCsv } from "./audit-export.js";
 import { TaxSummaryService } from "./tax.service.js";
 import { type DatabaseService } from "../database/database.service.js";
 import { type BusinessAccessService } from "../security/business-access.service.js";
@@ -348,5 +349,56 @@ describe("TaxSummaryService.taxReturn", () => {
     await service.taxReturn("user-1", "biz-1", {});
 
     expect(assertAllowed).toHaveBeenCalledWith(expect.anything(), "invoices", "read");
+  });
+
+  it("produces a return-summary CSV whose box amounts reconcile to the service figures", async () => {
+    const { service } = buildService({
+      countryCode: "SA",
+      baseCurrency: "SAR",
+      documents: [
+        doc({
+          publicId: "i-1",
+          type: "INVOICE",
+          number: "INV-1",
+          issueDate: "2026-02-10",
+          subtotalMinor: "100000",
+          taxMinor: "15000",
+          totalMinor: "115000",
+        }),
+        doc({
+          publicId: "b-1",
+          type: "SUPPLIER_BILL",
+          number: "BILL-1",
+          issueDate: "2026-02-12",
+          subtotalMinor: "40000",
+          taxMinor: "6000",
+          totalMinor: "46000",
+        }),
+      ],
+    });
+
+    const result = await service.taxReturn("user-1", "biz-1", {});
+    const sar = currency(result, "SAR")!;
+    const csv = toReturnSummaryCsv(result.summary);
+
+    // Parse the CSV back into rows and confirm each SAR box amount equals the service's own figure —
+    // the export is a pure view over the aggregation, never a re-computation of it.
+    const rows = csv
+      .trimEnd()
+      .split("\r\n")
+      .slice(1)
+      .map((line) => line.split(","));
+    const amountByCode = new Map(
+      rows.filter((cells) => cells[2] === "SAR").map((cells) => [cells[5], cells[8]] as const),
+    );
+    expect(amountByCode.get("1")).toBe(sar.outputTaxableBaseMinor);
+    expect(amountByCode.get("1-VAT")).toBe(sar.outputTaxMinor);
+    expect(amountByCode.get("7")).toBe(sar.inputTaxableBaseMinor);
+    expect(amountByCode.get("7-VAT")).toBe(sar.inputTaxMinor);
+    expect(amountByCode.get("14")).toBe(sar.netTaxMinor);
+    // And the boxes the CSV rendered are exactly the boxes the service put on the summary.
+    for (const box of sar.boxes) {
+      expect(amountByCode.get(box.code)).toBe(box.amountMinor);
+    }
   });
 });
