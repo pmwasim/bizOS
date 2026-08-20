@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { type Invoice } from "@bizo/contracts/invoices";
-import { type InvoicePaymentSummary } from "@bizo/contracts/payments";
+import { settlementStatusLabel, type InvoicePaymentSummary } from "@bizo/contracts/payments";
 import { formatScaledInteger } from "@bizo/contracts/money";
 
 import { RecordPaymentForm } from "@/components/record-payment-form";
@@ -48,8 +48,12 @@ export default async function NewPaymentPage({
         <div>
           <h1>Record payment</h1>
           <p>
-            Outstanding{" "}
-            {formatMoney(summary.outstandingMinor, invoice.currencyCode, invoice.currencyScale)} for{" "}
+            <span className={`status status-${summary.settlementStatus.toLowerCase()}`}>
+              {settlementStatusLabel(summary.settlementStatus)}
+            </span>{" "}
+            &middot; Outstanding{" "}
+            {formatMoney(summary.outstandingMinor, invoice.currencyCode, invoice.currencyScale)} of{" "}
+            {formatMoney(summary.totalMinor, invoice.currencyCode, invoice.currencyScale)} for{" "}
             {invoice.customer.name}.
           </p>
         </div>

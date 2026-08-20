@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { PdfService } from "./pdf.service.js";
 import { type QuotationSnapshot } from "./quotation-snapshot.js";
+import { type ReceiptSnapshot } from "./receipt-snapshot.js";
 import { type StatementSnapshot } from "./statement-snapshot.js";
 
 const snapshot: QuotationSnapshot = {
@@ -81,6 +82,27 @@ describe("PdfService", () => {
     expect(result.subarray(0, 5).toString()).toBe("%PDF-");
     expect(result.byteLength).toBeGreaterThan(1_000);
   });
+
+  it("renders a non-empty receipt PDF with invoice allocations and remaining balances", async () => {
+    const result = await new PdfService().renderReceipt(receiptSnapshot);
+
+    expect(result.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(result.byteLength).toBeGreaterThan(1_000);
+  });
+
+  it("renders a receipt with a surplus left on account and no customer", async () => {
+    const result = await new PdfService().renderReceipt({
+      ...receiptSnapshot,
+      customer: null,
+      allocations: [],
+      allocatedMinor: "0",
+      unallocatedMinor: "11500",
+      notes: null,
+    });
+
+    expect(result.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(result.byteLength).toBeGreaterThan(1_000);
+  });
 });
 
 const statementSnapshot: StatementSnapshot = {
@@ -135,4 +157,47 @@ const statementSnapshot: StatementSnapshot = {
     daysOver90Minor: "0",
   },
   otherCurrencies: ["USD"],
+};
+
+const receiptSnapshot: ReceiptSnapshot = {
+  business: {
+    name: "Acme Services",
+    legalName: "Acme Services LLC",
+    email: "hello@acme.test",
+    phone: "+966 50 000 0000",
+    address: ["Riyadh", "Saudi Arabia"],
+    taxName: "VAT",
+    taxRegistrationNumber: "300000000000003",
+  },
+  customer: {
+    name: "Example Customer",
+    email: "customer@example.test",
+    phone: null,
+    address: ["King Fahd Road", "Riyadh"],
+  },
+  currencyCode: "SAR",
+  currencyScale: 2,
+  receiptNumber: "RCPT-1A2B3C4D",
+  reference: "TXN-889",
+  paymentDate: "2026-07-20",
+  method: "Payment received",
+  status: "Completed",
+  notes: "Received with thanks.",
+  amountMinor: "11500",
+  allocatedMinor: "11500",
+  unallocatedMinor: "0",
+  allocations: [
+    {
+      kind: "INVOICE",
+      reference: "INV-0001",
+      amountMinor: "8000",
+      remainingMinor: "3500",
+    },
+    {
+      kind: "INVOICE",
+      reference: "INV-0002",
+      amountMinor: "3500",
+      remainingMinor: "0",
+    },
+  ],
 };

@@ -33,7 +33,11 @@ import {
   updateInvoiceRequestSchema,
 } from "@bizo/contracts/invoices";
 import { parseDecimalToScaledInteger } from "@bizo/contracts/money";
-import { type Payment, recordPaymentRequestSchema } from "@bizo/contracts/payments";
+import {
+  type Payment,
+  recordPaymentRequestSchema,
+  refundPaymentRequestSchema,
+} from "@bizo/contracts/payments";
 import {
   type ConvertPurchaseOrderToBillResponse,
   createPurchaseOrderRequestSchema,
@@ -492,13 +496,69 @@ export async function voidPaymentAction(
   businessId: string,
   paymentId: string,
   _state: ActionState,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<ActionState> {
-  // The API models undoing a payment as a status transition to REVERSED. There is no /void route
-  // and no stored reason, so the reason field is not sent.
+  // Voiding is only valid for a DRAFT payment — one that never settled anything. The API fails
+  // closed on any other status, so the button is only offered for drafts.
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+  try {
+    await apiJson(`/businesses/${businessId}/payments/${paymentId}/status/void`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
+    });
+    redirect(`/b/${businessId}/payments/${paymentId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function reversePaymentAction(
+  businessId: string,
+  paymentId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  // Reversing a COMPLETED payment drops its allocations from the derived invoice settlement — no
+  // compensating writes, the invoice simply falls back to its own status.
+  const reason = String(formData.get("reason") ?? "").trim() || null;
   try {
     await apiJson(`/businesses/${businessId}/payments/${paymentId}/status/reverse`, {
       method: "PATCH",
+      body: JSON.stringify({ reason }),
+    });
+    redirect(`/b/${businessId}/payments/${paymentId}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function refundPaymentAction(
+  businessId: string,
+  paymentId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  // The form collects a decimal amount; the API takes minor units as a string.
+  let amountMinor: string;
+  try {
+    amountMinor = parseDecimalToScaledInteger(
+      String(formData.get("amount") ?? "").trim(),
+      Number(formData.get("currencyScale") ?? 2),
+    ).toString();
+  } catch {
+    return { error: "Enter the refund amount as a positive number, for example 1250.00." };
+  }
+
+  const parsed = refundPaymentRequestSchema.safeParse({
+    amountMinor,
+    reason: String(formData.get("reason") ?? "").trim() || null,
+  });
+  if (!parsed.success) return { error: validationMessage(parsed.error) };
+
+  try {
+    await apiJson(`/businesses/${businessId}/payments/${paymentId}/refunds`, {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
     });
     redirect(`/b/${businessId}/payments/${paymentId}`);
   } catch (error) {

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaymentStatus } from "@bizo/database";
 
 import { type DatabaseService } from "../database/database.service.js";
+import { PdfService } from "../documents/pdf.service.js";
 import { type BusinessAccessService } from "../security/business-access.service.js";
 import { PaymentsService } from "./payments.service.js";
 
@@ -34,6 +35,7 @@ const paymentRow = {
   createdAt: new Date("2026-08-07T01:00:00.000Z"),
   updatedAt: new Date("2026-08-07T01:00:00.000Z"),
   allocations: [],
+  refunds: [],
 };
 
 describe("PaymentsService", () => {
@@ -52,7 +54,9 @@ describe("PaymentsService", () => {
       update: vi.fn(),
     },
     paymentAllocation: { deleteMany: vi.fn(), findMany: vi.fn() },
+    paymentRefund: { create: vi.fn(), findMany: vi.fn() },
     auditEvent: { create: vi.fn() },
+    $executeRaw: vi.fn(),
   };
   const database = {
     withScope: vi.fn(async (_scope, work) => work(transaction)),
@@ -73,6 +77,7 @@ describe("PaymentsService", () => {
     service = new PaymentsService(
       database as unknown as DatabaseService,
       businessAccess as unknown as BusinessAccessService,
+      new PdfService(),
     );
   });
 
@@ -172,6 +177,155 @@ describe("PaymentsService", () => {
     ).rejects.toThrow("Payment allocations cannot exceed the payment amount.");
 
     expect(transaction.payment.create).not.toHaveBeenCalled();
+  });
+
+  it("accepts a partial allocation smaller than the payment amount", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      currencyCode: "SAR",
+    });
+
+    const created = await service.create(
+      access.userPublicId,
+      access.businessPublicId,
+      {
+        type: "INBOUND",
+        paymentDate: "2026-08-07",
+        amountMinor: "10000",
+        currencyCode: "SAR",
+        reference: null,
+        notes: null,
+        allocations: [
+          {
+            documentId: "11111111-1111-4111-8111-111111111111",
+            amountMinor: "4000",
+          },
+        ],
+      },
+      "req-partial",
+    );
+
+    expect(created.id).toBe(paymentRow.publicId);
+    expect(transaction.payment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          allocations: {
+            create: [expect.objectContaining({ documentId: 101n, amountMinor: "4000" })],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("rejects an allocation whose invoice currency differs from the payment currency", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      currencyCode: "USD",
+    });
+
+    await expect(
+      service.create(
+        access.userPublicId,
+        access.businessPublicId,
+        {
+          type: "INBOUND",
+          paymentDate: "2026-08-07",
+          amountMinor: "10000",
+          currencyCode: "SAR",
+          reference: null,
+          notes: null,
+          allocations: [
+            {
+              documentId: "11111111-1111-4111-8111-111111111111",
+              amountMinor: "10000",
+            },
+          ],
+        },
+        "req-cross-currency",
+      ),
+    ).rejects.toThrow("Payment currency SAR does not match invoice currency USD.");
+
+    expect(transaction.payment.create).not.toHaveBeenCalled();
+  });
+
+  it("derives PAID from multiple completed allocations that cover the invoice total", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+      currencyCode: "SAR",
+      currencyScale: 2,
+    });
+    transaction.paymentAllocation.findMany.mockResolvedValueOnce([
+      { amountMinor: decimal("4000") },
+      { amountMinor: decimal("6000") },
+    ]);
+
+    const summary = await service.invoicePaymentSummary(
+      access.userPublicId,
+      access.businessPublicId,
+      "inv-1",
+    );
+
+    expect(summary.paidMinor).toBe("10000");
+    expect(summary.outstandingMinor).toBe("0");
+    expect(summary.settlementStatus).toBe("PAID");
+  });
+
+  it("derives PARTIALLY_PAID when only some of the invoice is settled", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+      currencyCode: "SAR",
+      currencyScale: 2,
+    });
+    transaction.paymentAllocation.findMany.mockResolvedValueOnce([
+      { amountMinor: decimal("4000") },
+    ]);
+
+    const summary = await service.invoicePaymentSummary(
+      access.userPublicId,
+      access.businessPublicId,
+      "inv-1",
+    );
+
+    expect(summary.paidMinor).toBe("4000");
+    expect(summary.outstandingMinor).toBe("6000");
+    expect(summary.settlementStatus).toBe("PARTIALLY_PAID");
+  });
+
+  it("derives UNPAID and only counts COMPLETED (non-reversed) allocations", async () => {
+    transaction.document.findFirst.mockResolvedValueOnce({
+      id: 101n,
+      publicId: "inv-1",
+      number: "INV-001",
+      totalMinor: decimal("10000"),
+      currencyCode: "SAR",
+      currencyScale: 2,
+    });
+    transaction.paymentAllocation.findMany.mockResolvedValueOnce([]);
+
+    const summary = await service.invoicePaymentSummary(
+      access.userPublicId,
+      access.businessPublicId,
+      "inv-1",
+    );
+
+    expect(summary.paidMinor).toBe("0");
+    expect(summary.outstandingMinor).toBe("10000");
+    expect(summary.settlementStatus).toBe("UNPAID");
+    expect(transaction.paymentAllocation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          payment: { status: PaymentStatus.COMPLETED },
+        }),
+      }),
+    );
   });
 
   it("uses dedicated authorization actions for completion and reversal", async () => {
@@ -289,5 +443,230 @@ describe("PaymentsService", () => {
         data: { status: PaymentStatus.COMPLETED },
       }),
     );
+  });
+
+  describe("void", () => {
+    it("voids a DRAFT payment and writes a payment.voided audit event", async () => {
+      transaction.payment.findFirst.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.DRAFT,
+      });
+      transaction.payment.update.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.VOIDED,
+      });
+
+      const voided = await service.void(
+        access.userPublicId,
+        access.businessPublicId,
+        paymentRow.publicId,
+        "req-void",
+      );
+
+      expect(voided.status).toBe(PaymentStatus.VOIDED);
+      expect(businessAccess.assertAllowed).toHaveBeenCalledWith(access, "payments", "void");
+      expect(transaction.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: PaymentStatus.VOIDED } }),
+      );
+      expect(transaction.auditEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ action: "payment.voided" }) }),
+      );
+      // Serialized behind the advisory lock keyed on the payment.
+      expect(transaction.$executeRaw).toHaveBeenCalled();
+    });
+
+    it("rejects voiding a COMPLETED payment", async () => {
+      transaction.payment.findFirst.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.COMPLETED,
+      });
+
+      await expect(
+        service.void(
+          access.userPublicId,
+          access.businessPublicId,
+          paymentRow.publicId,
+          "req-void-2",
+        ),
+      ).rejects.toMatchObject({ response: { code: "PAYMENT_NOT_DRAFT" } });
+
+      expect(transaction.payment.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reverse", () => {
+    it("reverses a COMPLETED payment so it stops counting toward invoice settlement", async () => {
+      transaction.payment.findFirst.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.COMPLETED,
+      });
+      transaction.payment.update.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.REVERSED,
+      });
+
+      const reversed = await service.reverse(
+        access.userPublicId,
+        access.businessPublicId,
+        paymentRow.publicId,
+        "req-rev",
+      );
+      expect(reversed.status).toBe(PaymentStatus.REVERSED);
+      expect(transaction.$executeRaw).toHaveBeenCalled();
+
+      // The invoice that this payment had settled now derives back to UNPAID: settlement counts only
+      // COMPLETED allocations, and the reversed payment's allocation is excluded by that filter.
+      transaction.document.findFirst.mockResolvedValueOnce({
+        id: 101n,
+        publicId: "inv-1",
+        number: "INV-001",
+        totalMinor: decimal("10000"),
+        currencyCode: "SAR",
+        currencyScale: 2,
+      });
+      transaction.paymentAllocation.findMany.mockResolvedValueOnce([]);
+
+      const summary = await service.invoicePaymentSummary(
+        access.userPublicId,
+        access.businessPublicId,
+        "inv-1",
+      );
+      expect(summary.settlementStatus).toBe("UNPAID");
+      expect(summary.paidMinor).toBe("0");
+    });
+
+    it("rejects reversing an already-REVERSED payment with a clear code", async () => {
+      transaction.payment.findFirst.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.REVERSED,
+      });
+
+      await expect(
+        service.reverse(
+          access.userPublicId,
+          access.businessPublicId,
+          paymentRow.publicId,
+          "req-rev-2",
+        ),
+      ).rejects.toMatchObject({ response: { code: "PAYMENT_ALREADY_REVERSED" } });
+
+      expect(transaction.payment.update).not.toHaveBeenCalled();
+    });
+
+    it("serializes a concurrent double-reverse: the second caller sees REVERSED and is rejected", async () => {
+      // Model the advisory-lock serialization: the first reverse commits REVERSED, so the second
+      // reverse — which only reads the payment after taking the same lock — observes REVERSED and
+      // fails closed rather than reversing twice.
+      transaction.payment.findFirst
+        .mockResolvedValueOnce({ ...paymentRow, status: PaymentStatus.COMPLETED })
+        .mockResolvedValueOnce({ ...paymentRow, status: PaymentStatus.REVERSED });
+      transaction.payment.update.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.REVERSED,
+      });
+
+      const [first, second] = await Promise.allSettled([
+        service.reverse(
+          access.userPublicId,
+          access.businessPublicId,
+          paymentRow.publicId,
+          "req-c1",
+        ),
+        service.reverse(
+          access.userPublicId,
+          access.businessPublicId,
+          paymentRow.publicId,
+          "req-c2",
+        ),
+      ]);
+
+      const statuses = [first.status, second.status].sort();
+      expect(statuses).toEqual(["fulfilled", "rejected"]);
+      expect(transaction.payment.update).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("refund", () => {
+    const completedPayment = {
+      ...paymentRow,
+      status: PaymentStatus.COMPLETED,
+      amountMinor: decimal("10000"),
+      refunds: [] as Array<{ amountMinor: { toFixed: () => string } }>,
+    };
+
+    it("records a refund up to the payment amount and writes a payment.refunded audit event", async () => {
+      transaction.payment.findFirst.mockResolvedValueOnce(completedPayment).mockResolvedValueOnce({
+        ...completedPayment,
+        refunds: [
+          {
+            publicId: "ref-1",
+            amountMinor: decimal("4000"),
+            currencyCode: "SAR",
+            currencyScale: 2,
+            reason: "Returned goods",
+            createdAt: new Date("2026-08-08T00:00:00.000Z"),
+          },
+        ],
+      });
+      transaction.paymentRefund.create.mockResolvedValueOnce({ publicId: "ref-1" });
+
+      const refunded = await service.refund(
+        access.userPublicId,
+        access.businessPublicId,
+        paymentRow.publicId,
+        { amountMinor: "4000", reason: "Returned goods" },
+        "req-refund",
+      );
+
+      expect(businessAccess.assertAllowed).toHaveBeenCalledWith(access, "payments", "refund");
+      expect(transaction.paymentRefund.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ amountMinor: "4000" }) }),
+      );
+      expect(transaction.auditEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ action: "payment.refunded" }) }),
+      );
+      expect(refunded.refundedMinor).toBe("4000");
+      expect(refunded.netAmountMinor).toBe("6000");
+      expect(transaction.$executeRaw).toHaveBeenCalled();
+    });
+
+    it("rejects an over-refund that would exceed the payment amount, counting prior refunds", async () => {
+      transaction.payment.findFirst.mockResolvedValueOnce({
+        ...completedPayment,
+        refunds: [{ amountMinor: decimal("7000") }],
+      });
+
+      // Already refunded 7000 of 10000; a further 4000 would exceed the 3000 refundable balance.
+      await expect(
+        service.refund(
+          access.userPublicId,
+          access.businessPublicId,
+          paymentRow.publicId,
+          { amountMinor: "4000", reason: null },
+          "req-refund-2",
+        ),
+      ).rejects.toMatchObject({ response: { code: "PAYMENT_REFUND_EXCEEDS_BALANCE" } });
+
+      expect(transaction.paymentRefund.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects refunding a DRAFT payment", async () => {
+      transaction.payment.findFirst.mockResolvedValueOnce({
+        ...paymentRow,
+        status: PaymentStatus.DRAFT,
+      });
+
+      await expect(
+        service.refund(
+          access.userPublicId,
+          access.businessPublicId,
+          paymentRow.publicId,
+          { amountMinor: "1000", reason: null },
+          "req-refund-3",
+        ),
+      ).rejects.toMatchObject({ response: { code: "PAYMENT_NOT_COMPLETED" } });
+
+      expect(transaction.paymentRefund.create).not.toHaveBeenCalled();
+    });
   });
 });
