@@ -588,6 +588,17 @@ export async function updateSettingsAction(
     timeZone: formData.get("timeZone"),
     quotationPrefix: formData.get("quotationPrefix"),
     quotationValidityDays: Number(formData.get("quotationValidityDays")),
+    invoicePrefix: formData.get("invoicePrefix") ?? undefined,
+    salesOrderPrefix: formData.get("salesOrderPrefix") ?? undefined,
+    deliveryNotePrefix: formData.get("deliveryNotePrefix") ?? undefined,
+    creditNotePrefix: formData.get("creditNotePrefix") ?? undefined,
+    purchaseOrderPrefix: formData.get("purchaseOrderPrefix") ?? undefined,
+    supplierPoPrefix: formData.get("supplierPoPrefix") ?? undefined,
+    supplierBillPrefix: formData.get("supplierBillPrefix") ?? undefined,
+    paymentPrefix: formData.get("paymentPrefix") ?? undefined,
+    numberPadWidth: formData.get("numberPadWidth")
+      ? Number(formData.get("numberPadWidth"))
+      : undefined,
     defaultMessage: optional("defaultMessage"),
     taxEnabled: formData.get("taxEnabled") === "on",
     taxName: formData.get("taxName"),

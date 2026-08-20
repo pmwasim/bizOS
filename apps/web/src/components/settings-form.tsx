@@ -126,6 +126,72 @@ export function SettingsForm({
       </section>
       <section className="settings-section">
         <div>
+          <h2>Document numbering</h2>
+          <p>Prefixes and padding applied to new document numbers, e.g. INV-0001.</p>
+        </div>
+        <div className="form-stack">
+          <div className="field-grid">
+            <label className="field">
+              <span>Invoice prefix</span>
+              <input name="invoicePrefix" defaultValue={settings.invoicePrefix} required />
+            </label>
+            <label className="field">
+              <span>Sales order prefix</span>
+              <input name="salesOrderPrefix" defaultValue={settings.salesOrderPrefix} required />
+            </label>
+          </div>
+          <div className="field-grid">
+            <label className="field">
+              <span>Delivery note prefix</span>
+              <input
+                name="deliveryNotePrefix"
+                defaultValue={settings.deliveryNotePrefix}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>Credit note prefix</span>
+              <input name="creditNotePrefix" defaultValue={settings.creditNotePrefix} required />
+            </label>
+          </div>
+          <div className="field-grid">
+            <label className="field">
+              <span>Purchase order prefix</span>
+              <input
+                name="purchaseOrderPrefix"
+                defaultValue={settings.purchaseOrderPrefix}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>Supplier bill prefix</span>
+              <input
+                name="supplierBillPrefix"
+                defaultValue={settings.supplierBillPrefix}
+                required
+              />
+            </label>
+          </div>
+          <div className="field-grid">
+            <label className="field">
+              <span>Payment prefix</span>
+              <input name="paymentPrefix" defaultValue={settings.paymentPrefix} required />
+            </label>
+            <label className="field">
+              <span>Number padding</span>
+              <select name="numberPadWidth" defaultValue={String(settings.numberPadWidth)}>
+                <option value="3">3 digits — 001</option>
+                <option value="4">4 digits — 0001</option>
+                <option value="5">5 digits — 00001</option>
+                <option value="6">6 digits — 000001</option>
+              </select>
+            </label>
+          </div>
+          <input type="hidden" name="supplierPoPrefix" value={settings.supplierPoPrefix} />
+        </div>
+      </section>
+      <section className="settings-section">
+        <div>
           <h2>Tax</h2>
           <p>Use plain labels your customers recognize.</p>
         </div>
