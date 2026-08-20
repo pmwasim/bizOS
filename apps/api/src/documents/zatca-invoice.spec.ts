@@ -69,8 +69,8 @@ function decodeTlv(base64: string): Map<number, string> {
   const tags = new Map<number, string>();
   let offset = 0;
   while (offset < bytes.length) {
-    const tag = bytes[offset];
-    const length = bytes[offset + 1];
+    const tag = bytes[offset]!;
+    const length = bytes[offset + 1]!;
     const value = bytes.subarray(offset + 2, offset + 2 + length).toString("utf8");
     tags.set(tag, value);
     offset += 2 + length;

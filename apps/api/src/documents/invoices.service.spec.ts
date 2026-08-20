@@ -759,8 +759,8 @@ describe("InvoicesService ZATCA generation", () => {
     const tags = new Map<number, string>();
     let offset = 0;
     while (offset < bytes.length) {
-      const length = bytes[offset + 1];
-      tags.set(bytes[offset], bytes.subarray(offset + 2, offset + 2 + length).toString("utf8"));
+      const length = bytes[offset + 1]!;
+      tags.set(bytes[offset]!, bytes.subarray(offset + 2, offset + 2 + length).toString("utf8"));
       offset += 2 + length;
     }
     expect(tags.size).toBe(5);
