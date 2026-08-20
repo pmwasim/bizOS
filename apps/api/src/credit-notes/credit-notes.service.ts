@@ -4,6 +4,7 @@ import { type CreateCreditNoteRequest, type CreditNote } from "@bizo/contracts/c
 import { DocumentStatus, DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
+import { allocateDocumentNumber } from "../numbering/numbering";
 import {
   type AuthorizationAction,
   type BusinessAccessContext,
@@ -94,12 +95,7 @@ export class CreditNotesService {
         totalMinor,
       } = calculateDocumentTotals(input.lines, business.currencyScale);
 
-      const updatedSettings = await transaction.businessSettings.update({
-        where: { businessId: access.businessId },
-        data: { nextCreditNoteNumber: { increment: 1 } },
-        select: { nextCreditNoteNumber: true, creditNotePrefix: true },
-      });
-      const sequence = updatedSettings.nextCreditNoteNumber - 1;
+      const allocated = await allocateDocumentNumber(transaction, access.businessId, "CREDIT_NOTE");
       const issueDate = input.issueDate ?? this.localDate(business.timeZone);
 
       const document = (await transaction.document.create({
@@ -109,7 +105,7 @@ export class CreditNotesService {
           customerId: customer.id,
           type: DocumentType.CREDIT_NOTE,
           status: DocumentStatus.DRAFT,
-          number: `${updatedSettings.creditNotePrefix}-${String(sequence).padStart(4, "0")}`,
+          number: allocated.number,
           issueDate: this.toDatabaseDate(issueDate),
           // `documents` is shared with quotations, where valid_until is the offer expiry, so the
           // column is NOT NULL with no default. A credit note does not expire; without a value

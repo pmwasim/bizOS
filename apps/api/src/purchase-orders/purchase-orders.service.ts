@@ -40,6 +40,7 @@ import {
 
 import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
+import { allocateDocumentNumber } from "../numbering/numbering.js";
 import {
   type AuthorizationAction,
   type AuthorizationObject,
@@ -678,12 +679,11 @@ export class PurchaseOrdersService {
         where: { id: access.businessId },
         select: { timeZone: true },
       });
-      const settings = await transaction.businessSettings.update({
-        where: { businessId: access.businessId },
-        data: { nextSupplierBillNumber: { increment: 1 } },
-        select: { nextSupplierBillNumber: true, supplierBillPrefix: true },
-      });
-      const sequence = settings.nextSupplierBillNumber - 1;
+      const allocated = await allocateDocumentNumber(
+        transaction,
+        access.businessId,
+        "SUPPLIER_BILL",
+      );
 
       const amountMinor = purchaseOrder.amountMinor.toFixed(0);
       const description = (
@@ -700,7 +700,7 @@ export class PurchaseOrdersService {
           supplierId: purchaseOrder.supplier.id,
           type: DocumentType.SUPPLIER_BILL,
           status: DocumentStatus.DRAFT,
-          number: `${settings.supplierBillPrefix}-${String(sequence).padStart(4, "0")}`,
+          number: allocated.number,
           issueDate,
           purchaseOrderId: purchaseOrder.id,
           poNumberSnapshot: purchaseOrder.poNumber,
