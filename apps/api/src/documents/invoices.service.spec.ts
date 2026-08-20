@@ -659,3 +659,151 @@ describe("InvoicesService.convertFromQuotation", () => {
     expect(callOrder).toContain("dedup");
   });
 });
+
+describe("InvoicesService ZATCA generation", () => {
+  function saSnapshot() {
+    return {
+      business: {
+        name: "Acme Trading",
+        legalName: "Acme Trading Co Ltd",
+        email: null,
+        phone: null,
+        address: ["Riyadh"],
+        countryCode: "SA",
+        taxName: "VAT",
+        taxRegistrationNumber: "300000000000003",
+      },
+      customer: {
+        name: "Beta Buyer",
+        email: null,
+        phone: null,
+        address: [],
+        countryCode: "SA",
+      },
+      number: "INV-0001",
+      issueDate: "2026-08-18",
+      dueDate: "2026-09-17",
+      poNumber: null,
+      projectReference: null,
+      currencyCode: "SAR",
+      currencyScale: 2,
+      subtotalMinor: "10000",
+      taxMinor: "1500",
+      totalMinor: "11500",
+      lines: [
+        {
+          position: 1,
+          description: "Consulting",
+          quantity: "2",
+          unitPriceMinor: "5000",
+          taxRatePpm: 150_000,
+          subtotalMinor: "10000",
+          taxMinor: "1500",
+          totalMinor: "11500",
+        },
+      ],
+    };
+  }
+
+  function zatcaTransaction(options: {
+    countryCode?: string;
+    snapshot?: unknown;
+    status?: DocumentStatus;
+    version?: unknown;
+  }) {
+    const record = baseInvoiceRecord({ status: options.status ?? DocumentStatus.SENT, version: 1 });
+    return {
+      record,
+      transaction: {
+        document: { findFirst: vi.fn().mockResolvedValue(record) },
+        documentDelivery: { findFirst: vi.fn().mockResolvedValue(null) },
+        documentVersion: {
+          findFirst: vi
+            .fn()
+            .mockResolvedValue(
+              options.version === undefined
+                ? { snapshot: options.snapshot ?? saSnapshot() }
+                : options.version,
+            ),
+        },
+        business: {
+          findUniqueOrThrow: vi
+            .fn()
+            .mockResolvedValue({ countryCode: options.countryCode ?? "SA" }),
+        },
+      },
+    };
+  }
+
+  it("produces UBL XML and a 5-tag QR for a finalized SA invoice", async () => {
+    const { transaction } = zatcaTransaction({});
+    const service = buildService(transaction, configuration);
+
+    const xmlResult = await service.zatcaXml(
+      access.userPublicId,
+      access.businessPublicId,
+      "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+    );
+    expect(xmlResult.filename).toBe("INV-0001-zatca.xml");
+    expect(xmlResult.xml).toContain("<cbc:CompanyID>300000000000003</cbc:CompanyID>");
+    expect(xmlResult.xml).toContain(
+      '<cbc:TaxInclusiveAmount currencyID="SAR">115.00</cbc:TaxInclusiveAmount>',
+    );
+
+    const qrResult = await service.zatcaQr(
+      access.userPublicId,
+      access.businessPublicId,
+      "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+    );
+    const bytes = Buffer.from(qrResult.base64, "base64");
+    const tags = new Map<number, string>();
+    let offset = 0;
+    while (offset < bytes.length) {
+      const length = bytes[offset + 1]!;
+      tags.set(bytes[offset]!, bytes.subarray(offset + 2, offset + 2 + length).toString("utf8"));
+      offset += 2 + length;
+    }
+    expect(tags.size).toBe(5);
+    expect(tags.get(2)).toBe("300000000000003");
+    expect(tags.get(4)).toBe("115.00");
+    expect(tags.get(5)).toBe("15.00");
+  });
+
+  it("rejects a non-finalized (draft) invoice", async () => {
+    const { transaction } = zatcaTransaction({ status: DocumentStatus.DRAFT });
+    const service = buildService(transaction, configuration);
+    await expect(
+      service.zatcaXml(
+        access.userPublicId,
+        access.businessPublicId,
+        "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects a finalized invoice with no stored snapshot", async () => {
+    const { transaction } = zatcaTransaction({ version: null });
+    const service = buildService(transaction, configuration);
+    await expect(
+      service.zatcaQr(
+        access.userPublicId,
+        access.businessPublicId,
+        "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects a non-SA business", async () => {
+    const snapshot = saSnapshot();
+    snapshot.business.countryCode = "AE";
+    const { transaction } = zatcaTransaction({ snapshot, countryCode: "AE" });
+    const service = buildService(transaction, configuration);
+    await expect(
+      service.zatcaXml(
+        access.userPublicId,
+        access.businessPublicId,
+        "7a5aec75-6ec9-4fcc-8f8d-68cdacbdf048",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});

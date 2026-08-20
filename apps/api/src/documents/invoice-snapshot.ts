@@ -1,6 +1,9 @@
 export interface InvoiceSnapshot {
   business: {
     address: string[];
+    /** ISO 3166-1 alpha-2 country of the selling business. Optional for snapshots taken before
+     * ZATCA support; readers fall back to the live business country when it is absent. */
+    countryCode?: string | null;
     email: string | null;
     legalName: string | null;
     name: string;
@@ -12,6 +15,8 @@ export interface InvoiceSnapshot {
   currencyScale: number;
   customer: {
     address: string[];
+    /** ISO 3166-1 alpha-2 country of the customer, when known. */
+    countryCode?: string | null;
     email: string | null;
     name: string;
     phone: string | null;
