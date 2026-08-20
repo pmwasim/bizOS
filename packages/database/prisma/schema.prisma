@@ -78,6 +78,19 @@ enum ApiKeyStatus {
   REVOKED
 }
 
+enum WebhookEndpointStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERING
+  DELIVERED
+  FAILED
+  DEAD
+}
+
 enum StoredObjectKind {
   PURCHASE_ORDER
   APPROVAL_EVIDENCE
@@ -291,7 +304,7 @@ model Business {
   customizationRequests    CustomizationRequest[]
   apiKeys                  ApiKey[]
   products                 Product[]
-  webhookSubscriptions     WebhookSubscription[]
+  webhookEndpoints         WebhookEndpoint[]
   suppliers                Supplier[]
   leads                    Lead[]
   opportunities            Opportunity[]
@@ -1183,41 +1196,53 @@ model ApiKey {
   @@map("api_keys")
 }
 
-model WebhookSubscription {
-  id         BigInt   @id @default(autoincrement())
-  publicId   String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId   BigInt   @map("tenant_id")
-  businessId BigInt   @map("business_id")
-  url        String   @db.VarChar(512)
-  events     String[] @default([]) @db.VarChar(120)
-  secretHash String   @map("secret_hash") @db.VarChar(255)
-  isActive   Boolean  @default(true) @map("is_active")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+/// An outbound webhook endpoint. The per-endpoint signing secret is stored ENCRYPTED (not hashed):
+/// unlike an API key it must be recoverable at dispatch time to compute the HMAC over each payload.
+model WebhookEndpoint {
+  id              BigInt                @id @default(autoincrement())
+  publicId        String                @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId        BigInt                @map("tenant_id")
+  businessId      BigInt                @map("business_id")
+  url             String                @db.VarChar(512)
+  events          String[]              @default([]) @db.VarChar(120)
+  // AES-256-GCM ciphertext of the `whsec_…` signing secret (never the plaintext). Column name is
+  // retained from the prior schema for a data-safe migration.
+  encryptedSecret String                @map("secret_hash") @db.VarChar(255)
+  status          WebhookEndpointStatus @default(ACTIVE)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business   Business          @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
   deliveries WebhookDelivery[]
 
   @@unique([tenantId, businessId, id])
   @@index([publicId])
+  @@index([tenantId, businessId, status])
   @@map("webhook_subscriptions")
 }
 
+/// One durable delivery attempt row — the webhook retry queue. Its worker fields mirror the
+/// transactional OutboxEvent (attemptCount↔attempts, nextAttemptAt↔availableAt, DELIVERED↔published).
 model WebhookDelivery {
-  id                    BigInt   @id @default(autoincrement())
-  publicId              String   @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId              BigInt   @map("tenant_id")
-  webhookSubscriptionId BigInt   @map("webhook_subscription_id")
-  eventType             String   @map("event_type") @db.VarChar(120)
-  payload               Json
-  statusCode            Int      @map("status_code")
-  succeeded             Boolean
-  errorMessage          String?  @map("error_message") @db.VarChar(500)
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id                 BigInt                @id @default(autoincrement())
+  publicId           String                @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId           BigInt                @map("tenant_id")
+  // FK column name retained for a data-safe migration; models the owning endpoint.
+  endpointId         BigInt                @map("webhook_subscription_id")
+  eventType          String                @map("event_type") @db.VarChar(120)
+  payload            Json
+  status             WebhookDeliveryStatus @default(PENDING)
+  attemptCount       Int                   @default(0) @map("attempt_count")
+  nextAttemptAt      DateTime?             @map("next_attempt_at") @db.Timestamptz(3)
+  responseStatusCode Int?                  @map("status_code")
+  lastError          String?               @map("error_message") @db.VarChar(500)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  subscription WebhookSubscription @relation(fields: [webhookSubscriptionId], references: [id], onDelete: Cascade)
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 
-  @@index([webhookSubscriptionId, createdAt])
+  @@index([endpointId, createdAt])
+  @@index([status, nextAttemptAt])
   @@map("webhook_deliveries")
 }
 

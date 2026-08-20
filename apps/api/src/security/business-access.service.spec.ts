@@ -125,6 +125,35 @@ describe("BusinessAccessService", () => {
     }
   });
 
+  it("reserves webhook management for owner and admin roles", async () => {
+    const service = new BusinessAccessService({} as DatabaseService);
+
+    for (const role of [RoleCode.OWNER, RoleCode.ADMIN]) {
+      const access = { ...ownerAccess, role };
+      await expect(service.assertAllowed(access, "webhooks", "create")).resolves.toBeUndefined();
+      await expect(service.assertAllowed(access, "webhooks", "read")).resolves.toBeUndefined();
+      await expect(service.assertAllowed(access, "webhooks", "update")).resolves.toBeUndefined();
+    }
+
+    for (const role of [
+      RoleCode.MEMBER,
+      RoleCode.STAFF,
+      RoleCode.ACCOUNTANT,
+      RoleCode.EXTERNAL_AUDITOR,
+    ]) {
+      const access = { ...ownerAccess, role };
+      await expect(service.assertAllowed(access, "webhooks", "read")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.assertAllowed(access, "webhooks", "create")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.assertAllowed(access, "webhooks", "update")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    }
+  });
+
   it("resolves access only through an active membership and the requested business", async () => {
     const findFirst = vi.fn().mockResolvedValue({
       business: {

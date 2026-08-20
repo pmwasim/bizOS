@@ -143,6 +143,10 @@
     "./tax": {
       "types": "./dist/tax.d.ts",
       "default": "./dist/tax.js"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks.d.ts",
+      "default": "./dist/webhooks.js"
     }
   },
   "scripts": {
