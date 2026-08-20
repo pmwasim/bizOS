@@ -21,6 +21,7 @@
     "@nestjs/common": "11.1.29",
     "@nestjs/core": "11.1.29",
     "@nestjs/platform-express": "11.1.29",
+    "@nestjs/swagger": "11.4.7",
     "@nestjs/throttler": "6.5.0",
     "argon2": "0.45.1",
     "class-transformer": "0.5.1",
@@ -35,6 +36,7 @@
     "pino-http": "11.0.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
+    "swagger-ui-express": "5.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
