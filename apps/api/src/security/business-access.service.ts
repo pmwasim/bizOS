@@ -31,7 +31,8 @@ export type AuthorizationObject =
   | "crm"
   | "projects"
   | "inventory"
-  | "api_keys";
+  | "api_keys"
+  | "webhooks";
 
 export type AuthorizationAction =
   | "archive"
@@ -106,6 +107,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "api_keys:create",
     "api_keys:read",
     "api_keys:update",
+    "webhooks:create",
+    "webhooks:read",
+    "webhooks:update",
   ],
   ADMIN: [
     "business:read",
@@ -165,6 +169,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "api_keys:create",
     "api_keys:read",
     "api_keys:update",
+    "webhooks:create",
+    "webhooks:read",
+    "webhooks:update",
   ],
   MEMBER: [
     "business:read",

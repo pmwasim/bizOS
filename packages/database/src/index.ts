@@ -18,6 +18,8 @@ export {
   PurchaseOrderStatus,
   RoleCode,
   StoredObjectKind,
+  WebhookDeliveryStatus,
+  WebhookEndpointStatus,
   WorkflowVersionStatus,
 } from "../generated/client/client.js";
 export type * from "../generated/client/models.js";
