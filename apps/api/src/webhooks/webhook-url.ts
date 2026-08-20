@@ -98,6 +98,11 @@ function isPrivateIpv6(rawIp: string): boolean {
   );
 }
 
+/** Strips the surrounding brackets the URL parser keeps on IPv6 literal hosts. */
+function hostAsIpCandidate(hostname: string): string {
+  return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
+}
+
 /** Whether a literal IP address string is private, loopback, link-local, or otherwise reserved. */
 export function isPrivateOrReservedIp(ip: string): boolean {
   const kind = isIP(ip);
@@ -137,8 +142,9 @@ export function assertSafeWebhookUrl(rawUrl: string): URL {
     throw new UnsafeWebhookUrlError("The webhook URL host is not allowed.");
   }
 
-  // A bracketed IPv6 literal arrives with brackets stripped by the URL parser.
-  if (isIP(hostname) !== 0 && isPrivateOrReservedIp(hostname)) {
+  // The WHATWG parser keeps IPv6 literals bracketed (e.g. "[::1]"); strip them for the IP check.
+  const ipCandidate = hostAsIpCandidate(hostname);
+  if (isIP(ipCandidate) !== 0 && isPrivateOrReservedIp(ipCandidate)) {
     throw new UnsafeWebhookUrlError("The webhook URL resolves to a non-public address.");
   }
 
@@ -160,7 +166,7 @@ export async function assertResolvableToPublicAddress(
   const url = assertSafeWebhookUrl(rawUrl);
 
   // A literal IP was already validated structurally; no DNS to resolve.
-  if (isIP(url.hostname) !== 0) {
+  if (isIP(hostAsIpCandidate(url.hostname)) !== 0) {
     return url;
   }
 
