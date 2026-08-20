@@ -9,7 +9,12 @@ import {
   WEBHOOK_TIMESTAMP_HEADER,
 } from "../webhooks/webhook-signature.js";
 import { DocsController } from "./docs.controller.js";
-import { API_KEY_SECURITY_SCHEME, buildOpenApiDocument } from "./openapi-document.js";
+import {
+  API_KEY_HEADER_SECURITY_SCHEME,
+  API_KEY_SECURITY_SCHEME,
+  buildOpenApiDocument,
+  SESSION_SECURITY_SCHEME,
+} from "./openapi-document.js";
 
 /** Collects every `$ref` string reachable from an arbitrary JSON value. */
 function collectRefs(value: unknown, found: string[] = []): string[] {
@@ -39,6 +44,17 @@ describe("buildOpenApiDocument", () => {
   it("declares the API-key security scheme as HTTP bearer", () => {
     const scheme = document.components?.securitySchemes?.[API_KEY_SECURITY_SCHEME];
     expect(scheme).toMatchObject({ type: "http", scheme: "bearer" });
+  });
+
+  it("declares a machine-readable X-API-Key header scheme alongside the bearer form", () => {
+    const scheme = document.components?.securitySchemes?.[API_KEY_HEADER_SECURITY_SCHEME];
+    expect(scheme).toMatchObject({ type: "apiKey", in: "header", name: "X-API-Key" });
+  });
+
+  it("models the management-endpoint scheme as the bearer JWT InternalAuthGuard actually verifies", () => {
+    // Not a cookie: InternalAuthGuard reads `Authorization: Bearer <jwt>`.
+    const scheme = document.components?.securitySchemes?.[SESSION_SECURITY_SCHEME];
+    expect(scheme).toMatchObject({ type: "http", scheme: "bearer", bearerFormat: "JWT" });
   });
 
   it("enumerates every API scope", () => {

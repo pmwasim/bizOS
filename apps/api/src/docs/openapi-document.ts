@@ -42,7 +42,13 @@ export const OPENAPI_VERSION = "3.1.1";
 /** The security scheme name used throughout the document for programmatic (API-key) callers. */
 export const API_KEY_SECURITY_SCHEME = "apiKey";
 
-/** The security scheme name used for the human-operated management endpoints (browser session). */
+/** The `X-API-Key` header variant of the API-key scheme (an OpenAPI `apiKey`-in-header scheme). */
+export const API_KEY_HEADER_SECURITY_SCHEME = "apiKeyHeader";
+
+/**
+ * The security scheme name used for the human-operated management endpoints. `InternalAuthGuard`
+ * verifies a server-minted `Authorization: Bearer <JWT>` assertion (not a browser cookie).
+ */
 export const SESSION_SECURITY_SCHEME = "sessionAuth";
 
 /**
@@ -334,17 +340,25 @@ export function buildOpenApiDocument(): OpenAPIObject {
           type: "http",
           scheme: "bearer",
           description: [
-            "Scoped API key for programmatic access to the public data API. Present it as",
-            "`Authorization: Bearer <key>` or in the `X-API-Key` header. The key carries a subset of the",
+            "Scoped API key for programmatic access to the public data API, sent as",
+            "`Authorization: Bearer <key>`. Equivalently, send the key in the `X-API-Key` header",
+            `(see the \`${API_KEY_HEADER_SECURITY_SCHEME}\` scheme). The key carries a subset of the`,
             `scopes enumerated by \`ApiScope\`: ${API_SCOPES.map((scope) => `\`${scope}\``).join(", ")}.`,
           ].join(" "),
         },
-        [SESSION_SECURITY_SCHEME]: {
+        [API_KEY_HEADER_SECURITY_SCHEME]: {
           type: "apiKey",
-          in: "cookie",
-          name: "session",
+          in: "header",
+          name: "X-API-Key",
           description:
-            "Browser session established by the application. Guards the human-operated management endpoints; not used by programmatic API-key clients.",
+            "The same scoped API key sent in the `X-API-Key` header instead of `Authorization: Bearer`. Either form is accepted; use whichever your client supports.",
+        },
+        [SESSION_SECURITY_SCHEME]: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description:
+            "Server-minted internal assertion (a short-lived JWT) presented as `Authorization: Bearer <jwt>`; this is what `InternalAuthGuard` verifies. The application mints it server-side for the human-operated management endpoints — it is not a credential a programmatic API-key client holds.",
         },
       },
       schemas: {
