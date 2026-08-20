@@ -8,6 +8,7 @@ import {
 import { DocumentStatus, DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
+import { allocateDocumentNumber } from "../numbering/numbering";
 import {
   type AuthorizationAction,
   type BusinessAccessContext,
@@ -98,12 +99,7 @@ export class SalesOrdersService {
         totalMinor,
       } = calculateDocumentTotals(input.lines, business.currencyScale);
 
-      const updatedSettings = await transaction.businessSettings.update({
-        where: { businessId: access.businessId },
-        data: { nextSalesOrderNumber: { increment: 1 } },
-        select: { nextSalesOrderNumber: true, salesOrderPrefix: true },
-      });
-      const sequence = updatedSettings.nextSalesOrderNumber - 1;
+      const allocated = await allocateDocumentNumber(transaction, access.businessId, "SALES_ORDER");
 
       const issueDate = input.issueDate ?? this.localDate(business.timeZone);
       const deliveryDate = input.deliveryDate
@@ -117,7 +113,7 @@ export class SalesOrdersService {
           customerId: customer.id,
           type: DocumentType.SALES_ORDER,
           status: DocumentStatus.DRAFT,
-          number: `${updatedSettings.salesOrderPrefix}-${String(sequence).padStart(4, "0")}`,
+          number: allocated.number,
           issueDate: this.toDatabaseDate(issueDate),
           // `documents` is shared with quotations, where valid_until is the offer expiry, so the
           // column is NOT NULL with no default. A sales order is already agreed and does not

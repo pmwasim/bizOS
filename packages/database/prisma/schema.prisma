@@ -341,6 +341,11 @@ model BusinessSettings {
   supplierBillPrefix      String @default("BILL") @map("supplier_bill_prefix") @db.VarChar(12)
   nextSupplierBillNumber  Int    @default(1) @map("next_supplier_bill_number")
 
+  // Zero-padding width applied to the sequence part of every document number, e.g. width 4
+  // renders `INV-0001`. Configurable per business; allocation stays gap-safe and race-safe
+  // regardless of the width.
+  numberPadWidth Int @default(4) @map("number_pad_width") @db.SmallInt
+
   defaultMessage String?  @map("default_message") @db.VarChar(1000)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)

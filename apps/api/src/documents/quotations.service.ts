@@ -17,6 +17,7 @@ import { DeliveryStatus, DocumentStatus, DocumentType, type Prisma } from "@bizo
 
 import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
+import { allocateDocumentNumber } from "../numbering/numbering.js";
 import { MailService } from "../mail/mail.service.js";
 import {
   type BusinessAccessContext,
@@ -142,19 +143,13 @@ export class QuotationsService {
         });
       }
 
-      const settings = (await transaction.businessSettings.update({
-        where: { businessId: access.businessId },
-        data: { nextQuotationNumber: { increment: 1 } },
-        select: { nextQuotationNumber: true, quotationPrefix: true, quotationValidityDays: true },
-      })) as {
-        nextQuotationNumber: number;
-        quotationPrefix: string;
-        quotationValidityDays: number;
-      };
-      const sequence = settings.nextQuotationNumber - 1;
+      const allocated = await allocateDocumentNumber(transaction, access.businessId, "QUOTATION", {
+        quotationValidityDays: true,
+      });
       const issueDate = input.issueDate ?? this.localDate(business.timeZone);
       const validUntil =
-        input.validUntil ?? this.addDays(issueDate, settings.quotationValidityDays);
+        input.validUntil ??
+        this.addDays(issueDate, Number(allocated.settings.quotationValidityDays));
       if (validUntil < issueDate) {
         throw new BadRequestException({
           code: "INVALID_VALIDITY_DATE",
@@ -168,7 +163,7 @@ export class QuotationsService {
           businessId: access.businessId,
           customerId: customer.id,
           type: DocumentType.QUOTATION,
-          number: `${settings.quotationPrefix}-${String(sequence).padStart(4, "0")}`,
+          number: allocated.number,
           issueDate: this.toDatabaseDate(issueDate),
           validUntil: this.toDatabaseDate(validUntil),
           currencyCode: business.baseCurrency,

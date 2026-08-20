@@ -10,6 +10,7 @@ import {
 import { DocumentStatus, DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
+import { allocateDocumentNumber } from "../numbering/numbering";
 import {
   type AuthorizationAction,
   type BusinessAccessContext,
@@ -87,12 +88,11 @@ export class ProcurementService {
         totalMinor,
       } = calculateDocumentTotals(input.lines, settings.currencyScale);
 
-      const updatedSettings = await transaction.businessSettings.update({
-        where: { businessId: access.businessId },
-        data: { nextPurchaseOrderNumber: { increment: 1 } },
-        select: { nextPurchaseOrderNumber: true, purchaseOrderPrefix: true },
-      });
-      const sequence = updatedSettings.nextPurchaseOrderNumber - 1;
+      const allocated = await allocateDocumentNumber(
+        transaction,
+        access.businessId,
+        "PURCHASE_ORDER",
+      );
       const issueDate = input.issueDate ?? this.localDate(business.timeZone);
       const expectedReceiveDate = input.expectedReceiveDate
         ? new Date(`${input.expectedReceiveDate}T00:00:00.000Z`)
@@ -105,7 +105,7 @@ export class ProcurementService {
           supplierId: supplier.id,
           type: DocumentType.SUPPLIER_PURCHASE_ORDER,
           status: DocumentStatus.DRAFT,
-          number: `${updatedSettings.purchaseOrderPrefix}-${String(sequence).padStart(4, "0")}`,
+          number: allocated.number,
           issueDate: this.toDatabaseDate(issueDate),
           expectedReceiveDate,
           currencyCode: business.baseCurrency,

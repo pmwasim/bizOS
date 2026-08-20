@@ -209,6 +209,17 @@ export class PlatformService {
         data: {
           quotationPrefix: input.quotationPrefix,
           quotationValidityDays: input.quotationValidityDays,
+          // Prisma leaves a field unchanged when its value is `undefined`, so these optional
+          // per-document-type prefixes and the pad width only update when the request supplies them.
+          invoicePrefix: input.invoicePrefix,
+          salesOrderPrefix: input.salesOrderPrefix,
+          deliveryNotePrefix: input.deliveryNotePrefix,
+          creditNotePrefix: input.creditNotePrefix,
+          purchaseOrderPrefix: input.purchaseOrderPrefix,
+          supplierPoPrefix: input.supplierPoPrefix,
+          supplierBillPrefix: input.supplierBillPrefix,
+          paymentPrefix: input.paymentPrefix,
+          numberPadWidth: input.numberPadWidth,
           defaultMessage: input.defaultMessage,
         },
       });
@@ -267,6 +278,15 @@ export class PlatformService {
       defaultMessage: string | null;
       quotationPrefix: string;
       quotationValidityDays: number;
+      invoicePrefix: string;
+      salesOrderPrefix: string;
+      deliveryNotePrefix: string;
+      creditNotePrefix: string;
+      purchaseOrderPrefix: string;
+      supplierPoPrefix: string;
+      supplierBillPrefix: string;
+      paymentPrefix: string;
+      numberPadWidth: number;
     },
     taxProfile: {
       enabled: boolean;
@@ -292,6 +312,15 @@ export class PlatformService {
       timeZone: business.timeZone,
       quotationPrefix: settings.quotationPrefix,
       quotationValidityDays: settings.quotationValidityDays,
+      invoicePrefix: settings.invoicePrefix,
+      salesOrderPrefix: settings.salesOrderPrefix,
+      deliveryNotePrefix: settings.deliveryNotePrefix,
+      creditNotePrefix: settings.creditNotePrefix,
+      purchaseOrderPrefix: settings.purchaseOrderPrefix,
+      supplierPoPrefix: settings.supplierPoPrefix,
+      supplierBillPrefix: settings.supplierBillPrefix,
+      paymentPrefix: settings.paymentPrefix,
+      numberPadWidth: settings.numberPadWidth,
       defaultMessage: settings.defaultMessage,
       taxEnabled: taxProfile.enabled,
       taxName: taxProfile.name,

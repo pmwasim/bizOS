@@ -32,6 +32,7 @@ import { invoicePdfObjectKey, sha256Hex, type ObjectStore } from "@bizo/storage"
 
 import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
+import { allocateDocumentNumber } from "../numbering/numbering.js";
 import { MailService } from "../mail/mail.service.js";
 import {
   type AuthorizationAction,
@@ -473,22 +474,11 @@ export class InvoicesService {
       });
     }
 
-    const settings = (await transaction.businessSettings.update({
-      where: { businessId: access.businessId },
-      data: { nextInvoiceNumber: { increment: 1 } },
-      select: {
-        invoiceDueDays: true,
-        invoicePrefix: true,
-        nextInvoiceNumber: true,
-      },
-    })) as {
-      invoiceDueDays: number;
-      invoicePrefix: string;
-      nextInvoiceNumber: number;
-    };
-    const sequence = settings.nextInvoiceNumber - 1;
+    const allocated = await allocateDocumentNumber(transaction, access.businessId, "INVOICE", {
+      invoiceDueDays: true,
+    });
     const issueDate = this.localDate(business.timeZone);
-    const dueDate = this.addDays(issueDate, settings.invoiceDueDays);
+    const dueDate = this.addDays(issueDate, Number(allocated.settings.invoiceDueDays));
 
     const document = (await transaction.document.create({
       data: {
@@ -497,7 +487,7 @@ export class InvoicesService {
         customerId: quotation.customerId,
         type: DocumentType.INVOICE,
         status: options.status,
-        number: `${settings.invoicePrefix}-${String(sequence).padStart(4, "0")}`,
+        number: allocated.number,
         issueDate: this.toDatabaseDate(issueDate),
         validUntil: this.toDatabaseDate(dueDate),
         dueDate: this.toDatabaseDate(dueDate),
