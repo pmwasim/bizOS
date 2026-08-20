@@ -15,6 +15,8 @@ Rules:
 
 ## Entries
 
+- [2026-08-20 — TASK-24: OpenAPI 3.1 spec & Swagger docs UI](2026-08-20-task-24-openapi-3-1-spec-swagger-docs-ui.md)
+  - Agent: claude · Status: Done
 - [2026-08-20 — TASK-19 country tax exports](2026-08-20-task-19-country-tax-exports.md)
   - Agent: sprint5-task19 · Status: Done
 - [2026-08-18 — TASK-02 multi-currency formatting sweep](2026-08-18-task-02-multi-currency-formatting-sweep.md)
