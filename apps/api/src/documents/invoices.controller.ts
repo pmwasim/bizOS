@@ -119,6 +119,36 @@ export class InvoicesController {
     return new StreamableFile(result.buffer);
   }
 
+  /**
+   * ZATCA (Saudi e-invoicing) UBL 2.1 tax-invoice XML for a finalized SA invoice. Fail-closed for
+   * non-SA businesses and non-finalized invoices; gated by the invoices `export` capability.
+   */
+  @Get(":invoiceId/zatca-xml")
+  async zatcaXml(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("invoiceId") invoiceId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<string> {
+    const result = await this.invoices.zatcaXml(principal.userId, businessId, invoiceId);
+    response.setHeader("Content-Type", "application/xml; charset=utf-8");
+    response.setHeader("Content-Disposition", `inline; filename="${result.filename}"`);
+    return result.xml;
+  }
+
+  /**
+   * ZATCA Phase 1 QR payload: base64 TLV carrying the five mandatory tags (seller name, VAT number,
+   * timestamp, invoice total incl. VAT, VAT total). Same fail-closed gate as the XML endpoint.
+   */
+  @Get(":invoiceId/zatca-qr")
+  zatcaQr(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("invoiceId") invoiceId: string,
+  ): Promise<{ base64: string; number: string }> {
+    return this.invoices.zatcaQr(principal.userId, businessId, invoiceId);
+  }
+
   @Throttle(scaledThrottle({ default: { limit: 10, ttl: 60_000 } }))
   @Post(":invoiceId/send")
   send(
