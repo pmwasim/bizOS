@@ -30,7 +30,8 @@ export type AuthorizationObject =
   | "payments"
   | "crm"
   | "projects"
-  | "inventory";
+  | "inventory"
+  | "api_keys";
 
 export type AuthorizationAction =
   | "archive"
@@ -102,6 +103,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "inventory:create",
     "inventory:read",
     "inventory:update",
+    "api_keys:create",
+    "api_keys:read",
+    "api_keys:update",
   ],
   ADMIN: [
     "business:read",
@@ -158,6 +162,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, readonly string[]> = {
     "inventory:create",
     "inventory:read",
     "inventory:update",
+    "api_keys:create",
+    "api_keys:read",
+    "api_keys:update",
   ],
   MEMBER: [
     "business:read",

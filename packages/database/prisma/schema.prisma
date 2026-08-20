@@ -73,6 +73,11 @@ enum InvoiceApprovalStatus {
   REJECTED
 }
 
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
 enum StoredObjectKind {
   PURCHASE_ORDER
   APPROVAL_EVIDENCE
@@ -1153,22 +1158,28 @@ model PlatformSystemAdmin {
 }
 
 model ApiKey {
-  id         BigInt    @id @default(autoincrement())
-  publicId   String    @unique @default(uuid()) @map("public_id") @db.Uuid
-  tenantId   BigInt    @map("tenant_id")
-  businessId BigInt    @map("business_id")
-  name       String    @db.VarChar(120)
-  secretHash String    @map("secret_hash") @db.VarChar(255)
-  scopes     String[]  @default([]) @db.VarChar(80)
-  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
-  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(3)
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id         BigInt       @id @default(autoincrement())
+  publicId   String       @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId   BigInt       @map("tenant_id")
+  businessId BigInt       @map("business_id")
+  name       String       @db.VarChar(120)
+  // Short, non-secret public identifier (the leading characters of the issued key). Shown in the
+  // UI so a key can be recognised, and used as the lookup index during authentication before the
+  // constant-time hash comparison.
+  prefix     String       @map("prefix") @db.VarChar(24)
+  secretHash String       @map("secret_hash") @db.VarChar(255)
+  scopes     String[]     @default([]) @db.VarChar(80)
+  status     ApiKeyStatus @default(ACTIVE)
+  lastUsedAt DateTime?    @map("last_used_at") @db.Timestamptz(3)
+  expiresAt  DateTime?    @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Cascade)
 
   @@unique([tenantId, businessId, id])
   @@index([publicId])
+  @@index([prefix])
   @@map("api_keys")
 }
 
