@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 26,
-    "handbookDocumentCount": 88
+    "adrCount": 27,
+    "handbookDocumentCount": 89
   },
   "buildOrder": [
     {
@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 183,
-      "testFiles": 57,
+      "sourceFiles": 185,
+      "testFiles": 58,
       "areas": [
         {
           "name": "ai",
@@ -123,7 +123,7 @@
         {
           "name": "documents",
           "path": "apps/api/src/documents",
-          "sourceFiles": 16,
+          "sourceFiles": 17,
           "testFiles": 4
         },
         {
@@ -147,8 +147,8 @@
         {
           "name": "integration",
           "path": "apps/api/src/integration",
-          "sourceFiles": 8,
-          "testFiles": 8
+          "sourceFiles": 9,
+          "testFiles": 9
         },
         {
           "name": "inventory",
@@ -533,14 +533,14 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 128,
-      "testFiles": 5,
+      "sourceFiles": 130,
+      "testFiles": 6,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 75,
-          "testFiles": 3
+          "sourceFiles": 77,
+          "testFiles": 4
         },
         {
           "name": "components",
@@ -804,6 +804,13 @@
       "status": "Accepted",
       "date": "2026-08-17",
       "path": "docs/decisions/0024-receivables-and-statements-are-derived-per-currency.md"
+    },
+    {
+      "id": "0025",
+      "title": "ADR-0025: Payment voiding, reversal, and refunds",
+      "status": "Accepted",
+      "date": "2026-08-18",
+      "path": "docs/decisions/0025-payment-void-reversal-refund.md"
     }
   ],
   "rootCommands": [
