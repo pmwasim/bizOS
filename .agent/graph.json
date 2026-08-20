@@ -8,7 +8,7 @@
     "packageCount": 7,
     "edgeCount": 10,
     "adrCount": 27,
-    "handbookDocumentCount": 89
+    "handbookDocumentCount": 90
   },
   "buildOrder": [
     {
@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 190,
-      "testFiles": 61,
+      "sourceFiles": 211,
+      "testFiles": 71,
       "areas": [
         {
           "name": "ai",
@@ -117,6 +117,12 @@
         {
           "name": "delivery-notes",
           "path": "apps/api/src/delivery-notes",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
+          "name": "docs",
+          "path": "apps/api/src/docs",
           "sourceFiles": 4,
           "testFiles": 1
         },
@@ -207,8 +213,8 @@
         {
           "name": "public-api",
           "path": "apps/api/src/public-api",
-          "sourceFiles": 4,
-          "testFiles": 0
+          "sourceFiles": 11,
+          "testFiles": 3
         },
         {
           "name": "purchase-orders",
@@ -261,8 +267,8 @@
         {
           "name": "webhooks",
           "path": "apps/api/src/webhooks",
-          "sourceFiles": 4,
-          "testFiles": 0
+          "sourceFiles": 14,
+          "testFiles": 6
         }
       ],
       "governingDocs": [
@@ -366,8 +372,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 52,
-      "testFiles": 19,
+      "sourceFiles": 55,
+      "testFiles": 20,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
