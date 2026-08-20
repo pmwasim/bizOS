@@ -80,6 +80,10 @@
       "types": "./dist/zatca.d.ts",
       "default": "./dist/zatca.js"
     },
+    "./zatca-ubl": {
+      "types": "./dist/zatca-ubl.d.ts",
+      "default": "./dist/zatca-ubl.js"
+    },
     "./payments": {
       "types": "./dist/payments.d.ts",
       "default": "./dist/payments.js"
