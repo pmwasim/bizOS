@@ -51,8 +51,12 @@ export default async function TaxReturnPage({
   ).catch(() => null);
 
   const exportBase = `/api/businesses/${businessId}/tax/return/export`;
-  const csvHref = `${exportBase}?${new URLSearchParams({ ...Object.fromEntries(period), format: "csv" }).toString()}`;
-  const jsonHref = `${exportBase}?${new URLSearchParams({ ...Object.fromEntries(period), format: "json" }).toString()}`;
+  const exportHref = (kind: "summary" | "detail", format: "csv" | "json") =>
+    `${exportBase}?${new URLSearchParams({ ...Object.fromEntries(period), kind, format }).toString()}`;
+  const summaryCsvHref = exportHref("summary", "csv");
+  const summaryJsonHref = exportHref("summary", "json");
+  const detailCsvHref = exportHref("detail", "csv");
+  const detailJsonHref = exportHref("detail", "json");
 
   return (
     <div className="page">
@@ -85,12 +89,18 @@ export default async function TaxReturnPage({
 
       {audit ? (
         <>
-          <div className="section-heading" style={{ gap: "0.75rem" }}>
-            <a className="button button-secondary" href={csvHref}>
-              <Download aria-hidden="true" size={17} /> Audit export (CSV)
+          <div className="section-heading" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
+            <a className="button button-secondary" href={summaryCsvHref}>
+              <Download aria-hidden="true" size={17} /> Return summary (CSV)
             </a>
-            <a className="button button-secondary" href={jsonHref}>
-              <Download aria-hidden="true" size={17} /> Audit export (JSON)
+            <a className="button button-secondary" href={summaryJsonHref}>
+              <Download aria-hidden="true" size={17} /> Return summary (JSON)
+            </a>
+            <a className="button button-secondary" href={detailCsvHref}>
+              <Download aria-hidden="true" size={17} /> Audit detail (CSV)
+            </a>
+            <a className="button button-secondary" href={detailJsonHref}>
+              <Download aria-hidden="true" size={17} /> Audit detail (JSON)
             </a>
           </div>
           <TaxReturnPanel audit={audit} />

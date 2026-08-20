@@ -15,6 +15,8 @@ Rules:
 
 ## Entries
 
+- [2026-08-20 — TASK-19 country tax exports](2026-08-20-task-19-country-tax-exports.md)
+  - Agent: sprint5-task19 · Status: Done
 - [2026-08-18 — TASK-02 multi-currency formatting sweep](2026-08-18-task-02-multi-currency-formatting-sweep.md)
   - Agent: oscar · Status: Complete
 - [2026-08-18 — TASK-01 API contracts for BFF write actions](2026-08-18-task-01-api-contracts-for-bff-write-actions.md)

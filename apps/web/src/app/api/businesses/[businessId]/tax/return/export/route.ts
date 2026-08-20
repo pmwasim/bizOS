@@ -3,13 +3,13 @@ import { ApiError, apiFetch } from "@/lib/api";
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Streams the tax-return audit export (CSV or JSON) through the BFF so the request carries the
- * session.
+ * Streams a tax-authority export (CSV or JSON) through the BFF so the request carries the session.
  *
- * The period and format are forwarded; only well-formed dates and a known format are passed on, and
- * anything else is dropped rather than guessed at. The API sends the file as an attachment, and the
- * Content-Disposition it chose (which names the file by country and period) is passed straight
- * through.
+ * The period, format, and kind are forwarded; only well-formed dates and known enum values are
+ * passed on, and anything else is dropped rather than guessed at. `kind` selects the return-summary
+ * boxes (`summary`) or the line-level document detail (`detail`, the default). The API sends the
+ * file as an attachment, and the Content-Disposition it chose (which names the file by country and
+ * period) is passed straight through.
  */
 export async function GET(request: Request, context: { params: Promise<{ businessId: string }> }) {
   const { businessId } = await context.params;
@@ -22,6 +22,8 @@ export async function GET(request: Request, context: { params: Promise<{ busines
   }
   const format = requestUrl.searchParams.get("format") === "json" ? "json" : "csv";
   forwarded.set("format", format);
+  const kind = requestUrl.searchParams.get("kind") === "summary" ? "summary" : "detail";
+  forwarded.set("kind", kind);
 
   try {
     const response = await apiFetch(

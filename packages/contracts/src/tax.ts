@@ -255,12 +255,29 @@ export const taxReturnQuerySchema = z
   .refine(periodOrdered, "The start date must not be after the end date.");
 export type TaxReturnQuery = z.infer<typeof taxReturnQuerySchema>;
 
-/** Audit export formats: a spreadsheet-friendly CSV or the raw JSON of the documents. */
+/** Export formats: a spreadsheet-friendly CSV or the raw JSON payload. */
 export const taxExportFormatSchema = z.enum(["csv", "json"]);
 export type TaxExportFormat = z.infer<typeof taxExportFormatSchema>;
 
+/**
+ * Which tax-authority export a preparer is downloading.
+ *
+ * - **detail** — one row per contributing document (the SENT invoices and APPROVED bills), the
+ *   line-level audit trail behind every figure.
+ * - **summary** — the country pack's return boxes per currency (the VAT/GST return-form values), the
+ *   filing figures themselves.
+ *
+ * `detail` is the default so the pre-existing export link (which sends no `kind`) keeps its meaning.
+ */
+export const taxExportKindSchema = z.enum(["detail", "summary"]);
+export type TaxExportKind = z.infer<typeof taxExportKindSchema>;
+
 export const taxExportQuerySchema = z
-  .object({ ...taxPeriodShape, format: taxExportFormatSchema.default("csv") })
+  .object({
+    ...taxPeriodShape,
+    format: taxExportFormatSchema.default("csv"),
+    kind: taxExportKindSchema.default("detail"),
+  })
   .refine(periodOrdered, "The start date must not be after the end date.");
 export type TaxExportQuery = z.infer<typeof taxExportQuerySchema>;
 
