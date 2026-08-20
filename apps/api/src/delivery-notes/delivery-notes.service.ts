@@ -4,6 +4,7 @@ import { type CreateDeliveryNoteRequest, type DeliveryNote } from "@bizo/contrac
 import { DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
+import { allocateDocumentNumber } from "../numbering/numbering";
 import {
   type AuthorizationAction,
   type BusinessAccessContext,
@@ -87,12 +88,11 @@ export class DeliveryNotesService {
         sourceDocumentId = so.id;
       }
 
-      const updatedSettings = await transaction.businessSettings.update({
-        where: { businessId: access.businessId },
-        data: { nextDeliveryNoteNumber: { increment: 1 } },
-        select: { nextDeliveryNoteNumber: true, deliveryNotePrefix: true },
-      });
-      const sequence = updatedSettings.nextDeliveryNoteNumber - 1;
+      const allocated = await allocateDocumentNumber(
+        transaction,
+        access.businessId,
+        "DELIVERY_NOTE",
+      );
 
       const deliveryDate = input.deliveryDate
         ? new Date(`${input.deliveryDate}T00:00:00.000Z`)
@@ -106,7 +106,7 @@ export class DeliveryNotesService {
           businessId: access.businessId,
           customerId: customer.id,
           type: DocumentType.DELIVERY_NOTE,
-          number: `${updatedSettings.deliveryNotePrefix}-${String(sequence).padStart(4, "0")}`,
+          number: allocated.number,
           issueDate,
           // `documents` is shared with quotations, so valid_until and the money columns are NOT
           // NULL with no default. A delivery note has no expiry and carries no amount, but the

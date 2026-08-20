@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { numberingPadWidthSchema, numberingPrefixSchema } from "./numbering.js";
+
 const countryCodeSchema = z
   .string()
   .trim()
@@ -41,12 +43,19 @@ export const updateBusinessSettingsRequestSchema = z.strictObject({
   currencyScale: z.number().int().min(0).max(4),
   locale: z.string().trim().min(2).max(35),
   timeZone: z.string().trim().min(1).max(64),
-  quotationPrefix: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z0-9-]{1,12}$/),
+  quotationPrefix: numberingPrefixSchema,
   quotationValidityDays: z.number().int().min(1).max(365),
+  // Per-document-type numbering prefixes and the shared zero-padding width. Optional so partial
+  // settings updates stay valid; the service only writes the ones that are provided.
+  invoicePrefix: numberingPrefixSchema.optional(),
+  salesOrderPrefix: numberingPrefixSchema.optional(),
+  deliveryNotePrefix: numberingPrefixSchema.optional(),
+  creditNotePrefix: numberingPrefixSchema.optional(),
+  purchaseOrderPrefix: numberingPrefixSchema.optional(),
+  supplierPoPrefix: numberingPrefixSchema.optional(),
+  supplierBillPrefix: numberingPrefixSchema.optional(),
+  paymentPrefix: numberingPrefixSchema.optional(),
+  numberPadWidth: numberingPadWidthSchema.optional(),
   defaultMessage: z.string().trim().max(1000).nullable(),
   taxEnabled: z.boolean(),
   taxName: z.string().trim().min(1).max(80),
@@ -83,6 +92,15 @@ export const businessSettingsSchema = z.strictObject({
   timeZone: z.string(),
   quotationPrefix: z.string(),
   quotationValidityDays: z.number().int(),
+  invoicePrefix: z.string(),
+  salesOrderPrefix: z.string(),
+  deliveryNotePrefix: z.string(),
+  creditNotePrefix: z.string(),
+  purchaseOrderPrefix: z.string(),
+  supplierPoPrefix: z.string(),
+  supplierBillPrefix: z.string(),
+  paymentPrefix: z.string(),
+  numberPadWidth: z.number().int(),
   defaultMessage: z.string().nullable(),
   taxEnabled: z.boolean(),
   taxName: z.string(),

@@ -32,6 +32,7 @@ import { invoicePdfObjectKey, sha256Hex, type ObjectStore } from "@bizo/storage"
 
 import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
+import { allocateDocumentNumber } from "../numbering/numbering.js";
 import { MailService } from "../mail/mail.service.js";
 import {
   type AuthorizationAction,
@@ -41,6 +42,11 @@ import {
 import { OBJECT_STORE } from "../storage/object-store.token.js";
 import { calculateInvoice } from "./invoice-calculator.js";
 import { type InvoiceSnapshot } from "./invoice-snapshot.js";
+import {
+  buildZatcaQrFromSnapshot,
+  buildZatcaXmlFromSnapshot,
+  isZatcaCountry,
+} from "./zatca-invoice.js";
 import { PdfService } from "./pdf.service.js";
 import { type ErpnextClient } from "../erpnext/erpnext.client.js";
 import { ERPNEXT_CLIENT } from "../erpnext/erpnext.module.js";
@@ -131,6 +137,7 @@ interface SnapshotContext {
   addressLine1: string | null;
   addressLine2: string | null;
   city: string | null;
+  countryCode: string;
   email: string | null;
   legalName: string | null;
   name: string;
@@ -467,22 +474,11 @@ export class InvoicesService {
       });
     }
 
-    const settings = (await transaction.businessSettings.update({
-      where: { businessId: access.businessId },
-      data: { nextInvoiceNumber: { increment: 1 } },
-      select: {
-        invoiceDueDays: true,
-        invoicePrefix: true,
-        nextInvoiceNumber: true,
-      },
-    })) as {
-      invoiceDueDays: number;
-      invoicePrefix: string;
-      nextInvoiceNumber: number;
-    };
-    const sequence = settings.nextInvoiceNumber - 1;
+    const allocated = await allocateDocumentNumber(transaction, access.businessId, "INVOICE", {
+      invoiceDueDays: true,
+    });
     const issueDate = this.localDate(business.timeZone);
-    const dueDate = this.addDays(issueDate, settings.invoiceDueDays);
+    const dueDate = this.addDays(issueDate, Number(allocated.settings.invoiceDueDays));
 
     const document = (await transaction.document.create({
       data: {
@@ -491,7 +487,7 @@ export class InvoicesService {
         customerId: quotation.customerId,
         type: DocumentType.INVOICE,
         status: options.status,
-        number: `${settings.invoicePrefix}-${String(sequence).padStart(4, "0")}`,
+        number: allocated.number,
         issueDate: this.toDatabaseDate(issueDate),
         validUntil: this.toDatabaseDate(dueDate),
         dueDate: this.toDatabaseDate(dueDate),
@@ -1001,6 +997,120 @@ export class InvoicesService {
     };
   }
 
+  /**
+   * Generate the ZATCA (Saudi e-invoicing) UBL 2.1 tax-invoice XML for a finalized invoice.
+   *
+   * Fail-closed on two axes: the invoice must be finalized (a `DocumentVersion` snapshot exists), and
+   * the selling business must be in Saudi Arabia. Both are rejected with a 400 rather than producing
+   * a non-compliant document. The XML is built purely from the immutable finalized snapshot.
+   */
+  async zatcaXml(
+    userPublicId: string,
+    businessPublicId: string,
+    invoicePublicId: string,
+  ): Promise<{ filename: string; xml: string }> {
+    const access = await this.authorize(userPublicId, businessPublicId, "export");
+    const { record, snapshot, sellerCountryCode } = await this.loadZatcaSnapshot(
+      access,
+      invoicePublicId,
+    );
+    const xml = buildZatcaXmlFromSnapshot({
+      snapshot,
+      invoiceUuid: record.publicId,
+      invoiceNumber: record.number,
+      sellerCountryCode,
+    });
+    return { xml, filename: `${record.number}-zatca.xml` };
+  }
+
+  /**
+   * Generate the ZATCA Phase 1 QR payload (base64 TLV with the five mandatory tags) for a finalized
+   * SA invoice. Same fail-closed gate as {@link zatcaXml}.
+   */
+  async zatcaQr(
+    userPublicId: string,
+    businessPublicId: string,
+    invoicePublicId: string,
+  ): Promise<{ base64: string; number: string }> {
+    const access = await this.authorize(userPublicId, businessPublicId, "export");
+    const { record, snapshot, sellerCountryCode } = await this.loadZatcaSnapshot(
+      access,
+      invoicePublicId,
+    );
+    const base64 = buildZatcaQrFromSnapshot({
+      snapshot,
+      invoiceUuid: record.publicId,
+      invoiceNumber: record.number,
+      sellerCountryCode,
+    });
+    return { base64, number: record.number };
+  }
+
+  /**
+   * Load the finalized snapshot for ZATCA generation and enforce the fail-closed gate. Reuses the
+   * stored `DocumentVersion` snapshot captured at finalization; a draft or ready-to-send invoice has
+   * no such version and is refused.
+   */
+  private async loadZatcaSnapshot(
+    access: BusinessAccessContext,
+    invoicePublicId: string,
+  ): Promise<{ record: InvoiceRecord; sellerCountryCode: string; snapshot: InvoiceSnapshot }> {
+    return this.database.withScope(access, async (transaction) => {
+      const record = await this.findRecordInTransaction(transaction, access, invoicePublicId);
+      // A sent invoice keeps its immutable finalized snapshot after being archived, so ARCHIVED is
+      // allowed through here; the version lookup below still rejects an archived draft that never
+      // had a finalized snapshot.
+      if (!FINALIZED_STATUSES.has(record.status) && record.status !== DocumentStatus.ARCHIVED) {
+        throw new BadRequestException({
+          code: "INVOICE_NOT_FINALIZED",
+          detail: "A ZATCA e-invoice can only be generated for a finalized (sent) invoice.",
+        });
+      }
+      const version = await transaction.documentVersion.findFirst({
+        where: {
+          businessId: access.businessId,
+          documentId: record.id,
+          version: record.version,
+        },
+        select: { snapshot: true },
+      });
+      if (!version) {
+        throw new BadRequestException({
+          code: "INVOICE_NOT_FINALIZED",
+          detail: "This invoice has no finalized snapshot yet.",
+        });
+      }
+      const snapshot = version.snapshot as unknown as InvoiceSnapshot;
+
+      const business = (await transaction.business.findUniqueOrThrow({
+        where: { id: access.businessId },
+        select: { countryCode: true },
+      })) as { countryCode: string };
+      // Prefer the snapshot's own country (immutable record of what was issued); fall back to the
+      // live business country for snapshots captured before ZATCA support carried it.
+      const sellerCountryCode = (snapshot.business.countryCode ?? business.countryCode)
+        .trim()
+        .toUpperCase();
+      if (!isZatcaCountry(sellerCountryCode)) {
+        throw new BadRequestException({
+          code: "ZATCA_COUNTRY_UNSUPPORTED",
+          detail: "ZATCA e-invoicing is only available for businesses registered in Saudi Arabia.",
+        });
+      }
+      // ZATCA reports tax in SAR. bizOS stores no FX conversion, so a non-SAR invoice cannot be
+      // relabelled as SAR without corrupting the figures — reject it fail-closed rather than emit
+      // wrong tax amounts.
+      if (snapshot.currencyCode.trim().toUpperCase() !== "SAR") {
+        throw new BadRequestException({
+          code: "ZATCA_CURRENCY_UNSUPPORTED",
+          detail: "A ZATCA e-invoice can only be generated for an invoice denominated in SAR.",
+        });
+      }
+
+      return { record, snapshot, sellerCountryCode };
+    });
+  }
+
   private async authorize(
     userPublicId: string,
     businessPublicId: string,
@@ -1120,6 +1230,9 @@ export class InvoicesService {
         email: context.email,
         phone: context.phone,
         address: this.address(context),
+        city: context.city,
+        postalCode: context.postalCode,
+        countryCode: context.countryCode,
         taxName: context.taxProfile.name,
         taxRegistrationNumber: context.taxProfile.registrationNumber,
       },
@@ -1128,6 +1241,9 @@ export class InvoicesService {
         email: record.customer.email,
         phone: record.customer.phone,
         address: this.address(record.customer),
+        city: record.customer.city,
+        postalCode: record.customer.postalCode,
+        countryCode: record.customer.countryCode,
       },
       number: record.number,
       issueDate: this.dateOnly(record.issueDate),

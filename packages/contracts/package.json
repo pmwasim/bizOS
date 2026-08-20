@@ -36,6 +36,10 @@
       "types": "./dist/money.d.ts",
       "default": "./dist/money.js"
     },
+    "./numbering": {
+      "types": "./dist/numbering.d.ts",
+      "default": "./dist/numbering.js"
+    },
     "./platform": {
       "types": "./dist/platform.d.ts",
       "default": "./dist/platform.js"
@@ -79,6 +83,10 @@
     "./zatca": {
       "types": "./dist/zatca.d.ts",
       "default": "./dist/zatca.js"
+    },
+    "./zatca-ubl": {
+      "types": "./dist/zatca-ubl.d.ts",
+      "default": "./dist/zatca-ubl.js"
     },
     "./payments": {
       "types": "./dist/payments.d.ts",

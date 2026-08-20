@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 185,
-      "testFiles": 58,
+      "sourceFiles": 190,
+      "testFiles": 61,
       "areas": [
         {
           "name": "ai",
@@ -123,8 +123,8 @@
         {
           "name": "documents",
           "path": "apps/api/src/documents",
-          "sourceFiles": 17,
-          "testFiles": 4
+          "sourceFiles": 19,
+          "testFiles": 5
         },
         {
           "name": "erpnext",
@@ -161,6 +161,12 @@
           "path": "apps/api/src/mail",
           "sourceFiles": 3,
           "testFiles": 1
+        },
+        {
+          "name": "numbering",
+          "path": "apps/api/src/numbering",
+          "sourceFiles": 3,
+          "testFiles": 2
         },
         {
           "name": "onboarding",
@@ -360,8 +366,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 48,
-      "testFiles": 17,
+      "sourceFiles": 52,
+      "testFiles": 19,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -533,14 +539,14 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 130,
-      "testFiles": 6,
+      "sourceFiles": 131,
+      "testFiles": 7,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 77,
-          "testFiles": 4
+          "sourceFiles": 78,
+          "testFiles": 5
         },
         {
           "name": "components",
