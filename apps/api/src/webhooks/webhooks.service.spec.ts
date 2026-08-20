@@ -110,7 +110,7 @@ describe("WebhooksService.create", () => {
 
     await expect(
       service.create(ACCESS.userPublicId, ACCESS.businessPublicId, {
-        url: "http://169.254.169.254/latest/meta-data",
+        url: "https://169.254.169.254/latest/meta-data",
         events: ["invoice.paid"],
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -177,7 +177,7 @@ describe("WebhooksService.update / disable", () => {
 
     await expect(
       service.update(ACCESS.userPublicId, ACCESS.businessPublicId, "pub", {
-        url: "http://10.0.0.1/hook",
+        url: "https://10.0.0.1/hook",
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(update).not.toHaveBeenCalled();

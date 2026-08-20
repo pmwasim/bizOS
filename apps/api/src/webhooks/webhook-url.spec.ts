@@ -31,6 +31,13 @@ describe("isPrivateOrReservedIp", () => {
     }
   });
 
+  it("flags hexadecimal IPv4-mapped IPv6 (WHATWG-normalised form)", () => {
+    // new URL("https://[::ffff:127.0.0.1]/").hostname === "[::ffff:7f00:1]"
+    for (const ip of ["::ffff:7f00:1", "::ffff:0a00:1", "::ffff:c0a8:1"]) {
+      expect(isPrivateOrReservedIp(ip), ip).toBe(true);
+    }
+  });
+
   it("accepts public IPv4/IPv6 addresses", () => {
     expect(isPrivateOrReservedIp("8.8.8.8")).toBe(false);
     expect(isPrivateOrReservedIp("1.1.1.1")).toBe(false);
@@ -47,19 +54,24 @@ describe("assertSafeWebhookUrl", () => {
     expect(() => assertSafeWebhookUrl("https://hooks.example.com/ingest")).not.toThrow();
   });
 
-  it("rejects non-http(s) schemes", () => {
-    for (const url of ["ftp://example.com", "file:///etc/passwd", "gopher://example.com"]) {
+  it("rejects non-https schemes (including plain http)", () => {
+    for (const url of [
+      "http://hooks.example.com/ingest",
+      "ftp://example.com",
+      "file:///etc/passwd",
+      "gopher://example.com",
+    ]) {
       expect(() => assertSafeWebhookUrl(url), url).toThrow(UnsafeWebhookUrlError);
     }
   });
 
   it("rejects localhost and internal-suffix hosts", () => {
     for (const url of [
-      "http://localhost/hook",
+      "https://localhost/hook",
       "https://localhost:8443/hook",
-      "http://api.internal/hook",
-      "http://db.local/hook",
-      "http://svc.home.arpa/hook",
+      "https://api.internal/hook",
+      "https://db.local/hook",
+      "https://svc.home.arpa/hook",
     ]) {
       expect(() => assertSafeWebhookUrl(url), url).toThrow(UnsafeWebhookUrlError);
     }
@@ -67,12 +79,14 @@ describe("assertSafeWebhookUrl", () => {
 
   it("rejects literal private, loopback, and link-local IPs", () => {
     for (const url of [
-      "http://127.0.0.1/hook",
-      "http://10.1.2.3/hook",
-      "http://192.168.0.5/hook",
-      "http://169.254.169.254/latest/meta-data",
-      "http://[::1]/hook",
-      "http://[fd00::1]/hook",
+      "https://127.0.0.1/hook",
+      "https://10.1.2.3/hook",
+      "https://192.168.0.5/hook",
+      "https://169.254.169.254/latest/meta-data",
+      "https://[::1]/hook",
+      "https://[fd00::1]/hook",
+      // Hexadecimal IPv4-mapped IPv6 → IPv4 loopback; must not slip past the guard.
+      "https://[::ffff:127.0.0.1]/hook",
     ]) {
       expect(() => assertSafeWebhookUrl(url), url).toThrow(UnsafeWebhookUrlError);
     }
@@ -119,7 +133,7 @@ describe("assertResolvableToPublicAddress", () => {
   it("still enforces structural checks before resolving", async () => {
     const lookup = async () => [{ address: "8.8.8.8" }];
     await expect(
-      assertResolvableToPublicAddress("http://localhost/x", lookup),
+      assertResolvableToPublicAddress("https://localhost/x", lookup),
     ).rejects.toBeInstanceOf(UnsafeWebhookUrlError);
   });
 });

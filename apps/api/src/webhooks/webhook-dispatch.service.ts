@@ -46,6 +46,10 @@ export interface WebhookTickResult {
 const MAX_ERROR_LENGTH = 500;
 const DEFAULT_TICK_LIMIT = 50;
 const DEFAULT_TIMEOUT_MS = 10_000;
+// A claim lease: a row left DELIVERING longer than this is assumed abandoned (the worker crashed or
+// was killed mid-attempt) and is reclaimed on a later tick, preserving the at-least-once guarantee.
+// Comfortably larger than DEFAULT_TIMEOUT_MS so an in-flight delivery is never stolen from a live worker.
+const DELIVERING_LEASE_MS = 60_000;
 
 function truncateError(message: string): string {
   return message.length > MAX_ERROR_LENGTH ? message.slice(0, MAX_ERROR_LENGTH) : message;
@@ -116,11 +120,18 @@ export class WebhookDispatchService {
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const result: WebhookTickResult = { processed: 0, delivered: 0, failed: 0, dead: 0 };
 
-    const due = await this.database.client.webhookDelivery.findMany({
-      where: {
+    const staleBefore = new Date(now.getTime() - DELIVERING_LEASE_MS);
+    // Due = fresh work (PENDING/FAILED past its next-attempt time) OR an abandoned claim: a row stuck
+    // in DELIVERING past the lease because the worker that claimed it died before finishing.
+    const dueFilter: Prisma.WebhookDeliveryWhereInput["OR"] = [
+      {
         status: { in: [WebhookDeliveryStatus.PENDING, WebhookDeliveryStatus.FAILED] },
         nextAttemptAt: { lte: now },
       },
+      { status: WebhookDeliveryStatus.DELIVERING, updatedAt: { lte: staleBefore } },
+    ];
+    const due = await this.database.client.webhookDelivery.findMany({
+      where: { OR: dueFilter },
       orderBy: { nextAttemptAt: "asc" },
       take: limit,
       include: {
@@ -129,12 +140,11 @@ export class WebhookDispatchService {
     });
 
     for (const delivery of due) {
-      // Atomically claim the row so a concurrent worker cannot process it twice.
+      // Atomically claim the row so a concurrent worker cannot process it twice. The claim only
+      // succeeds if the row still matches the due filter (unclaimed, or a lease-expired DELIVERING),
+      // so a live worker's in-flight row is never stolen.
       const claim = await this.database.client.webhookDelivery.updateMany({
-        where: {
-          id: delivery.id,
-          status: { in: [WebhookDeliveryStatus.PENDING, WebhookDeliveryStatus.FAILED] },
-        },
+        where: { id: delivery.id, OR: dueFilter },
         data: { status: WebhookDeliveryStatus.DELIVERING },
       });
       if (claim.count === 0) {
@@ -218,9 +228,15 @@ export class WebhookDispatchService {
         },
         body,
         signal: controller.signal,
+        // Never follow redirects: only the original URL passed the SSRF guard, so a redirect to a
+        // private target (e.g. 169.254.169.254) would bypass every DNS/IP check. A 3xx is treated as
+        // a failed delivery below.
+        redirect: "manual",
       });
       responseStatus = response.status;
-      if (!response.ok) {
+      if (response.status >= 300 && response.status < 400) {
+        failureReason = `The endpoint returned a redirect (${response.status}); redirects are not followed.`;
+      } else if (!response.ok) {
         failureReason = `The endpoint responded ${response.status}.`;
       }
     } catch (error) {

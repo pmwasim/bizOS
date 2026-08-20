@@ -21,7 +21,9 @@ export class UnsafeWebhookUrlError extends Error {
   }
 }
 
-const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
+// HTTPS only: webhook payloads and signatures must never cross the network in cleartext, and the
+// only plausible http use (local/private targets) is already rejected by the SSRF checks below.
+const ALLOWED_PROTOCOLS = new Set(["https:"]);
 
 /** Hostnames that always denote a local or internal target regardless of DNS. */
 const BLOCKED_HOST_SUFFIXES = [".localhost", ".local", ".internal", ".home.arpa"];
@@ -78,15 +80,43 @@ function normaliseIpv6(ip: string): string {
   return ip.split("%")[0]!.toLowerCase();
 }
 
+/**
+ * Extract the embedded IPv4 of an IPv4-mapped IPv6 address (`::ffff:a.b.c.d`). The WHATWG URL parser
+ * normalises a mapped literal to its hexadecimal form (e.g. `::ffff:127.0.0.1` → `::ffff:7f00:1`),
+ * so both the dotted and the two-hextet forms must be recognised — otherwise `::ffff:7f00:1` would
+ * slip past the guard and connect to IPv4 loopback. Returns the dotted-decimal IPv4 or null.
+ */
+function mappedIpv4(ip: string): string | null {
+  const match = ip.match(/^::ffff:(.+)$/);
+  if (!match) {
+    return null;
+  }
+  const rest = match[1]!;
+  if (rest.includes(".")) {
+    return rest; // Already dotted-decimal.
+  }
+  // Hexadecimal form: two 16-bit hextets, e.g. "7f00:1".
+  const hextets = rest.split(":");
+  if (hextets.length !== 2) {
+    return null;
+  }
+  const high = Number.parseInt(hextets[0]!, 16);
+  const low = Number.parseInt(hextets[1]!, 16);
+  if (!Number.isInteger(high) || !Number.isInteger(low)) {
+    return null;
+  }
+  return [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff].join(".");
+}
+
 function isPrivateIpv6(rawIp: string): boolean {
   const ip = normaliseIpv6(rawIp);
   if (ip === "::" || ip === "::1") {
     return true; // unspecified / loopback
   }
-  // IPv4-mapped (::ffff:a.b.c.d) — evaluate the embedded IPv4.
-  const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  // IPv4-mapped (::ffff:a.b.c.d, dotted or hex) — evaluate the embedded IPv4.
+  const mapped = mappedIpv4(ip);
   if (mapped) {
-    return isPrivateIpv4(mapped[1]!);
+    return isPrivateIpv4(mapped);
   }
   return (
     ip.startsWith("fc") || // unique local fc00::/7
@@ -128,7 +158,7 @@ export function assertSafeWebhookUrl(rawUrl: string): URL {
   }
 
   if (!ALLOWED_PROTOCOLS.has(url.protocol)) {
-    throw new UnsafeWebhookUrlError("The webhook URL must use http:// or https://.");
+    throw new UnsafeWebhookUrlError("The webhook URL must use https://.");
   }
   if (url.username !== "" || url.password !== "") {
     throw new UnsafeWebhookUrlError("The webhook URL must not embed credentials.");

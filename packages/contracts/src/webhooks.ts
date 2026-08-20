@@ -51,14 +51,16 @@ export type WebhookDeliveryStatusValue = z.infer<typeof webhookDeliveryStatusSch
  * A webhook target URL. Structural validation only — scheme and length are checked here; the
  * SSRF host/IP checks (localhost, RFC1918, link-local, DNS resolution) are enforced server-side at
  * registration and again, fail-closed, before every dispatch.
+ *
+ * HTTPS is required: payloads and their signatures must not traverse the network in cleartext, and
+ * private/local targets (the only plausible http use) are already rejected by the SSRF checks. The
+ * 512-char cap matches the `webhook_subscriptions.url` column so a valid-looking request can never
+ * fail at the database layer.
  */
 export const webhookUrlSchema = z
   .url()
-  .max(2048)
-  .refine(
-    (value) => value.startsWith("http://") || value.startsWith("https://"),
-    "The webhook URL must use http:// or https://.",
-  );
+  .max(512)
+  .refine((value) => value.startsWith("https://"), "The webhook URL must use https://.");
 
 export const createWebhookEndpointRequestSchema = z.strictObject({
   url: webhookUrlSchema,

@@ -199,7 +199,7 @@ describe("WebhookDispatchService.tick — fail-closed guards", () => {
   it("dead-letters without sending when the target resolves to a private address", async () => {
     const delivery = dueDelivery({
       endpoint: {
-        url: "http://10.0.0.1/hook",
+        url: "https://10.0.0.1/hook",
         status: WebhookEndpointStatus.ACTIVE,
         encryptedSecret: encryptWebhookSecret(SECRET, KEY),
       },
@@ -236,5 +236,43 @@ describe("WebhookDispatchService.tick — fail-closed guards", () => {
     expect((update.mock.calls[0]![0].data as Record<string, unknown>).status).toBe(
       WebhookDeliveryStatus.DEAD,
     );
+  });
+});
+
+describe("WebhookDispatchService.tick — review-fix behaviours", () => {
+  it("sends with redirects disabled and treats a 3xx as a failed delivery (never followed)", async () => {
+    const delivery = dueDelivery({ attemptCount: 1 });
+    const { client, update } = deliveryClientFor(delivery);
+    const now = new Date("2026-08-20T00:00:00.000Z");
+    // A tenant endpoint that 302s toward a private target must not be followed.
+    const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 302 } as Response);
+    const service = new WebhookDispatchService(createDatabaseMock(client));
+
+    const result = await service.tick({ now, fetchFn, hostLookup: PUBLIC_LOOKUP });
+
+    const [, init] = fetchFn.mock.calls[0]!;
+    expect(init.redirect).toBe("manual");
+    expect(result).toMatchObject({ delivered: 0, failed: 1, dead: 0 });
+    const data = update.mock.calls[0]![0].data as Record<string, unknown>;
+    expect(data.status).toBe(WebhookDeliveryStatus.FAILED);
+    expect(data.responseStatusCode).toBe(302);
+    expect(String(data.lastError)).toContain("redirect");
+  });
+
+  it("reclaims a DELIVERING row abandoned past the lease", async () => {
+    // A row stuck DELIVERING (worker died mid-attempt) must be picked up again, or at-least-once is lost.
+    const delivery = dueDelivery();
+    const { client } = deliveryClientFor(delivery);
+    const now = new Date("2026-08-20T00:00:00.000Z");
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, status: 200 } as Response);
+    const service = new WebhookDispatchService(createDatabaseMock(client));
+
+    await service.tick({ now, fetchFn, hostLookup: PUBLIC_LOOKUP });
+
+    const where = (client.webhookDelivery.findMany as ReturnType<typeof vi.fn>).mock.calls[0]![0]
+      .where as { OR: Array<Record<string, unknown>> };
+    const reclaim = where.OR.find((c) => c.status === WebhookDeliveryStatus.DELIVERING);
+    expect(reclaim).toBeDefined();
+    expect(reclaim!.updatedAt).toMatchObject({ lte: expect.any(Date) });
   });
 });
