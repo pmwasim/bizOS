@@ -1,5 +1,31 @@
 {
   "version": 1,
   "note": "Advisory work claims held by agents. Managed by `pnpm agent:*` commands.",
-  "claims": []
+  "claims": [
+    {
+      "id": "clm_4dcd3dde",
+      "agent": "cursor-ship",
+      "task": "Ship RC server entitlements + merge open ready PRs",
+      "scopes": [
+        "apps/api/src",
+        "docs/journal",
+        "packages/config",
+        "packages/contracts"
+      ],
+      "branch": null,
+      "claimedAt": "2026-08-21T21:00:54.867Z",
+      "expiresAt": "2026-08-22T01:00:54.867Z"
+    },
+    {
+      "id": "clm_10d0ce24",
+      "agent": "cursor-ship",
+      "task": "Ship RC server entitlements + merge open ready PRs",
+      "scopes": [
+        "apps/web/src"
+      ],
+      "branch": null,
+      "claimedAt": "2026-08-21T21:02:37.578Z",
+      "expiresAt": "2026-08-22T01:02:37.578Z"
+    }
+  ]
 }

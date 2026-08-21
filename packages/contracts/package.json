@@ -20,6 +20,10 @@
       "types": "./dist/auth.d.ts",
       "default": "./dist/auth.js"
     },
+    "./billing": {
+      "types": "./dist/billing.d.ts",
+      "default": "./dist/billing.js"
+    },
     "./customers": {
       "types": "./dist/customers.d.ts",
       "default": "./dist/customers.js"

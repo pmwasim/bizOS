@@ -15,6 +15,12 @@ Rules:
 
 ## Entries
 
+- [2026-08-21 — Public sales readiness for bizos.qloudihub.com](2026-08-21-public-sales-readiness-for-bizos-qloudihub-com.md)
+  - Agent: cursor-sales · Status: Ready for review
+- [2026-08-21 — Integrate RevenueCat Web SDK for Qloudi Pro](2026-08-21-integrate-revenuecat-web-sdk-for-qloudi-pro.md)
+  - Agent: cursor-rc-web · Status: Done
+- [2026-08-21 — Complete RevenueCat paywall publish and server entitlements](2026-08-21-complete-revenuecat-paywall-publish-and-server-entitlements.md)
+  - Agent: cursor-ship · Status: Ready for review
 - [2026-08-20 — TASK-24: OpenAPI 3.1 spec & Swagger docs UI](2026-08-20-task-24-openapi-3-1-spec-swagger-docs-ui.md)
   - Agent: claude · Status: Done
 - [2026-08-20 — TASK-19 country tax exports](2026-08-20-task-19-country-tax-exports.md)

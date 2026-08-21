@@ -26,6 +26,13 @@ const apiEnvironmentSchema = z
     KEEP_WARM_SECRET: z.string().min(16).optional(),
     CLIENT_IP_SIGNATURE_SECRET: z.string().min(16).optional(),
     /**
+     * RevenueCat API key for server-side subscriber entitlement checks
+     * (`GET /v1/subscribers/{app_user_id}`). Prefer a project secret key (`sk_…`);
+     * a public Web/Test Store key also works for read-only entitlement status.
+     * Unset = billing endpoints report `configured: false` without failing boot.
+     */
+    REVENUECAT_API_KEY: z.string().min(8).optional(),
+    /**
      * Widens every request throttle by this factor. Exists so an automated harness can drive the
      * whole product from a single source IP without tripping limits that are correct for real
      * traffic. Production is pinned to 1 by the refinement below — the strict limits are the

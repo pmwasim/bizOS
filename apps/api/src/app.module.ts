@@ -5,6 +5,7 @@ import { LoggerModule } from "nestjs-pino";
 
 import { ConfigurationModule } from "./configuration/configuration.module.js";
 import { AiModule } from "./ai/ai.module.js";
+import { BillingModule } from "./billing/billing.module.js";
 import { CreditNotesModule } from "./credit-notes/credit-notes.module.js";
 import { CrmModule } from "./crm/crm.module.js";
 import { CustomizationModule } from "./customization/customization.module.js";
@@ -92,6 +93,7 @@ import { TaxModule } from "./tax/tax.module.js";
     ProjectsModule,
     InventoryModule,
     PublicApiModule,
+    BillingModule,
     WebhooksModule,
     DocsModule,
     AiModule,

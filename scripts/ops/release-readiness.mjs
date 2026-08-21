@@ -86,6 +86,49 @@ async function main() {
     marker: "Create your account",
   });
 
+  // Public commercial surfaces required for sales readiness.
+  await checkHtmlRoute({
+    name: "web.pricing.route",
+    path: "/pricing",
+    expectedStatus: 200,
+    marker: "Simple pricing tailored to your market",
+  });
+  await checkHtmlRoute({
+    name: "web.subscribe.route",
+    path: "/subscribe",
+    expectedStatus: 200,
+    marker: "Qloudi Pro",
+  });
+  await checkHtmlRoute({
+    name: "web.privacy.route",
+    path: "/privacy",
+    expectedStatus: 200,
+    marker: "Privacy Policy",
+  });
+  await checkHtmlRoute({
+    name: "web.terms.route",
+    path: "/terms",
+    expectedStatus: 200,
+    marker: "Terms of Service",
+  });
+  await checkHtmlRoute({
+    name: "web.contact.route",
+    path: "/contact",
+    expectedStatus: 200,
+    marker: "Contact",
+  });
+  try {
+    const robots = await get(`${WEB_BASE}/robots.txt`);
+    const body = await robots.text();
+    record(
+      "web.robots.txt",
+      robots.status === 200 && body.includes("Sitemap:"),
+      `status=${robots.status}`,
+    );
+  } catch (error) {
+    record("web.robots.txt", false, String(error));
+  }
+
   // 3. Unknown routes must use the repository's custom not-found page. This distinguishes
   // the intended application from an older/wrong Next.js build serving framework-default 404s.
   await checkHtmlRoute({

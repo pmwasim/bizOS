@@ -13,19 +13,22 @@ const isProduction = process.env.NODE_ENV === "production";
  * scripts stay restricted to same-origin. Development additionally needs `'unsafe-eval'` for the
  * React refresh runtime, so the stricter policy is applied only to production builds.
  */
+// RevenueCat Web SDK + optional Stripe checkout (RC Billing) need these origins.
+// Test Store keys only need api.revenuecat.com / e.revenue.cat; Stripe hosts are for RC Billing.
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "font-src 'self' data:",
   "form-action 'self'",
   "frame-ancestors 'self'",
-  "frame-src 'self'",
-  "img-src 'self' data: blob:",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
+  "img-src 'self' data: blob: https://*.revenuecat.com https://*.stripe.com",
   "object-src 'none'",
-  "script-src 'self' 'unsafe-inline'" + (isProduction ? "" : " 'unsafe-eval'"),
+  "script-src 'self' 'unsafe-inline' https://js.stripe.com" +
+    (isProduction ? "" : " 'unsafe-eval'"),
   "script-src-attr 'none'",
   "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self'",
+  "connect-src 'self' https://api.revenuecat.com https://e.revenue.cat https://api.stripe.com https://*.stripe.com",
   ...(isProduction ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
@@ -49,7 +52,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
-  transpilePackages: ["@bizo/contracts", "@bizo/ui"],
+  transpilePackages: ["@bizo/contracts", "@bizo/ui", "@revenuecat/purchases-js"],
   turbopack: {
     root: workspaceRoot,
   },

@@ -63,14 +63,20 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 211,
-      "testFiles": 71,
+      "sourceFiles": 217,
+      "testFiles": 72,
       "areas": [
         {
           "name": "ai",
           "path": "apps/api/src/ai",
           "sourceFiles": 9,
           "testFiles": 3
+        },
+        {
+          "name": "billing",
+          "path": "apps/api/src/billing",
+          "sourceFiles": 6,
+          "testFiles": 1
         },
         {
           "name": "common",
@@ -372,8 +378,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 55,
-      "testFiles": 20,
+      "sourceFiles": 57,
+      "testFiles": 21,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
@@ -545,26 +551,26 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 131,
-      "testFiles": 7,
+      "sourceFiles": 147,
+      "testFiles": 8,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 78,
+          "sourceFiles": 85,
           "testFiles": 5
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 42,
+          "sourceFiles": 44,
           "testFiles": 0
         },
         {
           "name": "lib",
           "path": "apps/web/src/lib",
-          "sourceFiles": 9,
-          "testFiles": 2
+          "sourceFiles": 16,
+          "testFiles": 3
         }
       ],
       "governingDocs": [
