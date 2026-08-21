@@ -3246,7 +3246,9 @@ fieldset.field small {
 
   .compliance-banner {
     padding: 2rem 1.5rem;
-=======
+  }
+}
+
 /* ─── Marketing site (scoped; does not restyle the app shell) ─── */
 
 .marketing-site {
@@ -3863,3 +3865,5 @@ fieldset.field small {
 
   .mkt-hero-actions .mkt-btn {
     width: 100%;
+  }
+}

@@ -26,12 +26,6 @@ export function MarketingFooter() {
                 <Link href="/product">Product</Link>
               </li>
               <li>
-                <Link href="/#features">Core Features</Link>
-              </li>
-              <li>
-                <Link href="/#workflow">How It Works</Link>
-              </li>
-              <li>
                 <Link href="/pricing">Pricing Plans</Link>
               </li>
               <li>

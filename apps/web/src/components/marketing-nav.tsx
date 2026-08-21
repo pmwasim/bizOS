@@ -16,14 +16,11 @@ export async function MarketingNav() {
           <Link href="/product" className="nav-link">
             Product
           </Link>
-          <Link href="/#features" className="nav-link">
-            Features
-          </Link>
-          <Link href="/#workflow" className="nav-link">
-            How it works
-          </Link>
           <Link href="/pricing" className="nav-link">
             Pricing
+          </Link>
+          <Link href="/subscribe" className="nav-link">
+            Subscribe
           </Link>
           <Link href="/contact" className="nav-link">
             Contact
