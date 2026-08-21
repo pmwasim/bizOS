@@ -8,7 +8,7 @@
     "packageCount": 7,
     "edgeCount": 10,
     "adrCount": 27,
-    "handbookDocumentCount": 130
+    "handbookDocumentCount": 90
   },
   "buildOrder": [
     {
@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 213,
-      "testFiles": 71,
+      "sourceFiles": 217,
+      "testFiles": 72,
       "areas": [
         {
           "name": "ai",
@@ -123,6 +123,12 @@
         {
           "name": "delivery-notes",
           "path": "apps/api/src/delivery-notes",
+          "sourceFiles": 4,
+          "testFiles": 1
+        },
+        {
+          "name": "docs",
+          "path": "apps/api/src/docs",
           "sourceFiles": 4,
           "testFiles": 1
         },
@@ -287,8 +293,7 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-production-cutover.md",
         "docs/security.md",
-        "docs/spikes/opennext-cloudflare-web.md",
-        "docs/vault/Workspaces/bizo-api.md"
+        "docs/spikes/opennext-cloudflare-web.md"
       ]
     },
     {
@@ -316,8 +321,7 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/vault/Workspaces/bizo-authorization.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
       ]
     },
     {
@@ -348,8 +352,7 @@
         "docs/architecture.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
-        "docs/security.md",
-        "docs/vault/Workspaces/bizo-config.md"
+        "docs/security.md"
       ]
     },
     {
@@ -387,8 +390,7 @@
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
-        "docs/operations/ubuntu-production-cutover.md",
-        "docs/vault/Workspaces/bizo-contracts.md"
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -431,8 +433,7 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
         "docs/operations/production-runbook.md",
-        "docs/operations/ubuntu-production-cutover.md",
-        "docs/vault/Workspaces/bizo-database.md"
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -460,8 +461,7 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/vault/Workspaces/bizo-queue.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
       ]
     },
     {
@@ -495,8 +495,7 @@
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/r2-object-storage.md",
-        "docs/vault/Workspaces/bizo-storage.md"
+        "docs/operations/r2-object-storage.md"
       ]
     },
     {
@@ -525,8 +524,7 @@
       "governingDocs": [
         "docs/architecture.md",
         "docs/coding-standards.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/vault/Workspaces/bizo-ui.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
       ]
     },
     {
@@ -586,8 +584,7 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-cutover-handoff.md",
         "docs/operations/ubuntu-production-cutover.md",
-        "docs/spikes/opennext-cloudflare-web.md",
-        "docs/vault/Workspaces/bizo-web.md"
+        "docs/spikes/opennext-cloudflare-web.md"
       ]
     }
   ],
@@ -918,10 +915,6 @@
     {
       "name": "graph:check",
       "command": "node scripts/agent/graphify.mjs --check"
-    },
-    {
-      "name": "graph:obsidian",
-      "command": "pnpm graph && node scripts/agent/graphify-obsidian.mjs"
     },
     {
       "name": "journal:check",

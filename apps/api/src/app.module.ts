@@ -11,6 +11,7 @@ import { CrmModule } from "./crm/crm.module.js";
 import { CustomizationModule } from "./customization/customization.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { DeliveryNotesModule } from "./delivery-notes/delivery-notes.module.js";
+import { DocsModule } from "./docs/docs.module.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { ErpnextModule } from "./erpnext/erpnext.module.js";
 import { CustomersModule } from "./customers/customers.module.js";
@@ -94,6 +95,7 @@ import { TaxModule } from "./tax/tax.module.js";
     PublicApiModule,
     BillingModule,
     WebhooksModule,
+    DocsModule,
     AiModule,
   ],
   providers: [
