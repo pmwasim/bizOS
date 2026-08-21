@@ -21,6 +21,8 @@ Rules:
   - Agent: cursor-sales · Status: Ready for review
 - [2026-08-21 — Integrate RevenueCat Web SDK for Qloudi Pro](2026-08-21-integrate-revenuecat-web-sdk-for-qloudi-pro.md)
   - Agent: cursor-rc-web · Status: Done
+- [2026-08-21 — Design unique bizOS home and landing pages](2026-08-21-design-unique-bizos-home-and-landing-pages.md)
+  - Agent: cursor-landing · Status: Ready for review
 - [2026-08-21 — Deploy OpenAPI billing and deps to production](2026-08-21-deploy-openapi-billing-and-deps-to-production.md)
   - Agent: cursor-autonomy · Status: Ready for review
 - [2026-08-21 — Complete RevenueCat paywall publish and server entitlements](2026-08-21-complete-revenuecat-paywall-publish-and-server-entitlements.md)

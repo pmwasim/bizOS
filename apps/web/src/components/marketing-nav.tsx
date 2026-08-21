@@ -13,6 +13,9 @@ export async function MarketingNav() {
           bizOS
         </Link>
         <nav className="marketing-nav-links" aria-label="Main Navigation">
+          <Link href="/product" className="nav-link">
+            Product
+          </Link>
           <Link href="/#features" className="nav-link">
             Features
           </Link>

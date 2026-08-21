@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { marketingFontClassName } from "@/lib/marketing-fonts";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/marketing";
 
-type NavKey = "home" | "pricing" | "subscribe" | "contact" | "none";
+type NavKey = "home" | "product" | "pricing" | "subscribe" | "contact" | "none";
 
 export function MarketingShell({
   children,
@@ -17,35 +18,53 @@ export function MarketingShell({
   sessionLabel: string;
 }) {
   return (
-    <>
-      <nav className="landing-nav" aria-label="Main navigation">
-        <Link className="brand" href="/">
+    <div className={`marketing-site ${marketingFontClassName}`}>
+      <nav className="mkt-nav" aria-label="Main navigation">
+        <Link className="mkt-nav-brand" href="/">
           bizOS
         </Link>
-        <div className="nav-links">
-          <Link className={`nav-link${active === "pricing" ? " active" : ""}`} href="/pricing">
+        <div className="mkt-nav-links">
+          <Link
+            className={`mkt-nav-link${active === "product" ? " is-active" : ""}`}
+            href="/product"
+          >
+            Product
+          </Link>
+          <Link
+            className={`mkt-nav-link${active === "pricing" ? " is-active" : ""}`}
+            href="/pricing"
+          >
             Pricing
           </Link>
-          <Link className={`nav-link${active === "subscribe" ? " active" : ""}`} href="/subscribe">
+          <Link
+            className={`mkt-nav-link${active === "subscribe" ? " is-active" : ""}`}
+            href="/subscribe"
+          >
             Subscribe
           </Link>
-          <Link className={`nav-link${active === "contact" ? " active" : ""}`} href="/contact">
+          <Link
+            className={`mkt-nav-link${active === "contact" ? " is-active" : ""}`}
+            href="/contact"
+          >
             Contact
           </Link>
-          <Link className="button button-quiet" href={sessionHref}>
+          <Link className="mkt-nav-session" href={sessionHref}>
             {sessionLabel}
           </Link>
         </div>
       </nav>
       {children}
-      <footer className="marketing-footer">
-        <div className="marketing-footer-inner">
-          <p className="marketing-footer-brand">bizOS</p>
-          <p className="marketing-footer-tag">
-            Quotations, invoices, and ledgers for service businesses in Saudi Arabia, the UAE, and
-            India.
-          </p>
-          <div className="marketing-footer-links">
+      <footer className="mkt-footer">
+        <div className="mkt-footer-inner">
+          <div className="mkt-footer-top">
+            <p className="mkt-footer-brand">bizOS</p>
+            <p className="mkt-footer-tag">
+              The Business Operating System for service companies — offers, invoices, payments, and
+              ledgers in plain language. Built for Saudi Arabia, the UAE, and India.
+            </p>
+          </div>
+          <div className="mkt-footer-links">
+            <Link href="/product">Product</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/subscribe">Subscribe</Link>
             <Link href="/contact">Contact</Link>
@@ -55,6 +74,6 @@ export function MarketingShell({
           </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }

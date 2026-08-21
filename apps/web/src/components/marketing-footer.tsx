@@ -23,6 +23,9 @@ export function MarketingFooter() {
             <h3>Product</h3>
             <ul>
               <li>
+                <Link href="/product">Product</Link>
+              </li>
+              <li>
                 <Link href="/#features">Core Features</Link>
               </li>
               <li>
