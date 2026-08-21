@@ -18,15 +18,15 @@ layer above it.
 
 | Workspace | Type | Path | Depends on | Depended on by | Source | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 207 | 70 |
+| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 213 | 71 |
 | `@bizo/authorization` | package | `packages/authorization` | — | `@bizo/api` | 2 | 1 |
 | `@bizo/config` | package | `packages/config` | — | `@bizo/api`, `@bizo/web` | 5 | 2 |
-| `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 55 | 20 |
+| `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 57 | 21 |
 | `@bizo/database` | package | `packages/database` | `@bizo/contracts` | `@bizo/api` | 2 | 1 |
 | `@bizo/queue` | package | `packages/queue` | `@bizo/contracts` | — | 2 | 1 |
 | `@bizo/storage` | package | `packages/storage` | — | `@bizo/api` | 3 | 1 |
 | `@bizo/ui` | package | `packages/ui` | — | `@bizo/web` | 2 | 0 |
-| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 146 | 8 |
+| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 147 | 8 |
 
 ## Claimable areas
 
@@ -36,6 +36,7 @@ First-level source areas. These are the natural units for a work claim
 ### `@bizo/api`
 
 - `apps/api/src/ai` — 9 source files, 3 test files
+- `apps/api/src/billing` — 6 source files, 1 test file
 - `apps/api/src/common` — 6 source files, 1 test file
 - `apps/api/src/configuration` — 8 source files, 4 test files
 - `apps/api/src/credit-notes` — 4 source files, 1 test file
@@ -71,7 +72,7 @@ First-level source areas. These are the natural units for a work claim
 
 ### `@bizo/web`
 
-- `apps/web/src/app` — 84 source files, 5 test files
+- `apps/web/src/app` — 85 source files, 5 test files
 - `apps/web/src/components` — 44 source files, 0 test files
 - `apps/web/src/lib` — 16 source files, 3 test files
 

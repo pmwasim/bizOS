@@ -153,4 +153,17 @@ describe("readApiEnvironment", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts an optional RevenueCat API key", () => {
+    expect(
+      readApiEnvironment({
+        DATABASE_URL: "postgresql://bizo:test@localhost:5432/bizo",
+        INTERNAL_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        NODE_ENV: "test",
+        REVENUECAT_API_KEY: "test_or_sk_key_value",
+        SMTP_FROM: "quotes@example.test",
+        SMTP_URL: "smtp://localhost:1025",
+      }).REVENUECAT_API_KEY,
+    ).toBe("test_or_sk_key_value");
+  });
 });
