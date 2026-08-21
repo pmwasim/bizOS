@@ -13,14 +13,14 @@ export async function MarketingNav() {
           bizOS
         </Link>
         <nav className="marketing-nav-links" aria-label="Main Navigation">
-          <Link href="/#features" className="nav-link">
-            Features
-          </Link>
-          <Link href="/#workflow" className="nav-link">
-            How it works
+          <Link href="/product" className="nav-link">
+            Product
           </Link>
           <Link href="/pricing" className="nav-link">
             Pricing
+          </Link>
+          <Link href="/subscribe" className="nav-link">
+            Subscribe
           </Link>
           <Link href="/contact" className="nav-link">
             Contact

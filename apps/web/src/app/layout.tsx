@@ -9,11 +9,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "bizOS — Quotations and invoices for service businesses",
+    default: "bizOS — The Business Operating System for service companies",
     template: "%s · bizOS",
   },
   description:
-    "Create customers, send polished quotations, and turn them into invoices. Free 30-day trial for service businesses in Saudi Arabia, the UAE, and India.",
+    "Run offers, invoices, payments, and statements in plain language. Free 30-day trial for service businesses in Saudi Arabia, the UAE, and India.",
   openGraph: {
     type: "website",
     siteName: "bizOS",
@@ -21,9 +21,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "bizOS — Quotations and invoices for service businesses",
+    title: "bizOS — The Business Operating System for service companies",
     description:
-      "From new customer to sent invoice in minutes. Free 30-day trial — no card required.",
+      "From first offer to paid invoice — with a proper ERP underneath and none of the jargon in the way.",
   },
   robots: {
     index: true,
