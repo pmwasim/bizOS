@@ -17,6 +17,9 @@ export const WEBHOOK_TIMESTAMP_HEADER = "X-Bizo-Timestamp";
 export const WEBHOOK_EVENT_HEADER = "X-Bizo-Event";
 export const WEBHOOK_DELIVERY_HEADER = "X-Bizo-Delivery";
 
+/** Default receiver skew window (±5 minutes) recommended for `isWebhookTimestampFresh`. */
+export const WEBHOOK_DEFAULT_MAX_SKEW_SECONDS = 300;
+
 /** Generates a fresh, full-entropy signing secret. Returned to the caller exactly once, at issue. */
 export function generateWebhookSecret(): string {
   return `${WEBHOOK_SECRET_PREFIX}${randomBytes(32).toString("hex")}`;
@@ -49,4 +52,24 @@ export function verifyWebhookSignature(
     return false;
   }
   return timingSafeEqual(a, b);
+}
+
+/**
+ * Receiver-side freshness check for `X-Bizo-Timestamp` (unix seconds as a decimal string).
+ * Rejects non-numeric timestamps and values outside ±`maxSkewSeconds` of `now`.
+ */
+export function isWebhookTimestampFresh(
+  timestamp: string,
+  now: Date = new Date(),
+  maxSkewSeconds: number = WEBHOOK_DEFAULT_MAX_SKEW_SECONDS,
+): boolean {
+  if (!/^\d{1,16}$/.test(timestamp)) {
+    return false;
+  }
+  if (!Number.isFinite(maxSkewSeconds) || maxSkewSeconds < 0) {
+    return false;
+  }
+  const stamped = Number(timestamp);
+  const nowSeconds = Math.floor(now.getTime() / 1000);
+  return Math.abs(nowSeconds - stamped) <= maxSkewSeconds;
 }

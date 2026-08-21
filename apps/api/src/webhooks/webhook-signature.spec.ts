@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   generateWebhookSecret,
+  isWebhookTimestampFresh,
   signWebhookPayload,
   verifyWebhookSignature,
   WEBHOOK_SECRET_PREFIX,
@@ -67,5 +68,21 @@ describe("verifyWebhookSignature", () => {
   it("rejects a malformed header without throwing", () => {
     expect(verifyWebhookSignature(secret, timestamp, body, "not-a-signature")).toBe(false);
     expect(verifyWebhookSignature(secret, timestamp, body, "")).toBe(false);
+  });
+});
+
+describe("isWebhookTimestampFresh", () => {
+  const now = new Date("2026-08-21T12:00:00.000Z");
+  const nowSec = Math.floor(now.getTime() / 1000);
+
+  it("accepts timestamps within the skew window", () => {
+    expect(isWebhookTimestampFresh(String(nowSec), now, 300)).toBe(true);
+    expect(isWebhookTimestampFresh(String(nowSec - 300), now, 300)).toBe(true);
+  });
+
+  it("rejects timestamps outside the skew window and malformed values", () => {
+    expect(isWebhookTimestampFresh(String(nowSec - 301), now, 300)).toBe(false);
+    expect(isWebhookTimestampFresh("abc", now, 300)).toBe(false);
+    expect(isWebhookTimestampFresh("", now, 300)).toBe(false);
   });
 });

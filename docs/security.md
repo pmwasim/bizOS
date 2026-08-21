@@ -89,3 +89,5 @@ a green build.
 - External penetration test of the production-shaped deployment.
 - Secret rotation, backup restore, incident response, and dependency compromise exercises.
 - Runtime verification of headers, cookies, TLS, CORS, rate limits, errors, and file delivery.
+- Webhook SSRF / signature / secret gate (Sprint 6 TASK-25):
+  [operations/webhook-security-gate.md](operations/webhook-security-gate.md).

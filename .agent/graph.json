@@ -8,7 +8,7 @@
     "packageCount": 7,
     "edgeCount": 10,
     "adrCount": 27,
-    "handbookDocumentCount": 131
+    "handbookDocumentCount": 132
   },
   "buildOrder": [
     {
@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 217,
-      "testFiles": 72,
+      "sourceFiles": 218,
+      "testFiles": 73,
       "areas": [
         {
           "name": "ai",
@@ -273,8 +273,8 @@
         {
           "name": "webhooks",
           "path": "apps/api/src/webhooks",
-          "sourceFiles": 14,
-          "testFiles": 6
+          "sourceFiles": 15,
+          "testFiles": 7
         }
       ],
       "governingDocs": [
@@ -292,6 +292,8 @@
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-production-cutover.md",
+        "docs/operations/webhook-security-gate.md",
+        "docs/public-api.md",
         "docs/security.md",
         "docs/spikes/opennext-cloudflare-web.md",
         "docs/vault/Workspaces/bizo-api.md"

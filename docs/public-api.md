@@ -112,11 +112,15 @@ Every delivery carries these headers:
 To verify a delivery:
 
 1. Read the `X-Bizo-Timestamp` header and reject the delivery if it is outside your freshness window
-   (this is what defeats replay).
+   (recommended ±300 seconds — `isWebhookTimestampFresh` in `@bizo/api` mirrors this). This defeats
+   replay.
 2. Recompute `HMAC-SHA256(secret, `` `${timestamp}.${rawBody}` ``)` over the **raw** request bytes —
    not a re-serialized body.
 3. Compare your hex digest against the value in `X-Bizo-Signature` using a constant-time comparison.
 4. Deduplicate on `X-Bizo-Delivery` before acting on the event.
+
+Automated proofs for SSRF, forgery, and secret handling:
+[Webhook security gate](operations/webhook-security-gate.md).
 
 The signing secret is returned once, at endpoint creation or secret rotation
 (`POST .../webhooks/{endpointId}/rotate-secret`), and is prefixed `whsec_`.
