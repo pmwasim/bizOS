@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Banknote,
   Building,
@@ -18,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { type EnabledModuleSummary } from "@bizo/contracts/configuration";
 
@@ -31,9 +34,8 @@ export interface NavItem {
 }
 
 // Maps module codes (from the configuration snapshot) to nav items. Only
-// implemented modules reach the nav (the API filters on implemented=true),
-// so we don't need to re-check that here. Settings and Home are always
-// present because they are workspace-level, not module-level.
+// implemented modules reach the nav (the API filters on implemented=true).
+// Settings and Home are always present because they are workspace-level.
 const MODULE_NAV: Record<string, { href: string; label: string; icon: LucideIcon }> = {
   customers: { href: "/customers", label: "Customers", icon: Users },
   suppliers: { href: "/suppliers", label: "Suppliers", icon: Building },
@@ -61,6 +63,8 @@ function buildNavItems(modules: EnabledModuleSummary[]): NavItem[] {
   if (modules.some((moduleSummary) => moduleSummary.code === "payments")) {
     items.push({ href: "/statements", label: "Money Owed", icon: Wallet });
     items.push({ href: "/payables", label: "Bills to Pay", icon: Wallet });
+  } else if (!items.some((i) => i.href === "/payments")) {
+    items.push({ href: "/payments", label: "Payments", icon: Banknote });
   }
   items.push({ href: "/settings", label: "Settings", icon: Settings });
   return items;
@@ -81,7 +85,18 @@ export function AppShell({
   isSystemAdmin?: boolean;
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const items = buildNavItems(modules);
+  const basePath = `/b/${businessId}`;
+
+  function checkIsActive(href: string) {
+    const target = `${basePath}${href}`;
+    if (href === "") {
+      return pathname === basePath || pathname === `${basePath}/`;
+    }
+    return pathname.startsWith(target);
+  }
+
   return (
     <div className="app-frame">
       <aside className="sidebar">
@@ -94,15 +109,26 @@ export function AppShell({
           businesses={businesses}
         />
         <nav className="side-nav" aria-label="Workspace">
-          {items.map(({ href, label, icon: Icon }) => (
-            <Link key={label} href={`/b/${businessId}${href}`}>
-              <Icon aria-hidden="true" size={19} />
-              {label}
-            </Link>
-          ))}
+          {items.map(({ href, label, icon: Icon }) => {
+            const isActive = checkIsActive(href);
+            return (
+              <Link
+                key={label}
+                href={`${basePath}${href}`}
+                className={isActive ? "active" : undefined}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <Icon aria-hidden="true" size={19} />
+                {label}
+              </Link>
+            );
+          })}
         </nav>
         {isSystemAdmin ? (
-          <Link className="side-nav-admin" href="/admin">
+          <Link
+            className={`side-nav-admin ${pathname.startsWith("/admin") ? "active" : ""}`}
+            href="/admin"
+          >
             <ShieldCheck aria-hidden="true" size={18} />
             System Admin
           </Link>
@@ -115,12 +141,20 @@ export function AppShell({
       </aside>
       <main className="workspace">{children}</main>
       <nav className="mobile-nav" aria-label="Workspace">
-        {items.map(({ href, label, icon: Icon }) => (
-          <Link key={label} href={`/b/${businessId}${href}`}>
-            <Icon aria-hidden="true" size={19} />
-            <span>{label}</span>
-          </Link>
-        ))}
+        {items.map(({ href, label, icon: Icon }) => {
+          const isActive = checkIsActive(href);
+          return (
+            <Link
+              key={label}
+              href={`${basePath}${href}`}
+              className={isActive ? "active" : undefined}
+              aria-current={isActive ? "page" : undefined}
+            >
+              <Icon aria-hidden="true" size={19} />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
       </nav>
     </div>
   );

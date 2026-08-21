@@ -8,7 +8,7 @@
     "packageCount": 7,
     "edgeCount": 10,
     "adrCount": 27,
-    "handbookDocumentCount": 132
+    "handbookDocumentCount": 91
   },
   "buildOrder": [
     {
@@ -295,8 +295,7 @@
         "docs/operations/webhook-security-gate.md",
         "docs/public-api.md",
         "docs/security.md",
-        "docs/spikes/opennext-cloudflare-web.md",
-        "docs/vault/Workspaces/bizo-api.md"
+        "docs/spikes/opennext-cloudflare-web.md"
       ]
     },
     {
@@ -324,8 +323,7 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/vault/Workspaces/bizo-authorization.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
       ]
     },
     {
@@ -356,8 +354,7 @@
         "docs/architecture.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
-        "docs/security.md",
-        "docs/vault/Workspaces/bizo-config.md"
+        "docs/security.md"
       ]
     },
     {
@@ -395,8 +392,7 @@
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
-        "docs/operations/ubuntu-production-cutover.md",
-        "docs/vault/Workspaces/bizo-contracts.md"
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -439,8 +435,7 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
         "docs/operations/production-runbook.md",
-        "docs/operations/ubuntu-production-cutover.md",
-        "docs/vault/Workspaces/bizo-database.md"
+        "docs/operations/ubuntu-production-cutover.md"
       ]
     },
     {
@@ -468,8 +463,7 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/vault/Workspaces/bizo-queue.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
       ]
     },
     {
@@ -503,8 +497,7 @@
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/r2-object-storage.md",
-        "docs/vault/Workspaces/bizo-storage.md"
+        "docs/operations/r2-object-storage.md"
       ]
     },
     {
@@ -533,8 +526,7 @@
       "governingDocs": [
         "docs/architecture.md",
         "docs/coding-standards.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
-        "docs/vault/Workspaces/bizo-ui.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
       ]
     },
     {
@@ -561,7 +553,7 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 147,
+      "sourceFiles": 151,
       "testFiles": 8,
       "areas": [
         {
@@ -573,7 +565,7 @@
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 44,
+          "sourceFiles": 48,
           "testFiles": 0
         },
         {
@@ -594,8 +586,7 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-cutover-handoff.md",
         "docs/operations/ubuntu-production-cutover.md",
-        "docs/spikes/opennext-cloudflare-web.md",
-        "docs/vault/Workspaces/bizo-web.md"
+        "docs/spikes/opennext-cloudflare-web.md"
       ]
     }
   ],

@@ -1,17 +1,39 @@
 "use client";
 
+import { CheckCircle2, RotateCcw } from "lucide-react";
 import { useActionState } from "react";
 
 import { type PaymentType } from "@bizo/contracts/payments";
 
 import {
   type ActionState,
+  markPaymentCompletedAction,
   refundPaymentAction,
   reversePaymentAction,
   voidPaymentAction,
 } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
 import { SubmitButton } from "@/components/submit-button";
+
+export function MarkPaymentCompletedButton({
+  businessId,
+  paymentId,
+}: {
+  businessId: string;
+  paymentId: string;
+}) {
+  const action = markPaymentCompletedAction.bind(null, businessId, paymentId);
+  const [state, formAction] = useActionState<ActionState, FormData>(action, {});
+
+  return (
+    <form action={formAction}>
+      <ActionMessage error={state.error} />
+      <SubmitButton className="button button-primary" pendingText="Completing…">
+        <CheckCircle2 size={16} aria-hidden="true" /> Mark as Completed
+      </SubmitButton>
+    </form>
+  );
+}
 
 /**
  * Void a DRAFT payment — one that never settled anything. Terminal: the API rejects any later edit,
@@ -57,17 +79,15 @@ export function VoidPaymentButton({
 export function ReversePaymentButton({
   businessId,
   paymentId,
-  paymentType,
+  paymentType = "INBOUND",
 }: {
   businessId: string;
   paymentId: string;
-  paymentType: PaymentType;
+  paymentType?: PaymentType;
 }) {
   const action = reversePaymentAction.bind(null, businessId, paymentId);
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
 
-  // An OUTBOUND payment is allocated to purchase orders, not invoices, so naming invoices here
-  // would describe the wrong financial transition.
   const target = paymentType === "OUTBOUND" ? "purchase order balances" : "invoice balances";
 
   return (
@@ -87,7 +107,7 @@ export function ReversePaymentButton({
         <input name="reason" type="text" maxLength={500} />
       </label>
       <SubmitButton className="button button-secondary" pendingText="Reversing…">
-        Reverse payment
+        <RotateCcw size={16} aria-hidden="true" /> Reverse payment
       </SubmitButton>
     </form>
   );

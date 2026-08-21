@@ -104,6 +104,11 @@ export function SettingsForm({
               <select name="baseCurrency" defaultValue={settings.baseCurrency}>
                 <option value="SAR">SAR — Saudi Riyal</option>
                 <option value="AED">AED — UAE Dirham</option>
+                <option value="INR">INR — Indian Rupee</option>
+                <option value="QAR">QAR — Qatari Riyal</option>
+                <option value="BHD">BHD — Bahraini Dinar</option>
+                <option value="KWD">KWD — Kuwaiti Dinar</option>
+                <option value="OMR">OMR — Omani Rial</option>
                 <option value="GBP">GBP — British Pound</option>
                 <option value="USD">USD — US Dollar</option>
               </select>
@@ -111,10 +116,15 @@ export function SettingsForm({
             <label className="field">
               <span>Time zone</span>
               <select name="timeZone" defaultValue={settings.timeZone}>
-                <option value="Asia/Riyadh">Riyadh</option>
-                <option value="Asia/Dubai">Dubai</option>
-                <option value="Europe/London">London</option>
-                <option value="America/New_York">New York</option>
+                <option value="Asia/Riyadh">Asia / Riyadh</option>
+                <option value="Asia/Dubai">Asia / Dubai</option>
+                <option value="Asia/Kolkata">Asia / Kolkata</option>
+                <option value="Asia/Qatar">Asia / Qatar</option>
+                <option value="Asia/Bahrain">Asia / Bahrain</option>
+                <option value="Asia/Kuwait">Asia / Kuwait</option>
+                <option value="Asia/Muscat">Asia / Muscat</option>
+                <option value="Europe/London">Europe / London</option>
+                <option value="America/New_York">America / New York</option>
               </select>
             </label>
           </div>

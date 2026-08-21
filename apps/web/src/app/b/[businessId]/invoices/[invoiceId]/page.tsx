@@ -1,8 +1,7 @@
-import { CheckCircle2, ChevronLeft, Download } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Download, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { invoiceStatusLabel, type Invoice } from "@bizo/contracts/invoices";
-
 import {
   deriveSettlementStatus,
   settlementStatusLabel,
@@ -25,7 +24,7 @@ export default async function InvoiceDetailPage({
   const query = await searchParams;
   const [invoice, payments] = await Promise.all([
     apiJson<Invoice>(`/businesses/${businessId}/invoices/${invoiceId}`),
-    apiJson<Payment[]>(`/businesses/${businessId}/payments`),
+    apiJson<Payment[]>(`/businesses/${businessId}/payments`).catch(() => [] as Payment[]),
   ]);
   const justSent = query.sent === "1";
   const pdfPath = `/api/businesses/${businessId}/invoices/${invoiceId}/pdf`;
@@ -45,9 +44,13 @@ export default async function InvoiceDetailPage({
     return acc + BigInt(alloc?.amountMinor || "0");
   }, 0n);
   const invoiceTotalMinor = BigInt(invoice.totalMinor);
-  const amountDueMinor = invoiceTotalMinor - amountPaidMinor;
-  const paymentStatus = settlementStatusLabel(
-    deriveSettlementStatus(amountPaidMinor, invoiceTotalMinor),
+  const rawDueMinor = invoiceTotalMinor - amountPaidMinor;
+  const amountDueMinor = rawDueMinor > 0n ? rawDueMinor : 0n;
+  const settlement = deriveSettlementStatus(amountPaidMinor, invoiceTotalMinor);
+  const paymentStatus = settlementStatusLabel(settlement);
+
+  const amountDueDecimal = (Number(amountDueMinor) / Math.pow(10, invoice.currencyScale)).toFixed(
+    invoice.currencyScale,
   );
 
   return (
@@ -57,6 +60,14 @@ export default async function InvoiceDetailPage({
           <ChevronLeft aria-hidden="true" size={18} /> Invoices
         </Link>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          {amountDueMinor > 0n && invoice.status !== "DRAFT" ? (
+            <Link
+              className="button button-primary"
+              href={`/b/${businessId}/payments/new?invoiceId=${invoiceId}&amount=${amountDueDecimal}`}
+            >
+              <Plus aria-hidden="true" size={16} /> Record payment
+            </Link>
+          ) : null}
           {canEdit ? (
             <Link
               className="button button-secondary"
@@ -89,10 +100,10 @@ export default async function InvoiceDetailPage({
       </header>
 
       <section className="panel readiness-panel">
-        <h2>Customer PO</h2>
+        <h2>Customer PO & Workflow</h2>
         <p>
-          <strong>{invoice.poNumber ?? "Not set"}</strong>
-          {invoice.projectReference ? ` · ${invoice.projectReference}` : ""}
+          <strong>{invoice.poNumber ?? "No PO specified"}</strong>
+          {invoice.projectReference ? ` · Project: ${invoice.projectReference}` : ""}
         </p>
         <p>
           From quotation{" "}
@@ -125,7 +136,17 @@ export default async function InvoiceDetailPage({
           <div>
             <dt>Payment status</dt>
             <dd>
-              {paymentStatus}
+              <strong
+                className={
+                  paymentStatus === "Paid"
+                    ? "text-success"
+                    : paymentStatus === "Partially Paid"
+                      ? "text-primary"
+                      : ""
+                }
+              >
+                {paymentStatus}
+              </strong>
               {amountPaidMinor > 0n
                 ? ` (${formatMoney(amountPaidMinor.toString(), invoice.currencyCode, invoice.currencyScale)} paid)`
                 : ""}
@@ -134,7 +155,7 @@ export default async function InvoiceDetailPage({
           <div>
             <dt>Amount due</dt>
             <dd>
-              <strong>
+              <strong style={{ fontSize: "1.1rem" }}>
                 {formatMoney(
                   amountDueMinor.toString(),
                   invoice.currencyCode,
@@ -144,7 +165,41 @@ export default async function InvoiceDetailPage({
             </dd>
           </div>
         </dl>
-        <div className="section-heading" style={{ marginTop: "1rem", gap: "0.75rem" }}>
+
+        {appliedPayments.length > 0 && (
+          <div
+            style={{
+              marginTop: "1rem",
+              borderTop: "1px solid var(--border)",
+              paddingTop: "0.75rem",
+            }}
+          >
+            <h3 style={{ fontSize: "0.95rem", marginBottom: "0.5rem" }}>Applied Payments</h3>
+            <div className="data-list">
+              {appliedPayments.map((p) => {
+                const alloc = p.allocations.find((a) => a.documentId === invoiceId);
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/b/${businessId}/payments/${p.id}`}
+                    className="data-row"
+                    style={{ minHeight: "50px" }}
+                  >
+                    <span>
+                      <strong>Payment on {p.paymentDate}</strong>
+                      <small>{p.reference ? `Ref: ${p.reference}` : "Completed transfer"}</small>
+                    </span>
+                    <strong className="text-success">
+                      {formatMoney(alloc?.amountMinor || "0", p.currencyCode, p.currencyScale)}
+                    </strong>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="section-heading" style={{ marginTop: "1.25rem", gap: "0.75rem" }}>
           {canMarkReady ? (
             <MarkInvoiceReadyButton businessId={businessId} invoiceId={invoiceId} />
           ) : null}
@@ -175,6 +230,9 @@ export default async function InvoiceDetailPage({
                 ? "Mark ready before sending"
                 : "This invoice cannot be sent"}
             </h2>
+            <p className="text-muted-foreground" style={{ fontSize: "0.85rem" }}>
+              Invoices in Draft status must be marked Ready before they can be emailed to customers.
+            </p>
           </div>
         )}
       </div>

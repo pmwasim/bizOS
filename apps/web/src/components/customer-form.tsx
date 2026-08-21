@@ -32,21 +32,25 @@ export function CustomerForm({ businessId }: { businessId: string }) {
           <span>
             Phone <em>Optional</em>
           </span>
-          <input name="phone" type="tel" autoComplete="tel" />
+          <input name="phone" type="tel" autoComplete="tel" placeholder="+966 50 123 4567" />
         </label>
       </div>
       <label className="field">
         <span>
           Address <em>Optional</em>
         </span>
-        <input name="addressLine1" autoComplete="street-address" />
+        <input
+          name="addressLine1"
+          autoComplete="street-address"
+          placeholder="King Fahd Road, Olaya"
+        />
       </label>
       <div className="field-grid">
         <label className="field">
           <span>
             City <em>Optional</em>
           </span>
-          <input name="city" autoComplete="address-level2" />
+          <input name="city" autoComplete="address-level2" placeholder="Riyadh" />
         </label>
         <label className="field">
           <span>
@@ -55,6 +59,11 @@ export function CustomerForm({ businessId }: { businessId: string }) {
           <select name="countryCode" defaultValue="SA">
             <option value="SA">Saudi Arabia</option>
             <option value="AE">United Arab Emirates</option>
+            <option value="IN">India</option>
+            <option value="QA">Qatar</option>
+            <option value="BH">Bahrain</option>
+            <option value="KW">Kuwait</option>
+            <option value="OM">Oman</option>
             <option value="GB">United Kingdom</option>
             <option value="US">United States</option>
           </select>

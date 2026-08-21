@@ -4,15 +4,7 @@ import type { ReactNode } from "react";
 
 import { requireSystemAdmin } from "@/lib/admin";
 import { signOutAction } from "@/app/actions";
-
-const NAV_ITEMS: Array<{ href: string; label: string }> = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/organizations", label: "Organizations" },
-  { href: "/admin/templates", label: "Templates" },
-  { href: "/admin/customization-requests", label: "Customization Requests" },
-  { href: "/admin/audit-events", label: "Audit Events" },
-  { href: "/admin/default-erp", label: "Default ERP" },
-];
+import { AdminNav } from "@/components/admin-nav";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const principal = await requireSystemAdmin();
@@ -28,13 +20,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <span>SA</span>
           <strong>System Admin</strong>
         </div>
-        <nav className="admin-nav" aria-label="System Admin">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <AdminNav />
         <form action={signOutAction} className="admin-signout">
           <button type="submit">Sign out</button>
         </form>

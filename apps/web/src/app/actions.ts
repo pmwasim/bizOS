@@ -456,8 +456,17 @@ export async function recordPaymentAction(
   _state: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const currencyCode = String(formData.get("currencyCode") ?? "").trim();
+  const type = String(formData.get("type") ?? "INBOUND");
+  const paymentDate = String(
+    formData.get("paymentDate") ?? formData.get("receivedOn") ?? "",
+  ).trim();
+  const currencyCode = String(formData.get("currencyCode") ?? "")
+    .trim()
+    .toUpperCase();
+  const reference = String(formData.get("reference") ?? "").trim() || null;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
   const invoiceId = String(formData.get("invoiceId") ?? "").trim();
+  const purchaseOrderId = String(formData.get("purchaseOrderId") ?? "").trim();
 
   // The form collects a decimal amount; the API takes minor units as a string.
   let amountMinor: string;
@@ -470,14 +479,29 @@ export async function recordPaymentAction(
     return { error: "Enter the amount as a positive number, for example 1250.00." };
   }
 
+  let allocations: Array<{ documentId?: string; purchaseOrderId?: string; amountMinor: string }> =
+    [];
+  const rawAllocations = String(formData.get("allocations") ?? "").trim();
+  if (rawAllocations) {
+    try {
+      allocations = JSON.parse(rawAllocations);
+    } catch {
+      return { error: "Invalid payment allocations provided." };
+    }
+  } else if (invoiceId) {
+    allocations = [{ documentId: invoiceId, amountMinor }];
+  } else if (purchaseOrderId) {
+    allocations = [{ purchaseOrderId, amountMinor }];
+  }
+
   const parsed = recordPaymentRequestSchema.safeParse({
-    type: "INBOUND",
-    paymentDate: String(formData.get("receivedOn") ?? "").trim(),
+    type,
+    paymentDate,
     amountMinor,
     currencyCode,
-    reference: String(formData.get("reference") ?? "").trim() || null,
-    notes: String(formData.get("notes") ?? "").trim() || null,
-    allocations: [{ documentId: invoiceId, amountMinor }],
+    reference,
+    notes,
+    allocations,
   });
   if (!parsed.success) return { error: validationMessage(parsed.error) };
 
@@ -487,6 +511,23 @@ export async function recordPaymentAction(
       body: JSON.stringify(parsed.data),
     });
     redirect(`/b/${businessId}/payments/${payment.id}`);
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function markPaymentCompletedAction(
+  businessId: string,
+  paymentId: string,
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    await apiJson(`/businesses/${businessId}/payments/${paymentId}/status/complete`, {
+      method: "PATCH",
+      body: "{}",
+    });
+    redirect(`/b/${businessId}/payments/${paymentId}`);
   } catch (error) {
     return actionError(error);
   }

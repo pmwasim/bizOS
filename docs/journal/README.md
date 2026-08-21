@@ -25,6 +25,8 @@ Rules:
   - Agent: cursor-autonomy · Status: Ready for review
 - [2026-08-21 — Complete RevenueCat paywall publish and server entitlements](2026-08-21-complete-revenuecat-paywall-publish-and-server-entitlements.md)
   - Agent: cursor-ship · Status: Ready for review
+- [2026-08-21 — Audit and comprehensive frontend UI overhaul](2026-08-21-audit-and-comprehensive-frontend-ui-overhaul.md)
+  - Agent: 6ff217d0-a35c-4698-bf06-abbe0e662ca6 · Status: Completed
 - [2026-08-20 — TASK-24: OpenAPI 3.1 spec & Swagger docs UI](2026-08-20-task-24-openapi-3-1-spec-swagger-docs-ui.md)
   - Agent: claude · Status: Done
 - [2026-08-20 — TASK-19 country tax exports](2026-08-20-task-19-country-tax-exports.md)

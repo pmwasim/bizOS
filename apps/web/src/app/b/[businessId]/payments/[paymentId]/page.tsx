@@ -1,9 +1,10 @@
-import { ChevronLeft, Download } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, Download } from "lucide-react";
 import Link from "next/link";
 
 import { type Payment, paymentStatusLabel } from "@bizo/contracts/payments";
 
 import {
+  MarkPaymentCompletedButton,
   RefundPaymentForm,
   ReversePaymentButton,
   VoidPaymentButton,
@@ -15,11 +16,6 @@ import { loadWorkspace } from "@/lib/workspace";
 /**
  * Roles holding `payments:void`, `payments:reverse`, and `payments:refund` in
  * `BusinessAccessService` — the same OWNER/ADMIN set.
- *
- * Mirrored here so the page does not offer an action the API will refuse. `payments:read` is much
- * broader — MEMBER, STAFF, ACCOUNTANT and EXTERNAL_AUDITOR can all open this page — and a refused
- * mutation comes back as a deliberately opaque "not found", which reads as a bug rather than a
- * permission boundary.
  */
 const ROLES_THAT_MAY_MANAGE = new Set(["OWNER", "ADMIN"]);
 
@@ -38,6 +34,8 @@ export default async function PaymentDetailPage({
   const pdfPath = `/api/businesses/${businessId}/payments/${paymentId}/pdf`;
   const hasRefunds = payment.refunds.length > 0;
 
+  const canComplete = payment.status === "DRAFT";
+
   return (
     <div className="page preview-page">
       <div className="preview-toolbar">
@@ -45,6 +43,9 @@ export default async function PaymentDetailPage({
           <ChevronLeft aria-hidden="true" size={18} /> Payments
         </Link>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          {canComplete && mayManage ? (
+            <MarkPaymentCompletedButton businessId={businessId} paymentId={paymentId} />
+          ) : null}
           <a className="button button-secondary" href={`${pdfPath}?download=1`}>
             <Download aria-hidden="true" size={17} /> Download receipt
           </a>
@@ -52,63 +53,109 @@ export default async function PaymentDetailPage({
       </div>
 
       <header className="preview-title">
-        <div>
-          <span className={`status status-${payment.status.toLowerCase()}`}>
-            {paymentStatusLabel(payment.status)}
-          </span>
-          <h1>{payment.type === "INBOUND" ? "Payment Received" : "Payment Sent"}</h1>
-          <p>{formatMoney(payment.amountMinor, payment.currencyCode, payment.currencyScale)}</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div
+            style={{
+              background: payment.type === "INBOUND" ? "var(--success-bg)" : "var(--muted)",
+              color: payment.type === "INBOUND" ? "var(--success)" : "var(--foreground)",
+              borderRadius: "50%",
+              width: "40px",
+              height: "40px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {payment.type === "INBOUND" ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
+          </div>
+          <div>
+            <span className={`status status-${payment.status.toLowerCase()}`}>
+              {paymentStatusLabel(payment.status)}
+            </span>
+            <h1>{payment.type === "INBOUND" ? "Payment Received" : "Payment Sent"}</h1>
+            <p
+              className="text-xl font-bold"
+              style={{ marginTop: "0.25rem", color: "var(--foreground)" }}
+            >
+              {formatMoney(payment.amountMinor, payment.currencyCode, payment.currencyScale)}
+            </p>
+          </div>
         </div>
       </header>
 
       <section className="panel readiness-panel">
+        <h2>Payment Details</h2>
         <dl className="detail-grid">
           <div>
             <dt>Date</dt>
             <dd>{payment.paymentDate}</dd>
           </div>
           <div>
-            <dt>Reference</dt>
+            <dt>Direction</dt>
+            <dd>{payment.type === "INBOUND" ? "Customer Receipt" : "Supplier Disbursement"}</dd>
+          </div>
+          <div>
+            <dt>Reference #</dt>
             <dd>{payment.reference || "None"}</dd>
           </div>
           <div>
+            <dt>Status</dt>
+            <dd>
+              <span className={`status status-${payment.status.toLowerCase()}`}>
+                {paymentStatusLabel(payment.status)}
+              </span>
+            </dd>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
             <dt>Notes</dt>
-            <dd>{payment.notes || "None"}</dd>
+            <dd>{payment.notes || "No notes attached"}</dd>
           </div>
         </dl>
       </section>
 
-      {payment.allocations.length > 0 && (
-        <section className="panel" style={{ marginTop: "1rem" }}>
-          <h2>Allocations</h2>
-          <table className="data-table" style={{ width: "100%", marginTop: "0.5rem" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left" }}>Document / PO</th>
-                <th style={{ textAlign: "right" }}>Amount Allocated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payment.allocations.map((alloc) => (
-                <tr key={alloc.id}>
-                  <td>
+      {payment.allocations.length > 0 ? (
+        <section className="panel">
+          <div className="section-heading">
+            <h2>Allocations ({payment.allocations.length})</h2>
+          </div>
+          <div className="data-list">
+            {payment.allocations.map((alloc) => (
+              <div key={alloc.id} className="data-row">
+                <span>
+                  <strong>
                     {alloc.documentId ? (
-                      <Link href={`/b/${businessId}/invoices/${alloc.documentId}`}>Invoice</Link>
+                      <Link
+                        className="text-link"
+                        href={`/b/${businessId}/invoices/${alloc.documentId}`}
+                      >
+                        Invoice Allocation
+                      </Link>
                     ) : alloc.purchaseOrderId ? (
-                      <Link href={`/b/${businessId}/purchase-orders/${alloc.purchaseOrderId}`}>
-                        Purchase Order
+                      <Link
+                        className="text-link"
+                        href={`/b/${businessId}/purchase-orders/${alloc.purchaseOrderId}`}
+                      >
+                        Purchase Order Allocation
                       </Link>
                     ) : (
-                      "Unassigned"
+                      "Unassigned Ledger Allocation"
                     )}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    {formatMoney(alloc.amountMinor, payment.currencyCode, payment.currencyScale)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </strong>
+                  <small>ID: {alloc.id}</small>
+                </span>
+                <strong>
+                  {formatMoney(alloc.amountMinor, payment.currencyCode, payment.currencyScale)}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="panel">
+          <h2>Allocations</h2>
+          <p className="text-muted-foreground">
+            This payment is unassigned and not tied to a specific invoice or purchase order.
+          </p>
         </section>
       )}
 
@@ -144,12 +191,6 @@ export default async function PaymentDetailPage({
         </section>
       )}
 
-      {/*
-        The payment state machine gates each action: a DRAFT can be voided (it never settled
-        anything), and a COMPLETED payment can be reversed (its allocations stop counting toward
-        settlement) or refunded (money returned, tracked as a distinct record). REVERSED and VOIDED
-        are terminal. Only OWNER/ADMIN see these — the API refuses everyone else.
-      */}
       {mayManage && payment.status === "DRAFT" && (
         <section className="panel" style={{ marginTop: "1rem" }}>
           <h2>Void payment</h2>
