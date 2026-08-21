@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 190,
-      "testFiles": 61,
+      "sourceFiles": 207,
+      "testFiles": 70,
       "areas": [
         {
           "name": "ai",
@@ -207,8 +207,8 @@
         {
           "name": "public-api",
           "path": "apps/api/src/public-api",
-          "sourceFiles": 4,
-          "testFiles": 0
+          "sourceFiles": 11,
+          "testFiles": 3
         },
         {
           "name": "purchase-orders",
@@ -261,8 +261,8 @@
         {
           "name": "webhooks",
           "path": "apps/api/src/webhooks",
-          "sourceFiles": 4,
-          "testFiles": 0
+          "sourceFiles": 14,
+          "testFiles": 6
         }
       ],
       "governingDocs": [
@@ -366,8 +366,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 52,
-      "testFiles": 19,
+      "sourceFiles": 55,
+      "testFiles": 20,
       "areas": [],
       "governingDocs": [
         "docs/api-guidelines.md",
