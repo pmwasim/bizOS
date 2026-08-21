@@ -49,8 +49,25 @@ available if needed (`/home/wasim/HarnessAgents/hive`).
 pnpm --filter @bizo/web test        # passed — 53 tests
 pnpm --filter @bizo/web typecheck   # passed
 pnpm --filter @bizo/web lint        # passed (pages-dir eslint warning pre-existing)
-pnpm ops:release-readiness          # after production deploy
+pnpm ops:release-readiness          # passed — 14/14 on https://bizos.qloudihub.com
 ```
+
+### Production deploy record
+
+- Merged PR #113 squash → `1434826` on `main`.
+- `/home/wasim/bizos-production` fast-forwarded `0025523` → `1434826`.
+- Postgres compose was down (empty volume created); restored
+  `bizos-backups/bizo-20260815-065232.dump`, migrated 7 pending migrations, restarted `bizos-api` +
+  `bizos-web`.
+- Post-deploy backup: `bizos-backups/bizo-20260821-180336.dump`.
+- Live verified: beta labels on pricing,
+  `/subscribe`/`/privacy`/`/terms`/`/contact`/`robots.txt`/`sitemap.xml` 200.
+
+## Production deploy (Tier 2)
+
+**Rollback SHA (current live before this deploy):** `0025523` in `/home/wasim/bizos-production`.
+**Target SHA:** `1434826` (squash merge of PR #113). **Rollback command:**
+`cd /home/wasim/bizos-production && git fetch && git checkout 0025523 && set -a && . ./.env && set +a && unset NODE_ENV && NODE_ENV=production pnpm install --frozen-lockfile && NODE_ENV=production pnpm --filter @bizo/api... build && NODE_ENV=production pnpm --filter @bizo/web... build && sudo systemctl restart bizos-api bizos-web`
 
 ## Follow-ups
 

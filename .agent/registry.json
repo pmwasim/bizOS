@@ -1,19 +1,5 @@
 {
   "version": 1,
   "note": "Advisory work claims held by agents. Managed by `pnpm agent:*` commands.",
-  "claims": [
-    {
-      "id": "clm_27b46ed1",
-      "agent": "cursor-sales",
-      "task": "Public sales readiness: honest claims, legal, funnel, monetization",
-      "scopes": [
-        ".agent",
-        "apps/web",
-        "docs"
-      ],
-      "branch": null,
-      "claimedAt": "2026-08-21T17:53:32.971Z",
-      "expiresAt": "2026-08-21T21:53:32.971Z"
-    }
-  ]
+  "claims": []
 }
