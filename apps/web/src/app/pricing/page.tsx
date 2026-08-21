@@ -3,12 +3,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { auth } from "@/auth";
+import { MarketingShell } from "@/components/marketing-shell";
 import { PricingTable } from "@/components/pricing-table";
+import { SITE_URL } from "@/lib/marketing";
 
 export const metadata: Metadata = {
-  title: "Pricing & Plans · bizOS",
+  title: "Pricing & Plans",
   description:
     "Transparent, per-business pricing for small businesses, contractors, and service companies in Saudi Arabia, UAE, and India. Start with a 30-day free trial.",
+  alternates: { canonical: `${SITE_URL}/pricing` },
+  openGraph: {
+    title: "Pricing & Plans · bizOS",
+    description:
+      "Pay per business, not per seat. Start free for 30 days — no credit card required.",
+    url: `${SITE_URL}/pricing`,
+    siteName: "bizOS",
+    type: "website",
+  },
 };
 
 const SERVICES = [
@@ -39,22 +50,27 @@ const FAQS = [
   {
     question: "Do you charge per user seat or per business?",
     answer:
-      "We charge primarily per business entity, with generous team member allowances included in each tier. This matches real small businesses where several collaborators need visibility without unpredictable per-seat surcharges.",
+      "We charge primarily per business entity, with team member allowances included in each tier. This matches small businesses where several collaborators need visibility without unpredictable per-seat surcharges.",
   },
   {
-    question: "Are country compliance features and ZATCA Phase 2 included?",
+    question: "Are country compliance features and ZATCA included?",
     answer:
-      "Yes. Mandatory country compliance packs (such as ZATCA e-invoicing in Saudi Arabia and GST in India) are built directly into standard and growth plans. We never hold legally required compliance or audit trails behind expensive enterprise paywalls.",
+      "Growth includes Saudi ZATCA Phase 1 helpers (QR payload and unsigned UBL XML export) and tax summaries for Saudi Arabia, the UAE, and India. Full Phase 2 Fatoora clearance (cryptographic stamp and regulator submission) is not finished yet — treat that path as beta until we say otherwise. Always confirm filing requirements with your tax adviser.",
   },
   {
     question: "Can I switch plans or cancel anytime?",
     answer:
-      "Yes. You can upgrade, downgrade, or cancel your subscription at any time. If you cancel, you retain full read-only and export access to all your historical business records.",
+      "Yes for subscriptions purchased through our billing portal (Subscribe / Qloudi Pro). Cancel or change there; you keep access to historical records you exported or that remain in your workspace. Plan changes for list tiers that are not yet billed automatically are handled by contacting support.",
   },
   {
     question: "Is there a free trial?",
     answer:
-      "Yes! You can start immediately with our 30-day Free Trial. No credit card or payment method is required to explore all core capabilities.",
+      "Yes. Start immediately with a 30-day free trial. No credit card is required to create an account and explore core quotation and invoice workflows.",
+  },
+  {
+    question: "Are seat and document limits enforced today?",
+    answer:
+      "The numbers on the price cards are our published commercial terms. Automated cut-off is not live yet — we will give advance notice before enforcement begins so you are never surprised mid-month.",
   },
 ];
 
@@ -63,82 +79,79 @@ export default async function PricingPage() {
 
   return (
     <main className="pricing-page">
-      <nav className="landing-nav" aria-label="Main navigation">
-        <Link className="brand" href="/">
-          bizOS
-        </Link>
-        <div className="nav-links">
-          <Link className="nav-link active" href="/pricing">
-            Pricing
-          </Link>
-          <Link className="button button-quiet" href={session ? "/start" : "/signin"}>
-            {session ? "Open workspace" : "Sign in"}
-          </Link>
-        </div>
-      </nav>
-
-      <header className="pricing-header">
-        <span className="eyebrow">Predictable, transparent plans</span>
-        <h1>Simple pricing tailored to your market</h1>
-        <p>
-          Pay per business, not per seat. Start free for 30 days and scale as your transaction
-          volume grows.
-        </p>
-      </header>
-
-      <section className="pricing-section">
-        <PricingTable />
-      </section>
-
-      <section className="services-section">
-        <div className="section-header">
-          <h2>Onboarding & Training Services</h2>
+      <MarketingShell
+        active="pricing"
+        sessionHref={session ? "/start" : "/signin"}
+        sessionLabel={session ? "Open workspace" : "Sign in"}
+      >
+        <header className="pricing-header">
+          <span className="eyebrow">Predictable, transparent plans</span>
+          <h1>Simple pricing tailored to your market</h1>
           <p>
-            Need assistance migrating from legacy spreadsheets or training your team? Our certified
-            specialists are available for remote onboarding.
+            Pay per business, not per seat. Start free for 30 days and scale as your transaction
+            volume grows.
           </p>
-        </div>
+        </header>
 
-        <div className="services-grid">
-          {SERVICES.map((srv, idx) => (
-            <div key={idx} className="service-card">
-              <div className="service-header">
-                <h3>{srv.title}</h3>
-                <span className="service-price">{srv.price}</span>
+        <section className="pricing-section">
+          <PricingTable />
+        </section>
+
+        <section className="services-section">
+          <div className="section-header">
+            <h2>Onboarding & Training Services</h2>
+            <p>
+              Need help migrating from spreadsheets or training your team? Remote onboarding
+              packages are available — email us from the contact page to schedule.
+            </p>
+          </div>
+
+          <div className="services-grid">
+            {SERVICES.map((srv) => (
+              <div key={srv.title} className="service-card">
+                <div className="service-header">
+                  <h3>{srv.title}</h3>
+                  <span className="service-price">{srv.price}</span>
+                </div>
+                <p className="service-scope">{srv.scope}</p>
               </div>
-              <p className="service-scope">{srv.scope}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
 
-      <section className="faq-section">
-        <div className="section-header">
-          <h2>Frequently Asked Questions</h2>
-          <p>Everything you need to know about bizOS pricing, billing, and compliance.</p>
-        </div>
+        <section className="faq-section">
+          <div className="section-header">
+            <h2>Frequently Asked Questions</h2>
+            <p>Everything you need to know about bizOS pricing, billing, and compliance.</p>
+          </div>
 
-        <div className="faq-grid">
-          {FAQS.map((faq, idx) => (
-            <div key={idx} className="faq-card">
-              <h3>
-                <HelpCircle size={18} className="faq-icon" aria-hidden="true" />
-                <span>{faq.question}</span>
-              </h3>
-              <p>{faq.answer}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+          <div className="faq-grid">
+            {FAQS.map((faq) => (
+              <div key={faq.question} className="faq-card">
+                <h3>
+                  <HelpCircle size={18} className="faq-icon" aria-hidden="true" />
+                  <span>{faq.question}</span>
+                </h3>
+                <p>{faq.answer}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <section className="pricing-cta">
-        <h2>Ready to simplify your business operations?</h2>
-        <p>Join hundreds of businesses running clean, auditable quotations and invoices.</p>
-        <Link className="button button-primary" href={session ? "/start" : "/signup"}>
-          {session ? "Continue to workspace" : "Start your free 30-day trial"}
-          <ArrowRight aria-hidden="true" size={18} />
-        </Link>
-      </section>
+        <section className="pricing-cta">
+          <h2>Ready to simplify your business operations?</h2>
+          <p>Start a free trial and send your first quotation today.</p>
+          <div className="pricing-cta-actions">
+            <Link className="button button-primary" href={session ? "/start" : "/signup"}>
+              {session ? "Continue to workspace" : "Start your free 30-day trial"}
+              <ArrowRight aria-hidden="true" size={18} />
+            </Link>
+            <Link className="button button-quiet" href="/subscribe">
+              Subscribe (Qloudi Pro)
+            </Link>
+          </div>
+        </section>
+      </MarketingShell>
     </main>
   );
 }

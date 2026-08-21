@@ -130,7 +130,7 @@ function SignInView() {
         </p>
 
         <p className="auth-note">
-          Access is limited to accounts already enabled for the private beta.
+          New to bizOS? <Link href="/signup">Create an account</Link> and start a free trial.
         </p>
       </section>
     </main>

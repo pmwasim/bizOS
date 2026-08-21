@@ -47,6 +47,14 @@ export default async function SettingsPage({
         </div>
         <ArrowRight aria-hidden="true" size={18} />
       </Link>
+      <Link className="guided-setup-card" href="/subscribe">
+        <Sparkles aria-hidden="true" size={20} />
+        <div>
+          <strong>Qloudi Pro subscription</strong>
+          <small>Upgrade, check entitlement status, or open the billing portal.</small>
+        </div>
+        <ArrowRight aria-hidden="true" size={18} />
+      </Link>
       <SettingsForm businessId={businessId} settings={settings} />
     </div>
   );
