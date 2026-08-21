@@ -8,7 +8,7 @@
     "packageCount": 7,
     "edgeCount": 10,
     "adrCount": 27,
-    "handbookDocumentCount": 89
+    "handbookDocumentCount": 130
   },
   "buildOrder": [
     {
@@ -281,7 +281,8 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-production-cutover.md",
         "docs/security.md",
-        "docs/spikes/opennext-cloudflare-web.md"
+        "docs/spikes/opennext-cloudflare-web.md",
+        "docs/vault/Workspaces/bizo-api.md"
       ]
     },
     {
@@ -309,7 +310,8 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/vault/Workspaces/bizo-authorization.md"
       ]
     },
     {
@@ -340,7 +342,8 @@
         "docs/architecture.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
-        "docs/security.md"
+        "docs/security.md",
+        "docs/vault/Workspaces/bizo-config.md"
       ]
     },
     {
@@ -378,7 +381,8 @@
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
-        "docs/operations/ubuntu-production-cutover.md"
+        "docs/operations/ubuntu-production-cutover.md",
+        "docs/vault/Workspaces/bizo-contracts.md"
       ]
     },
     {
@@ -421,7 +425,8 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
         "docs/operations/production-runbook.md",
-        "docs/operations/ubuntu-production-cutover.md"
+        "docs/operations/ubuntu-production-cutover.md",
+        "docs/vault/Workspaces/bizo-database.md"
       ]
     },
     {
@@ -449,7 +454,8 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/vault/Workspaces/bizo-queue.md"
       ]
     },
     {
@@ -483,7 +489,8 @@
         "docs/operations/invoice-vertical-slice-checkpoint.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
-        "docs/operations/r2-object-storage.md"
+        "docs/operations/r2-object-storage.md",
+        "docs/vault/Workspaces/bizo-storage.md"
       ]
     },
     {
@@ -512,7 +519,8 @@
       "governingDocs": [
         "docs/architecture.md",
         "docs/coding-standards.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/vault/Workspaces/bizo-ui.md"
       ]
     },
     {
@@ -539,26 +547,26 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 131,
-      "testFiles": 7,
+      "sourceFiles": 139,
+      "testFiles": 8,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 78,
+          "sourceFiles": 79,
           "testFiles": 5
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 42,
+          "sourceFiles": 43,
           "testFiles": 0
         },
         {
           "name": "lib",
           "path": "apps/web/src/lib",
-          "sourceFiles": 9,
-          "testFiles": 2
+          "sourceFiles": 15,
+          "testFiles": 3
         }
       ],
       "governingDocs": [
@@ -572,7 +580,8 @@
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/ubuntu-cutover-handoff.md",
         "docs/operations/ubuntu-production-cutover.md",
-        "docs/spikes/opennext-cloudflare-web.md"
+        "docs/spikes/opennext-cloudflare-web.md",
+        "docs/vault/Workspaces/bizo-web.md"
       ]
     }
   ],
@@ -903,6 +912,10 @@
     {
       "name": "graph:check",
       "command": "node scripts/agent/graphify.mjs --check"
+    },
+    {
+      "name": "graph:obsidian",
+      "command": "pnpm graph && node scripts/agent/graphify-obsidian.mjs"
     },
     {
       "name": "journal:check",

@@ -26,7 +26,7 @@ layer above it.
 | `@bizo/queue` | package | `packages/queue` | `@bizo/contracts` | — | 2 | 1 |
 | `@bizo/storage` | package | `packages/storage` | — | `@bizo/api` | 3 | 1 |
 | `@bizo/ui` | package | `packages/ui` | — | `@bizo/web` | 2 | 0 |
-| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 131 | 7 |
+| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 139 | 8 |
 
 ## Claimable areas
 
@@ -71,9 +71,9 @@ First-level source areas. These are the natural units for a work claim
 
 ### `@bizo/web`
 
-- `apps/web/src/app` — 78 source files, 5 test files
-- `apps/web/src/components` — 42 source files, 0 test files
-- `apps/web/src/lib` — 9 source files, 2 test files
+- `apps/web/src/app` — 79 source files, 5 test files
+- `apps/web/src/components` — 43 source files, 0 test files
+- `apps/web/src/lib` — 15 source files, 3 test files
 
 ## Entry points
 
@@ -120,12 +120,12 @@ First-level source areas. These are the natural units for a work claim
 Handbook documents that name each workspace. Update them in the same change that
 invalidates them.
 
-- `@bizo/api`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/decisions/0023-invoice-settlement-is-derived.md`, `docs/deployment-handoff-cursor.md`, `docs/document-templates-plan.md`, `docs/mmf.md`, `docs/multi-agent-protocol.md`, `docs/operations/issue-60-object-store-blob-audit.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/n8n-integration-policy.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/security.md`, `docs/spikes/opennext-cloudflare-web.md`
-- `@bizo/authorization`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`
-- `@bizo/config`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/security.md`
-- `@bizo/contracts`: `docs/api-guidelines.md`, `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/document-templates-plan.md`, `docs/multi-agent-protocol.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/ubuntu-production-cutover.md`
-- `@bizo/database`: `docs/architecture.md`, `docs/database-strategy.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/production-runbook.md`, `docs/operations/ubuntu-production-cutover.md`
-- `@bizo/queue`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`
-- `@bizo/storage`: `docs/architecture.md`, `docs/decisions/0017-po-object-storage.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/r2-object-storage.md`
-- `@bizo/ui`: `docs/architecture.md`, `docs/coding-standards.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`
-- `@bizo/web`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/decisions/0024-receivables-and-statements-are-derived-per-currency.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-cutover-handoff.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/spikes/opennext-cloudflare-web.md`
+- `@bizo/api`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/decisions/0023-invoice-settlement-is-derived.md`, `docs/deployment-handoff-cursor.md`, `docs/document-templates-plan.md`, `docs/mmf.md`, `docs/multi-agent-protocol.md`, `docs/operations/issue-60-object-store-blob-audit.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/n8n-integration-policy.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/security.md`, `docs/spikes/opennext-cloudflare-web.md`, `docs/vault/Workspaces/bizo-api.md`
+- `@bizo/authorization`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/vault/Workspaces/bizo-authorization.md`
+- `@bizo/config`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/security.md`, `docs/vault/Workspaces/bizo-config.md`
+- `@bizo/contracts`: `docs/api-guidelines.md`, `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/document-templates-plan.md`, `docs/multi-agent-protocol.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/vault/Workspaces/bizo-contracts.md`
+- `@bizo/database`: `docs/architecture.md`, `docs/database-strategy.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/production-runbook.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/vault/Workspaces/bizo-database.md`
+- `@bizo/queue`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/vault/Workspaces/bizo-queue.md`
+- `@bizo/storage`: `docs/architecture.md`, `docs/decisions/0017-po-object-storage.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/r2-object-storage.md`, `docs/vault/Workspaces/bizo-storage.md`
+- `@bizo/ui`: `docs/architecture.md`, `docs/coding-standards.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/vault/Workspaces/bizo-ui.md`
+- `@bizo/web`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/decisions/0024-receivables-and-statements-are-derived-per-currency.md`, `docs/deployment-handoff-cursor.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-cutover-handoff.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/spikes/opennext-cloudflare-web.md`, `docs/vault/Workspaces/bizo-web.md`

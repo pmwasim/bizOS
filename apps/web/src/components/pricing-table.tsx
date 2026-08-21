@@ -78,7 +78,8 @@ const PLANS: PlanTier[] = [
       "Customer PO & approval evidence",
       "Supplier purchasing & supplier bills",
       "Delivery notes & service completion",
-      "ZATCA & country compliance packs",
+      // Phase 1 QR + unsigned UBL ship; Fatoora clearance does not. See pricing FAQ.
+      { label: "ZATCA QR & UBL export · country tax summaries", beta: true },
       "Role-based permission controls",
     ],
   },
@@ -98,8 +99,8 @@ const PLANS: PlanTier[] = [
       "2,000 business documents / month",
       "Governed custom fields & workflows",
       "Advanced document templates",
-      "API keys & signed webhook triggers",
-      "Priority assistance & SLA",
+      { label: "API keys & signed webhook triggers", beta: true },
+      "Priority assistance",
     ],
   },
 ];
@@ -192,10 +193,14 @@ export function PricingTable() {
 
               <div className="pricing-card-cta">
                 <Link
-                  href={`/signup?plan=${plan.id}&country=${country}`}
+                  href={
+                    plan.id === "trial" ? "/signup" : `/signup?plan=${plan.id}&country=${country}`
+                  }
                   className={`button ${plan.highlighted ? "button-primary" : "button-secondary"} button-full`}
                 >
-                  {plan.id === "trial" ? "Start 30-day free trial" : `Choose ${plan.name}`}
+                  {plan.id === "trial"
+                    ? "Start 30-day free trial"
+                    : `Start free · ${plan.name} list`}
                 </Link>
               </div>
 
@@ -224,8 +229,11 @@ export function PricingTable() {
 
       <p className="pricing-beta-note">
         Features marked <strong>beta</strong> are built and usable, but have not yet been verified
-        against real business data in a deployed environment. They are included in the plan price,
-        and we will tell you before relying on them for anything you cannot re-check by hand.
+        against real business data in a deployed environment — or, for compliance exports, do not
+        yet include regulator clearance. Seat and document numbers are published list terms;
+        automated enforcement is not live yet and will arrive with advance notice. Paid self-serve
+        checkout today is via <a href="/subscribe">Subscribe (Qloudi Pro)</a>; list tiers activate
+        through trial signup and support.
       </p>
     </div>
   );
