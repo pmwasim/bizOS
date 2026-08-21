@@ -8,8 +8,7 @@ Scope: apps/web, docs, scripts/ops
 
 Status: Ready for review
 
-Related:
-[sales & marketing audit canvas](../../.cursor/projects/home-wasim-bizOS/canvases/bizos-sales-marketing-readiness.canvas.tsx),
+Related: sales & marketing audit canvas (local Cursor canvas; not in-repo),
 [RevenueCat Web SDK journal](2026-08-21-integrate-revenuecat-web-sdk-for-qloudi-pro.md)
 
 ## Context

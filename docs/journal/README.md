@@ -15,6 +15,8 @@ Rules:
 
 ## Entries
 
+- [2026-08-21 — Sprint 6 TASK-25 webhook security penetration gate](2026-08-21-sprint-6-task-25-webhook-security-penetration-gate.md)
+  - Agent: cursor-autonomy · Status: Ready for review
 - [2026-08-21 — Public sales readiness for bizos.qloudihub.com](2026-08-21-public-sales-readiness-for-bizos-qloudihub-com.md)
   - Agent: cursor-sales · Status: Ready for review
 - [2026-08-21 — Integrate RevenueCat Web SDK for Qloudi Pro](2026-08-21-integrate-revenuecat-web-sdk-for-qloudi-pro.md)

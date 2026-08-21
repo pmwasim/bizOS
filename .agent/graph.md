@@ -18,7 +18,7 @@ layer above it.
 
 | Workspace | Type | Path | Depends on | Depended on by | Source | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 217 | 72 |
+| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 218 | 73 |
 | `@bizo/authorization` | package | `packages/authorization` | — | `@bizo/api` | 2 | 1 |
 | `@bizo/config` | package | `packages/config` | — | `@bizo/api`, `@bizo/web` | 5 | 2 |
 | `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 57 | 21 |
@@ -69,7 +69,7 @@ First-level source areas. These are the natural units for a work claim
 - `apps/api/src/suppliers` — 4 source files, 1 test file
 - `apps/api/src/system-admin` — 5 source files, 2 test files
 - `apps/api/src/tax` — 6 source files, 2 test files
-- `apps/api/src/webhooks` — 14 source files, 6 test files
+- `apps/api/src/webhooks` — 15 source files, 7 test files
 
 ### `@bizo/web`
 
@@ -122,7 +122,7 @@ First-level source areas. These are the natural units for a work claim
 Handbook documents that name each workspace. Update them in the same change that
 invalidates them.
 
-- `@bizo/api`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/decisions/0023-invoice-settlement-is-derived.md`, `docs/deployment-handoff-cursor.md`, `docs/document-templates-plan.md`, `docs/mmf.md`, `docs/multi-agent-protocol.md`, `docs/operations/issue-60-object-store-blob-audit.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/n8n-integration-policy.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/security.md`, `docs/spikes/opennext-cloudflare-web.md`, `docs/vault/Workspaces/bizo-api.md`
+- `@bizo/api`: `docs/architecture.md`, `docs/decisions/0015-managed-hosting-behind-cloudflare.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/decisions/0023-invoice-settlement-is-derived.md`, `docs/deployment-handoff-cursor.md`, `docs/document-templates-plan.md`, `docs/mmf.md`, `docs/multi-agent-protocol.md`, `docs/operations/issue-60-object-store-blob-audit.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/operations/n8n-integration-policy.md`, `docs/operations/phase1-authoritative-state-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/operations/webhook-security-gate.md`, `docs/public-api.md`, `docs/security.md`, `docs/spikes/opennext-cloudflare-web.md`, `docs/vault/Workspaces/bizo-api.md`
 - `@bizo/authorization`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/vault/Workspaces/bizo-authorization.md`
 - `@bizo/config`: `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/operations/local-test-evaluation-2026-08-06.md`, `docs/security.md`, `docs/vault/Workspaces/bizo-config.md`
 - `@bizo/contracts`: `docs/api-guidelines.md`, `docs/architecture.md`, `docs/decisions/0019-open-source-leverage-default-erp-foundation.md`, `docs/document-templates-plan.md`, `docs/multi-agent-protocol.md`, `docs/operations/invoice-vertical-slice-checkpoint.md`, `docs/operations/phase2-hardcoded-assumptions-audit.md`, `docs/operations/phase4-configuration-architecture-design.md`, `docs/operations/ubuntu-production-cutover.md`, `docs/vault/Workspaces/bizo-contracts.md`
