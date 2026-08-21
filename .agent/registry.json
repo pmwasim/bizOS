@@ -3,20 +3,6 @@
   "note": "Advisory work claims held by agents. Managed by `pnpm agent:*` commands.",
   "claims": [
     {
-      "id": "clm_4e2ced60",
-      "agent": "cursor-autonomy",
-      "task": "Deploy main to production; wire RC server key; close leftover PR",
-      "scopes": [
-        ".agent",
-        "apps/api",
-        "apps/web",
-        "docs/journal"
-      ],
-      "branch": null,
-      "claimedAt": "2026-08-21T21:22:47.412Z",
-      "expiresAt": "2026-08-22T01:22:47.412Z"
-    },
-    {
       "id": "clm_696ecd8e",
       "agent": "cursor-autonomy",
       "task": "Sprint 6 TASK-25 webhook security penetration gate",
