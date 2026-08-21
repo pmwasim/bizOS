@@ -22,6 +22,8 @@ export const customerSchema = createCustomerRequestSchema.extend({
   createdAt: z.iso.datetime(),
 });
 
+export const updateCustomerRequestSchema = createCustomerRequestSchema;
+
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
 export type Customer = z.infer<typeof customerSchema>;
-export type UpdateCustomerRequest = CreateCustomerRequest;
+export type UpdateCustomerRequest = z.infer<typeof updateCustomerRequestSchema>;

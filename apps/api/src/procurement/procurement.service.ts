@@ -372,8 +372,8 @@ export class ProcurementService {
           notes: input.notes ?? null,
           createdByMembershipId: access.membershipId,
           lines: {
-            create: input.lines.map((line) => ({
-              position: 1,
+            create: input.lines.map((line, index) => ({
+              position: index + 1,
               description: line.description,
               quantity: line.quantity,
               unitPriceMinor: "0",

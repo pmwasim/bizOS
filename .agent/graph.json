@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 218,
-      "testFiles": 73,
+      "sourceFiles": 226,
+      "testFiles": 81,
       "areas": [
         {
           "name": "ai",
@@ -105,8 +105,8 @@
         {
           "name": "customers",
           "path": "apps/api/src/customers",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 5,
+          "testFiles": 2
         },
         {
           "name": "customization",
@@ -117,8 +117,8 @@
         {
           "name": "database",
           "path": "apps/api/src/database",
-          "sourceFiles": 2,
-          "testFiles": 0
+          "sourceFiles": 3,
+          "testFiles": 1
         },
         {
           "name": "delivery-notes",
@@ -201,14 +201,14 @@
         {
           "name": "procurement",
           "path": "apps/api/src/procurement",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 5,
+          "testFiles": 2
         },
         {
           "name": "products",
           "path": "apps/api/src/products",
-          "sourceFiles": 3,
-          "testFiles": 0
+          "sourceFiles": 5,
+          "testFiles": 2
         },
         {
           "name": "projects",
@@ -249,8 +249,8 @@
         {
           "name": "storage",
           "path": "apps/api/src/storage",
-          "sourceFiles": 2,
-          "testFiles": 0
+          "sourceFiles": 3,
+          "testFiles": 1
         },
         {
           "name": "suppliers",
@@ -553,25 +553,25 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 151,
+      "sourceFiles": 154,
       "testFiles": 8,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 85,
+          "sourceFiles": 86,
           "testFiles": 5
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 48,
+          "sourceFiles": 49,
           "testFiles": 0
         },
         {
           "name": "lib",
           "path": "apps/web/src/lib",
-          "sourceFiles": 16,
+          "sourceFiles": 17,
           "testFiles": 3
         }
       ],

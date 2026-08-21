@@ -25,6 +25,8 @@ Rules:
   - Agent: cursor-landing · Status: Merged
 - [2026-08-21 — Deploy OpenAPI billing and deps to production](2026-08-21-deploy-openapi-billing-and-deps-to-production.md)
   - Agent: cursor-autonomy · Status: Ready for review
+- [2026-08-21 — Comprehensive backend audit, verification, and hardening](2026-08-21-comprehensive-backend-audit-verification-and-hardening.md)
+  - Agent: antigravity-backend · Status: Ready for review
 - [2026-08-21 — Complete RevenueCat paywall publish and server entitlements](2026-08-21-complete-revenuecat-paywall-publish-and-server-entitlements.md)
   - Agent: cursor-ship · Status: Ready for review
 - [2026-08-21 — Audit and comprehensive frontend UI overhaul](2026-08-21-audit-and-comprehensive-frontend-ui-overhaul.md)

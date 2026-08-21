@@ -3,6 +3,7 @@ import { Body, Controller, Get, Inject, Param, Post, Put } from "@nestjs/common"
 import {
   createCustomerRequestSchema,
   type CreateCustomerRequest,
+  updateCustomerRequestSchema,
   type UpdateCustomerRequest,
 } from "@bizo/contracts/customers";
 
@@ -45,7 +46,7 @@ export class CustomersController {
     @Principal() principal: AuthenticatedPrincipal,
     @Param("businessId") businessId: string,
     @Param("customerId") customerId: string,
-    @Body(new ContractPipe(createCustomerRequestSchema)) input: UpdateCustomerRequest,
+    @Body(new ContractPipe(updateCustomerRequestSchema)) input: UpdateCustomerRequest,
     @RequestId() requestId: string,
   ) {
     return this.customers.update(principal.userId, businessId, customerId, input, requestId);

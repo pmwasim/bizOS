@@ -213,6 +213,29 @@ export class ProductsService {
     return record;
   }
 
+  private formatMinor(value: unknown): string | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "bigint") return value.toString();
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "toFixed" in value &&
+      typeof (value as { toFixed: unknown }).toFixed === "function"
+    ) {
+      return (value as { toFixed: (n: number) => string }).toFixed(0);
+    }
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "toString" in value &&
+      typeof value.toString === "function"
+    ) {
+      return value.toString();
+    }
+    return String(value);
+  }
+
   private mapProduct(record: ProductRecord): Product {
     return {
       id: record.publicId,
@@ -221,8 +244,8 @@ export class ProductsService {
       description: record.description,
       type: record.type as Product["type"],
       unit: record.unit,
-      costPriceMinor: record.costPriceMinor ? record.costPriceMinor.toFixed(0) : null,
-      sellingPriceMinor: record.sellingPriceMinor ? record.sellingPriceMinor.toFixed(0) : null,
+      costPriceMinor: this.formatMinor(record.costPriceMinor),
+      sellingPriceMinor: this.formatMinor(record.sellingPriceMinor),
       taxRatePpm: record.taxRatePpm,
       isActive: record.isActive,
       createdAt: record.createdAt.toISOString(),

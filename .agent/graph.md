@@ -18,7 +18,7 @@ layer above it.
 
 | Workspace | Type | Path | Depends on | Depended on by | Source | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 218 | 73 |
+| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 226 | 81 |
 | `@bizo/authorization` | package | `packages/authorization` | — | `@bizo/api` | 2 | 1 |
 | `@bizo/config` | package | `packages/config` | — | `@bizo/api`, `@bizo/web` | 5 | 2 |
 | `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 57 | 21 |
@@ -26,7 +26,7 @@ layer above it.
 | `@bizo/queue` | package | `packages/queue` | `@bizo/contracts` | — | 2 | 1 |
 | `@bizo/storage` | package | `packages/storage` | — | `@bizo/api` | 3 | 1 |
 | `@bizo/ui` | package | `packages/ui` | — | `@bizo/web` | 2 | 0 |
-| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 151 | 8 |
+| `@bizo/web` | app | `apps/web` | `@bizo/config`, `@bizo/contracts`, `@bizo/ui` | — | 154 | 8 |
 
 ## Claimable areas
 
@@ -41,9 +41,9 @@ First-level source areas. These are the natural units for a work claim
 - `apps/api/src/configuration` — 8 source files, 4 test files
 - `apps/api/src/credit-notes` — 4 source files, 1 test file
 - `apps/api/src/crm` — 6 source files, 2 test files
-- `apps/api/src/customers` — 3 source files, 0 test files
+- `apps/api/src/customers` — 5 source files, 2 test files
 - `apps/api/src/customization` — 10 source files, 4 test files
-- `apps/api/src/database` — 2 source files, 0 test files
+- `apps/api/src/database` — 3 source files, 1 test file
 - `apps/api/src/delivery-notes` — 4 source files, 1 test file
 - `apps/api/src/docs` — 4 source files, 1 test file
 - `apps/api/src/documents` — 19 source files, 5 test files
@@ -57,15 +57,15 @@ First-level source areas. These are the natural units for a work claim
 - `apps/api/src/onboarding` — 7 source files, 2 test files
 - `apps/api/src/payments` — 5 source files, 2 test files
 - `apps/api/src/platform` — 4 source files, 1 test file
-- `apps/api/src/procurement` — 3 source files, 0 test files
-- `apps/api/src/products` — 3 source files, 0 test files
+- `apps/api/src/procurement` — 5 source files, 2 test files
+- `apps/api/src/products` — 5 source files, 2 test files
 - `apps/api/src/projects` — 4 source files, 1 test file
 - `apps/api/src/public-api` — 11 source files, 3 test files
 - `apps/api/src/purchase-orders` — 4 source files, 1 test file
 - `apps/api/src/sales-orders` — 4 source files, 1 test file
 - `apps/api/src/security` — 17 source files, 6 test files
 - `apps/api/src/statements` — 11 source files, 4 test files
-- `apps/api/src/storage` — 2 source files, 0 test files
+- `apps/api/src/storage` — 3 source files, 1 test file
 - `apps/api/src/suppliers` — 4 source files, 1 test file
 - `apps/api/src/system-admin` — 5 source files, 2 test files
 - `apps/api/src/tax` — 6 source files, 2 test files
@@ -73,9 +73,9 @@ First-level source areas. These are the natural units for a work claim
 
 ### `@bizo/web`
 
-- `apps/web/src/app` — 85 source files, 5 test files
-- `apps/web/src/components` — 48 source files, 0 test files
-- `apps/web/src/lib` — 16 source files, 3 test files
+- `apps/web/src/app` — 86 source files, 5 test files
+- `apps/web/src/components` — 49 source files, 0 test files
+- `apps/web/src/lib` — 17 source files, 3 test files
 
 ## Entry points
 

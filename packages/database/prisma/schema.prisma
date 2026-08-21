@@ -579,8 +579,8 @@ model Opportunity {
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business  Business  @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  lead      Lead?     @relation(fields: [tenantId, businessId, leadId], references: [tenantId, businessId, id], onDelete: SetNull)
-  quotation Document? @relation("OpportunityQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: SetNull)
+  lead      Lead?     @relation(fields: [tenantId, businessId, leadId], references: [tenantId, businessId, id], onDelete: Restrict)
+  quotation Document? @relation("OpportunityQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, stage])
@@ -605,7 +605,7 @@ model Project {
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   business Business  @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  customer Customer? @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: SetNull)
+  customer Customer? @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status])
