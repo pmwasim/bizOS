@@ -6,7 +6,7 @@ Agent: cursor-landing
 
 Scope: apps/web
 
-Status: Ready for review
+Status: Merged
 
 Related: [public sales readiness](2026-08-21-public-sales-readiness-for-bizos-qloudihub-com.md),
 [product overview](../product-overview.md), [UX principles](../ux-principles.md),
@@ -44,6 +44,8 @@ sales-readiness journal.
 
 ## Verification
 
+Merged as squash PR #119 → `b5c09ca` on `main` (admin merge while CI in progress).
+
 ```text
 pnpm --filter @bizo/web typecheck   # passed
 pnpm --filter @bizo/web lint        # passed (pre-existing pages-dir eslint warning)
@@ -53,7 +55,9 @@ Visual preview http://localhost:3010/ and /product  # verified in browser
 
 ## Follow-ups
 
-- Human: merge `cursor/marketing-landing-redesign` and deploy production when ready.
+- Deploy production from `main` at merge commit `b5c09ca` when ready (CI was still running at merge
+  via admin).
+- Optional: Arabic marketing mirror later.
 - Optional: Arabic marketing mirror later (product ships AR in-app; marketing remains EN for now).
 
 ## Handoff notes
