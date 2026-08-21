@@ -19,6 +19,8 @@ Rules:
   - Agent: cursor-sales · Status: Ready for review
 - [2026-08-21 — Integrate RevenueCat Web SDK for Qloudi Pro](2026-08-21-integrate-revenuecat-web-sdk-for-qloudi-pro.md)
   - Agent: cursor-rc-web · Status: Done
+- [2026-08-21 — Complete RevenueCat paywall publish and server entitlements](2026-08-21-complete-revenuecat-paywall-publish-and-server-entitlements.md)
+  - Agent: cursor-ship · Status: Ready for review
 - [2026-08-20 — TASK-19 country tax exports](2026-08-20-task-19-country-tax-exports.md)
   - Agent: sprint5-task19 · Status: Done
 - [2026-08-18 — TASK-02 multi-currency formatting sweep](2026-08-18-task-02-multi-currency-formatting-sweep.md)

@@ -50,6 +50,8 @@ export function QloudiProSubscriptionPanel({
   const [offering, setOffering] = useState<Offering | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [serverHasQloudiPro, setServerHasQloudiPro] = useState<boolean | null>(null);
+  const [serverConfigured, setServerConfigured] = useState<boolean | null>(null);
 
   const applyPurchaseResult = useCallback((result: PurchaseResult) => {
     setCustomerInfo(result.customerInfo);
@@ -58,21 +60,49 @@ export function QloudiProSubscriptionPanel({
     } else {
       setStatusNote("Purchase completed. Entitlement sync may take a moment — refresh if needed.");
     }
+    void fetch("/api/billing/entitlements", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          configured?: boolean;
+          hasQloudiPro?: boolean;
+        };
+        setServerConfigured(Boolean(payload.configured));
+        setServerHasQloudiPro(Boolean(payload.hasQloudiPro));
+      })
+      .catch(() => {
+        /* client entitlement state remains the source of truth in the UI */
+      });
   }, []);
 
   const loadSubscription = useCallback(
     async (signal: { cancelled: boolean }) => {
       try {
         const purchases = await ensurePurchasesConfigured(appUserId);
-        const [info, offerings] = await Promise.all([
+        const [info, offerings, serverResponse] = await Promise.all([
           purchases.getCustomerInfo(),
           purchases.getOfferings(),
+          fetch("/api/billing/entitlements", { cache: "no-store" }).catch(() => null),
         ]);
         if (signal.cancelled) return;
         setCustomerInfo(info);
         setOffering(offerings.current);
         setErrorMessage(null);
         setLoadState("ready");
+
+        if (serverResponse?.ok) {
+          const payload = (await serverResponse.json()) as {
+            configured?: boolean;
+            hasQloudiPro?: boolean;
+          };
+          if (!signal.cancelled) {
+            setServerConfigured(Boolean(payload.configured));
+            setServerHasQloudiPro(Boolean(payload.hasQloudiPro));
+          }
+        } else if (!signal.cancelled) {
+          setServerConfigured(null);
+          setServerHasQloudiPro(null);
+        }
       } catch (error) {
         if (signal.cancelled) return;
         setLoadState("error");
@@ -233,6 +263,13 @@ export function QloudiProSubscriptionPanel({
                     {entitlement?.expirationDate
                       ? ` · Renews/expires ${entitlement.expirationDate.toLocaleDateString()}`
                       : " · Lifetime or non-expiring"}
+                    {serverConfigured === true
+                      ? serverHasQloudiPro
+                        ? " · Server verified"
+                        : " · Server: not active yet"
+                      : serverConfigured === false
+                        ? " · Server check not configured"
+                        : ""}
                   </small>
                 </div>
               </>
