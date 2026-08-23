@@ -4,14 +4,14 @@ Status: Active for private beta
 
 ## Continuous checks
 
-| Signal                | How                                                                      | Cadence                                       |
-| --------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
-| Web uptime            | `GET https://bizos.qloudihub.com/` expect 200                            | CF Worker cron + `Production health` workflow |
-| API health            | `GET https://api.bizos.qloudihub.com/api/v1/health` expect `status:"ok"` | CF Worker cron + `Production health` workflow |
-| Failed deploys        | GitHub Actions → Production deploy conclusions                           | On each deploy                                |
-| SMTP / email failures | Quotation UI delivery status (`SENT` / `FAILED`)                         | Per send; review weekly                       |
-| Deployed SHA          | Production deploy job summary                                            | Per release                                   |
-| Prisma backups        | Prisma Console / MCP `list_prisma_postgres_backups`                      | Weekly until paid backups proven              |
+| Signal                | How                                                                          | Cadence                                       |
+| --------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
+| Web uptime            | `GET` the production `WEB_ORIGIN_HOST` expect 200; public edge is diagnostic | CF Worker cron + `Production health` workflow |
+| API health            | `GET https://api.bizos.qloudihub.com/api/v1/health` expect `status:"ok"`     | CF Worker cron + `Production health` workflow |
+| Failed deploys        | GitHub Actions → Production deploy conclusions                               | On each deploy                                |
+| SMTP / email failures | Quotation UI delivery status (`SENT` / `FAILED`)                             | Per send; review weekly                       |
+| Deployed SHA          | Production deploy job summary                                                | Per release                                   |
+| Prisma backups        | Prisma Console / MCP `list_prisma_postgres_backups`                          | Weekly until paid backups proven              |
 
 ## Cloudflare Free resources (in use)
 
@@ -35,7 +35,15 @@ Status: Active for private beta
 1. **Cloudflare Worker** (`ops/cloudflare-health-worker`): cron every 30 minutes; last result in KV;
    `workers.dev` `/status`. Deploy via **Deploy Cloudflare health worker**.
 2. **GitHub Actions** `.github/workflows/production-health.yml`: `schedule` every 30 minutes +
-   `workflow_dispatch`; fails red on repeated probe failure (free-tier cold-start retries included).
+   `workflow_dispatch`; probes the web service through the `WEB_ORIGIN_HOST` variable in the
+   `production` environment and fails red on repeated origin failure (free-tier cold-start retries
+   included). It also checks the public web hostname as a diagnostic. A 403 from that diagnostic is
+   treated as a warning because the public edge currently denies GitHub datacenter IPs while the
+   origin remains reachable.
+
+Keep `WEB_ORIGIN_HOST` aligned with the actual production ingress. The origin probe is authoritative
+for application health; the public-edge diagnostic is the signal to investigate WAF, DNS, or tunnel
+configuration separately.
 
 ## SMTP failure visibility
 
