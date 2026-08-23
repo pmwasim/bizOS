@@ -61,13 +61,21 @@ jobs:
           WEB_PUBLIC_URL: https://bizos.qloudihub.com/
         run: |
           set -euo pipefail
-          code=$(curl --silent --max-time 45 --output /dev/null --write-out '%{http_code}' "$WEB_PUBLIC_URL" || true)
+          headers=$(mktemp)
+          trap 'rm -f "$headers"' EXIT
+          code=$(curl --silent --max-time 45 --dump-header "$headers" --output /dev/null \
+            --write-out '%{http_code}' "$WEB_PUBLIC_URL" || true)
           case "$code" in
             200)
               echo "Public web edge reachable"
               ;;
             403)
-              echo "::warning::Public web edge denied this GitHub runner with HTTP 403; authoritative origin probe passed"
+              if grep -Eiq '^x-render-origin-server:[[:space:]]*Render[[:space:]]*$' "$headers"; then
+                echo "::warning::Public web edge denied this GitHub runner with HTTP 403 from Render; authoritative origin probe passed"
+              else
+                echo "::error::Public web edge returned HTTP 403 without the known runner-specific Render marker"
+                exit 1
+              fi
               ;;
             *)
               echo "::error::Public web edge returned HTTP ${code:-0}"

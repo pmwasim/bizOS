@@ -27,6 +27,9 @@ Updated the E2E setup helper and smoke journeys to follow the current dashboard 
 - `e2e/helpers.ts` now asserts `Welcome to your new workspace` after `Use default`.
 - `e2e/quotation-journey.spec.ts`, `e2e/po-approval-readiness.spec.ts`, and
   `e2e/prod-invoice-smoke.mjs` now target the current `Add first customer` link label.
+- `.github/workflows/production-health.yml` now accepts a public-edge 403 only with the known
+  Render-origin marker; other 403 responses fail the diagnostic.
+- `docs/operations/monitoring.md` documents the stricter public-edge condition.
 - Created this handoff journal entry.
 
 ## Decisions and trade-offs
@@ -59,9 +62,9 @@ they were not modified or hidden in this work.
 
 ## Follow-ups
 
-PR #120 still needs the hosted required checks to rerun on the E2E correction, then merge and
-production deployment/health verification must complete. The authoritative production checkout and
-public ingress must be checked before claiming release completion.
+PR #120 needs the hosted required checks to rerun on the stricter public-edge diagnostic, then merge
+and production deployment/health verification must complete. The authoritative production checkout
+and public ingress must be checked before claiming release completion.
 
 ## Handoff notes
 
