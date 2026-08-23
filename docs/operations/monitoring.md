@@ -39,7 +39,8 @@ Status: Active for private beta
    `production` environment and fails red on repeated origin failure (free-tier cold-start retries
    included). It also checks the public web hostname as a diagnostic. A 403 is treated as a warning
    only when the response includes Render's known `x-render-origin-server: Render` marker for the
-   GitHub-runner denial; an edge/WAF 403 without that marker fails the workflow.
+   GitHub-runner denial, or an independent public proxy reaches bizOS and confirms its title. An
+   edge/WAF 403 without either signal fails the workflow.
 
 Keep `WEB_ORIGIN_HOST` aligned with the actual production ingress. The origin probe is authoritative
 for application health; the public-edge diagnostic is the signal to investigate WAF, DNS, or tunnel

@@ -28,7 +28,8 @@ Updated the E2E setup helper and smoke journeys to follow the current dashboard 
 - `e2e/quotation-journey.spec.ts`, `e2e/po-approval-readiness.spec.ts`, and
   `e2e/prod-invoice-smoke.mjs` now target the current `Add first customer` link label.
 - `.github/workflows/production-health.yml` now accepts a public-edge 403 only with the known
-  Render-origin marker; other 403 responses fail the diagnostic.
+  Render-origin marker or an independent public proxy confirming the bizOS title; other 403
+  responses fail the diagnostic.
 - `docs/operations/monitoring.md` documents the stricter public-edge condition.
 - Created this handoff journal entry.
 
@@ -62,9 +63,9 @@ they were not modified or hidden in this work.
 
 ## Follow-ups
 
-PR #120 needs the hosted required checks to rerun on the stricter public-edge diagnostic, then merge
-and production deployment/health verification must complete. The authoritative production checkout
-and public ingress must be checked before claiming release completion.
+The merged workflow dispatch initially failed on the GitHub runner's HTTP 403 without the Render
+marker, proving the reviewer concern. The follow-up adds an independent public proxy check; its
+hosted validation and a fresh production-health dispatch remain to be run.
 
 ## Handoff notes
 
