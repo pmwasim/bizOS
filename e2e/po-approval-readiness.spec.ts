@@ -21,7 +21,7 @@ test("records a customer PO through ready to invoice", async ({ page }, testInfo
   await page.getByRole("button", { name: "Create business" }).click();
 
   await completeDefaultSetup(page);
-  await page.getByRole("link", { name: "Add your first customer" }).click();
+  await page.getByRole("link", { name: "Add first customer" }).click();
   await page.getByLabel("Customer or company name").fill("Harbor Works");
   await page.locator('input[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Save and create quotation" }).click();

@@ -7,7 +7,7 @@ export async function completeDefaultSetup(page: Page): Promise<void> {
     page.getByRole("heading", { name: "How would you like to set up your workspace?" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Use default" }).click();
-  await expect(page.getByRole("heading", { name: "Let’s send your first quotation" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Welcome to your new workspace" })).toBeVisible({
     timeout: 30_000,
   });
 }
