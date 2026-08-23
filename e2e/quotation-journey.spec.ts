@@ -18,7 +18,7 @@ test("creates and sends a professional quotation", async ({ page }, testInfo) =>
   await page.getByRole("button", { name: "Create business" }).click();
 
   await completeDefaultSetup(page);
-  await page.getByRole("link", { name: "Add your first customer" }).click();
+  await page.getByRole("link", { name: "Add first customer" }).click();
   await page.getByLabel("Customer or company name").fill("Northstar Studio");
   await page.locator('input[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Save and create quotation" }).click();

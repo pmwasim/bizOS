@@ -18,6 +18,7 @@ jobs:
     name: Probe web and API
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    environment: production
     steps:
       - name: Check API health
         env:
@@ -37,9 +38,13 @@ jobs:
           exit 1
       - name: Check web origin
         env:
-          WEB_HEALTH_URL: https://bizos.qloudihub.com/
+          WEB_HEALTH_URL: https://${{ vars.WEB_ORIGIN_HOST }}/
         run: |
           set -euo pipefail
+          if [ -z "${WEB_HEALTH_URL#https://}" ] || [ "${WEB_HEALTH_URL}" = "https://" ]; then
+            echo "WEB_ORIGIN_HOST is not configured in the production environment"
+            exit 1
+          fi
           for attempt in 1 2 3 4 5; do
             code=$(curl --silent --max-time 45 --output /dev/null --write-out '%{http_code}' "$WEB_HEALTH_URL" || true)
             if [ "$code" = "200" ]; then
@@ -51,3 +56,29 @@ jobs:
           done
           echo "Web health check failed after retries"
           exit 1
+      - name: Check public web edge (diagnostic)
+        env:
+          WEB_PUBLIC_URL: https://bizos.qloudihub.com/
+        run: |
+          set -euo pipefail
+          headers=$(mktemp)
+          trap 'rm -f "$headers"' EXIT
+          code=$(curl --silent --max-time 45 --dump-header "$headers" --output /dev/null \
+            --write-out '%{http_code}' "$WEB_PUBLIC_URL" || true)
+          case "$code" in
+            200)
+              echo "Public web edge reachable"
+              ;;
+            403)
+              if grep -Eiq '^x-render-origin-server:[[:space:]]*Render[[:space:]]*$' "$headers"; then
+                echo "::warning::Public web edge denied this GitHub runner with HTTP 403 from Render; authoritative origin probe passed"
+              else
+                echo "::error::Public web edge returned HTTP 403 without the known runner-specific Render marker"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Public web edge returned HTTP ${code:-0}"
+              exit 1
+              ;;
+          esac

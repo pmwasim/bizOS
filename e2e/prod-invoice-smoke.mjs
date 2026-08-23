@@ -49,9 +49,9 @@ try {
   await desktop.waitForURL(/\/b\/[^/]+\/setup$/, { timeout: 120_000 });
   await desktop.getByRole("button", { name: "Use default" }).click();
   await desktop
-    .getByRole("heading", { name: "Let’s send your first quotation" })
+    .getByRole("heading", { name: "Welcome to your new workspace" })
     .waitFor({ timeout: 120_000 });
-  await desktop.getByRole("link", { name: "Add your first customer" }).click();
+  await desktop.getByRole("link", { name: "Add first customer" }).click();
   await desktop.getByLabel("Customer or company name").fill("Invoice Customer");
   await desktop.locator('input[name="email"]').fill(customerEmail);
   await desktop.getByRole("button", { name: "Save and create quotation" }).click();
