@@ -6,11 +6,11 @@ Agent: codex-production-20260823
 
 Scope: e2e
 
-Status: In progress
+Status: Complete
 
 Related:
 [Repair recurring production health false failures](2026-08-23-repair-recurring-production-health-false-failures.md);
-PR #120
+PR #120, PR #121
 
 ## Context
 
@@ -54,6 +54,12 @@ E2E_WEB_PORT=3104 E2E_API_PORT=3105 THROTTLE_SCALE=100 DATABASE_URL="$E2E_DATABA
   pnpm exec playwright test e2e/quotation-journey.spec.ts --project=desktop-chromium --reporter=line  # PASS; 1 passed
 E2E_WEB_PORT=3106 E2E_API_PORT=3107 THROTTLE_SCALE=100 DATABASE_URL="$E2E_DATABASE_URL" \
   pnpm exec playwright test --reporter=line  # PASS; 10 passed (28.1s)
+pnpm ops:release-readiness  # PASS; 14/14 public checks
+RELEASE_WEB_BASE=http://127.0.0.1:3000 RELEASE_API_BASE=http://127.0.0.1:3001 \
+  pnpm ops:release-readiness  # PASS; 14/14 local systemd checks
+gh run view 32625152215  # PASS; merged SHA ef39a64, Production health success
+systemctl is-active bizos-api bizos-web  # PASS; both active
+git -C /home/wasim/bizos-production status --short --branch  # PASS; main clean at ef39a64
 ```
 
 The earlier unscaled broad E2E run was not used as release evidence: it failed with expected
@@ -64,12 +70,16 @@ they were not modified or hidden in this work.
 ## Follow-ups
 
 The merged workflow dispatch initially failed on the GitHub runner's HTTP 403 without the Render
-marker, proving the reviewer concern. The follow-up adds an independent public proxy check; its
-hosted validation and a fresh production-health dispatch remain to be run.
+marker, proving the reviewer concern. PR #121 added an independent public proxy check; its required
+checks passed and fresh production-health dispatch `32625152215` succeeded. The merged changes are
+workflow, documentation, and E2E assertions only; no runtime application build or restart was
+needed. The production checkout was fast-forwarded from `aebe92a` to `ef39a64`; the Render public
+runtime and local systemd services were both healthy.
 
 ## Handoff notes
 
 The scratch database is `bizo_e2e`; it was created and migrated on the local PostgreSQL container.
 Use scratch ports and `THROTTLE_SCALE` only outside production. Do not stage the unrelated AI and
-agent metadata changes in this worktree. The current claim remains active until PR and production
-verification finish.
+agent metadata changes in this worktree. The known non-required Prisma Compute Deploy check remains
+red because this repository has no Prisma Compute entrypoint; all required branch-protection checks
+passed.
