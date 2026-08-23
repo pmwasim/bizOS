@@ -59,10 +59,12 @@ jobs:
       - name: Check public web edge (diagnostic)
         env:
           WEB_PUBLIC_URL: https://bizos.qloudihub.com/
+          WEB_PUBLIC_PROXY_URL: https://r.jina.ai/http://bizos.qloudihub.com/
         run: |
           set -euo pipefail
           headers=$(mktemp)
-          trap 'rm -f "$headers"' EXIT
+          proxy_body=$(mktemp)
+          trap 'rm -f "$headers" "$proxy_body"' EXIT
           code=$(curl --silent --max-time 45 --dump-header "$headers" --output /dev/null \
             --write-out '%{http_code}' "$WEB_PUBLIC_URL" || true)
           case "$code" in
@@ -72,8 +74,13 @@ jobs:
             403)
               if grep -Eiq '^x-render-origin-server:[[:space:]]*Render[[:space:]]*$' "$headers"; then
                 echo "::warning::Public web edge denied this GitHub runner with HTTP 403 from Render; authoritative origin probe passed"
+              elif proxy_code=$(curl --fail --silent --show-error --location --max-time 45 \
+                --output "$proxy_body" --write-out '%{http_code}' "$WEB_PUBLIC_PROXY_URL" || true) \
+                && [ "$proxy_code" = "200" ] \
+                && grep -Eqi 'Title:[[:space:]]*bizOS|Business Operating System' "$proxy_body"; then
+                echo "::warning::Public web edge denied this GitHub runner with HTTP 403; independent public proxy reached bizOS and authoritative origin probe passed"
               else
-                echo "::error::Public web edge returned HTTP 403 without the known runner-specific Render marker"
+                echo "::error::Public web edge returned HTTP 403 and independent public verification failed"
                 exit 1
               fi
               ;;
