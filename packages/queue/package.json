@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@bizo/contracts": "workspace:*",
-    "bullmq": "6.1.0",
+    "bullmq": "6.1.2",
     "ioredis": "6.0.0"
   },
   "devDependencies": {
