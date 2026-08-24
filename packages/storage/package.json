@@ -19,7 +19,7 @@
     "validate:r2": "node ./scripts/validate-r2.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1112.0",
+    "@aws-sdk/client-s3": "3.1115.0",
     "@aws-sdk/s3-request-presigner": "3.1112.0"
   },
   "devDependencies": {
