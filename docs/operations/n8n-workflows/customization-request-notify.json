@@ -51,93 +51,6 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.urgency }}",
-              "operation": "equals",
-              "value2": "HIGH"
-            }
-          ]
-        }
-      },
-      "id": "if-high-urgency",
-      "name": "High Urgency?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        780,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "channel",
-              "value": "ops-urgent"
-            },
-            {
-              "name": "title",
-              "value": "=[bizOS] HIGH customization request"
-            },
-            {
-              "name": "message",
-              "value": "=Request {{ $json.id }} for business {{ $json.businessId }} (tenant {{ $json.tenantId }}). Status: {{ $json.status }}."
-            },
-            {
-              "name": "idempotencyKey",
-              "value": "={{ $json.idempotencyKey }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "set-urgent-notification",
-      "name": "Build Urgent Notification",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [
-        1040,
-        -120
-      ]
-    },
-    {
-      "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "channel",
-              "value": "ops-standard"
-            },
-            {
-              "name": "title",
-              "value": "=[bizOS] Customization request"
-            },
-            {
-              "name": "message",
-              "value": "=Request {{ $json.id }} for business {{ $json.businessId }} (tenant {{ $json.tenantId }}). Urgency: {{ $json.urgency }}."
-            },
-            {
-              "name": "idempotencyKey",
-              "value": "={{ $json.idempotencyKey }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "set-standard-notification",
-      "name": "Build Standard Notification",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [
-        1040,
-        120
-      ]
-    },
-    {
-      "parameters": {
         "jsCode": "const http = require('http');\nconst https = require('https');\n\nfunction parseHttpUrl(targetUrl) {\n  const raw = String(targetUrl);\n  const protocol = raw.startsWith('https:') ? 'https:' : 'http:';\n  const withoutProtocol = raw.replace(/^https?:\\/\\//, '');\n  const slash = withoutProtocol.indexOf('/');\n  const hostPort = slash === -1 ? withoutProtocol : withoutProtocol.slice(0, slash);\n  const path = slash === -1 ? '/' : withoutProtocol.slice(slash);\n  const colon = hostPort.lastIndexOf(':');\n  const hostname = colon === -1 ? hostPort : hostPort.slice(0, colon);\n  const port = colon === -1 ? (protocol === 'https:' ? 443 : 80) : Number(hostPort.slice(colon + 1));\n  return { protocol, hostname, port, path };\n}\n\nfunction postJson(targetUrl, body) {\n  const payload = JSON.stringify(body);\n  return new Promise((resolve, reject) => {\n    const parsed = parseHttpUrl(targetUrl);\n    const lib = parsed.protocol === 'https:' ? https : http;\n    const req = lib.request(\n      {\n        hostname: parsed.hostname,\n        port: parsed.port,\n        path: parsed.path,\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'Content-Length': Buffer.byteLength(payload),\n        },\n      },\n      (res) => {\n        const chunks = [];\n        res.on('data', (chunk) => chunks.push(chunk));\n        res.on('end', () => {\n          resolve({\n            status: res.statusCode,\n            text: Buffer.concat(chunks).toString('utf8'),\n          });\n        });\n      },\n    );\n    req.on('error', reject);\n    req.write(payload);\n    req.end();\n  });\n}\n\nconst item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] alert';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.severity || (item.channel === 'ops-urgent' ? 'high' : 'medium');\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await postJson(url, {\n      From: { Email: from, Name: 'bizOS n8n' },\n      To: [{ Email: to }],\n      Subject: title,\n      Text: String(severity).toUpperCase() + '\\n\\n' + message,\n    });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + response.text);\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await postJson(webhook, { ...item, title, message, severity });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, deliveredAt: new Date().toISOString() } }];"
       },
       "id": "code-deliver-customization-alert",
@@ -146,6 +59,19 @@
       "typeVersion": 2,
       "position": [
         1560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst high = item.urgency === 'HIGH';\nreturn [{\n  json: {\n    ...item,\n    channel: high ? 'ops-urgent' : 'ops-standard',\n    title: high ? '[bizOS] HIGH customization request' : '[bizOS] Customization request',\n    message: 'Request ' + item.id + ' for business ' + item.businessId + ' (tenant ' + item.tenantId + '). Status: ' + item.status + '.',\n    severity: high ? 'high' : 'medium',\n  },\n}];"
+      },
+      "id": "code-build-customization-notification",
+      "name": "Build Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
         0
       ]
     }
@@ -166,43 +92,14 @@
       "main": [
         [
           {
-            "node": "High Urgency?",
+            "node": "Build Notification",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "High Urgency?": {
-      "main": [
-        [
-          {
-            "node": "Build Urgent Notification",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Build Standard Notification",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Urgent Notification": {
-      "main": [
-        [
-          {
-            "node": "Deliver Alert",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Standard Notification": {
+    "Build Notification": {
       "main": [
         [
           {

@@ -65,36 +65,12 @@
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "catalog",
-              "value": "bizos-github-actions-poll"
-            },
-            {
-              "name": "channel",
-              "value": "ops-ci"
-            },
-            {
-              "name": "title",
-              "value": "=[bizOS] GitHub failure: {{ $json.workflow }}"
-            },
-            {
-              "name": "message",
-              "value": "=Branch {{ $json.branch }} · {{ $json.conclusion }} · {{ $json.runUrl }}"
-            },
-            {
-              "name": "routedAt",
-              "value": "={{ $now.toISO() }}"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const item = $input.first().json;\nreturn [{\n  json: {\n    ...item,\n    catalog: 'bizos-github-actions-poll',\n    channel: 'ops-ci',\n    title: '[bizOS] GitHub failure: ' + item.workflow,\n    message: 'Branch ' + item.branch + ' · ' + item.conclusion + ' · ' + item.runUrl,\n  },\n}];"
       },
       "id": "set-gh-poll-notification",
       "name": "Build Notification",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1040,
         0

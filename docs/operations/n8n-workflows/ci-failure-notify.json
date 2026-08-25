@@ -51,40 +51,12 @@
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "catalog",
-              "value": "bizos-ci-failure-notify"
-            },
-            {
-              "name": "channel",
-              "value": "ops-ci"
-            },
-            {
-              "name": "title",
-              "value": "=[bizOS] CI failure: {{ $json.workflow ?? $json.event }}"
-            },
-            {
-              "name": "message",
-              "value": "=Repo {{ $json.repo }} · branch {{ $json.branch }} · SHA {{ $json.sha }} · {{ $json.runUrl ?? 'no run URL' }}"
-            },
-            {
-              "name": "severity",
-              "value": "={{ $json.event === 'deploy.failure' ? 'critical' : 'high' }}"
-            },
-            {
-              "name": "routedAt",
-              "value": "={{ $now.toISO() }}"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const item = $input.first().json;\nconst eventName = item.workflow || item.event;\nreturn [{\n  json: {\n    ...item,\n    catalog: 'bizos-ci-failure-notify',\n    channel: 'ops-ci',\n    title: '[bizOS] CI failure: ' + eventName,\n    message: 'Repo ' + item.repo + ' · branch ' + item.branch + ' · SHA ' + item.sha + ' · ' + (item.runUrl ?? 'no run URL'),\n    severity: item.event === 'deploy.failure' ? 'critical' : 'high',\n  },\n}];"
       },
       "id": "set-ci-notification",
       "name": "Build Notification",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         780,
         0

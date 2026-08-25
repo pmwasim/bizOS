@@ -122,4 +122,12 @@ test("Code nodes use Node http/https instead of fetch, and skip Merge", () => {
     const deliver = workflow.nodes.find((node) => node.name === "Deliver Alert");
     assert.equal(deliver.parameters.jsCode, DELIVER_ALERT);
   }
+
+  const customization = loadWorkflows().find(
+    (entry) => entry.name === "customization-request-notify.json",
+  ).workflow;
+  assert.ok(
+    JSON.stringify(customization).includes("[bizOS] HIGH customization request"),
+    "customization workflow must set the HIGH subject itself",
+  );
 });

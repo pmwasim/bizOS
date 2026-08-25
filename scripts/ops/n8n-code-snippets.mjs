@@ -218,3 +218,50 @@ const payload = await getJson(
   headers,
 );
 return [{ json: payload }];`;
+
+export const BUILD_CUSTOMIZATION = `const item = $input.first().json;
+const high = item.urgency === 'HIGH';
+return [{
+  json: {
+    ...item,
+    channel: high ? 'ops-urgent' : 'ops-standard',
+    title: high ? '[bizOS] HIGH customization request' : '[bizOS] Customization request',
+    message: 'Request ' + item.id + ' for business ' + item.businessId + ' (tenant ' + item.tenantId + '). Status: ' + item.status + '.',
+    severity: high ? 'high' : 'medium',
+  },
+}];`;
+
+export const BUILD_CI = `const item = $input.first().json;
+const eventName = item.workflow || item.event;
+return [{
+  json: {
+    ...item,
+    catalog: 'bizos-ci-failure-notify',
+    channel: 'ops-ci',
+    title: '[bizOS] CI failure: ' + eventName,
+    message: 'Repo ' + item.repo + ' · branch ' + item.branch + ' · SHA ' + item.sha + ' · ' + (item.runUrl ?? 'no run URL'),
+    severity: item.event === 'deploy.failure' ? 'critical' : 'high',
+  },
+}];`;
+
+export const BUILD_GITHUB = `const item = $input.first().json;
+return [{
+  json: {
+    ...item,
+    catalog: 'bizos-github-actions-poll',
+    channel: 'ops-ci',
+    title: '[bizOS] GitHub failure: ' + item.workflow,
+    message: 'Branch ' + item.branch + ' · ' + item.conclusion + ' · ' + item.runUrl,
+  },
+}];`;
+
+export const BUILD_HEALTH = `const item = $input.first().json;
+return [{
+  json: {
+    ...item,
+    channel: 'ops-alerts',
+    title: '[bizOS] Health degraded',
+    message: item.issues + ' · API=' + item.apiStatus + ' · Web=' + item.webStatusCode,
+    severity: 'critical',
+  },
+}];`;

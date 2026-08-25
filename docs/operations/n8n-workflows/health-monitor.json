@@ -118,32 +118,12 @@
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "channel",
-              "value": "ops-alerts"
-            },
-            {
-              "name": "title",
-              "value": "=[bizOS] Health degraded"
-            },
-            {
-              "name": "message",
-              "value": "={{ $json.issues }} · API={{ $json.apiStatus }} · Web={{ $json.webStatusCode }}"
-            },
-            {
-              "name": "severity",
-              "value": "critical"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const item = $input.first().json;\nreturn [{\n  json: {\n    ...item,\n    channel: 'ops-alerts',\n    title: '[bizOS] Health degraded',\n    message: item.issues + ' · API=' + item.apiStatus + ' · Web=' + item.webStatusCode,\n    severity: 'critical',\n  },\n}];"
       },
       "id": "set-health-alert",
       "name": "Build Alert",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1300,
         -80
@@ -182,6 +162,19 @@
         1560,
         -80
       ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "merge-wait-health-checks",
+      "name": "Wait For Both Checks",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        700,
+        0
+      ]
     }
   ],
   "connections": {
@@ -205,7 +198,7 @@
       "main": [
         [
           {
-            "node": "Evaluate Health",
+            "node": "Wait For Both Checks",
             "type": "main",
             "index": 0
           }
@@ -216,9 +209,9 @@
       "main": [
         [
           {
-            "node": "Evaluate Health",
+            "node": "Wait For Both Checks",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
@@ -257,6 +250,17 @@
         [
           {
             "node": "Deliver Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Both Checks": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Health",
             "type": "main",
             "index": 0
           }
