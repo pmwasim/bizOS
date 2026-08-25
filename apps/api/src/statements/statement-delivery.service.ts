@@ -9,6 +9,7 @@ import {
   type StatementQuery,
 } from "@bizo/contracts/statements";
 
+import { notifyDocumentDeliveryFailed } from "../common/n8n-ops-notifier.js";
 import { DatabaseService } from "../database/database.service.js";
 import { type StatementSnapshot } from "../documents/statement-snapshot.js";
 import { PdfService } from "../documents/pdf.service.js";
@@ -171,6 +172,15 @@ export class StatementDeliveryService {
       });
     } catch (error) {
       await this.markAttempt(access, prepared.eventId);
+      void notifyDocumentDeliveryFailed({
+        tenantId: access.tenantPublicId,
+        businessId: access.businessPublicId,
+        documentType: "statement",
+        documentId: customerPublicId,
+        documentNumber: `as of ${statement.asOf}`,
+        deliveryId: prepared.eventId,
+        failureReason: error instanceof Error ? error.message : "unknown error",
+      }).catch(() => undefined);
       throw new ServiceUnavailableException({
         code: "STATEMENT_DELIVERY_FAILED",
         detail:
