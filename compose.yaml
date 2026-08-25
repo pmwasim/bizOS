@@ -72,6 +72,7 @@ services:
       N8N_PORT: "5678"
       N8N_PROTOCOL: http
       N8N_SECURE_COOKIE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto,http,https
       WEBHOOK_URL: http://127.0.0.1:5678/
       BIZOS_API_HEALTH_URL: ${BIZOS_API_HEALTH_URL:-https://api.bizos.qloudihub.com/api/v1/health}
       BIZOS_OPS_ALERT_EMAIL: ${BIZOS_OPS_ALERT_EMAIL:-ops@bizos.local}

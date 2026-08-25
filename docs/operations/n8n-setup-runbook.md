@@ -97,6 +97,7 @@ pnpm ops:n8n:notify ci-failure --branch feature/foo --sha $(git rev-parse HEAD)
 | `GITHUB_TOKEN`                | GitHub Actions Poll | Optional PAT with `actions:read`; compose maps `N8N_GITHUB_TOKEN`        |
 | `BIZOS_API_HEALTH_URL`        | Health Monitor      | Default: `https://api.bizos.qloudihub.com/api/v1/health`                 |
 | `BIZOS_WEB_HEALTH_URL`        | Health Monitor      | Default: `https://bizos.qloudihub.com/`                                  |
+| `NODE_FUNCTION_ALLOW_BUILTIN` | Code nodes          | `crypto,http,https` — required for HMAC verify and Mailpit delivery      |
 
 Compose passes `N8N_WEBHOOK_SECRET` from `.env` into the n8n container as `BIZOS_WEBHOOK_SECRET`.
 Restart n8n after changing it:
@@ -109,7 +110,8 @@ Ubuntu `qh-n8n`:
 
 ```bash
 cd /home/wasim/Projects/qloudihub/ops/stack
-# edit .env — add BIZOS_WEBHOOK_SECRET, optional GITHUB_TOKEN, BIZOS_OPS_MAILPIT_URL
+# edit .env — add BIZOS_WEBHOOK_SECRET, optional GITHUB_TOKEN, BIZOS_OPS_MAILPIT_URL,
+# and NODE_FUNCTION_ALLOW_BUILTIN=crypto,http,https
 docker compose restart n8n
 N8N_CONTAINER=qh-n8n pnpm ops:n8n:import -- --activate
 ```
@@ -122,7 +124,8 @@ pnpm ops:n8n:import -- --dry-run    # preview only
 pnpm ops:n8n:import -- --activate   # import + activate
 ```
 
-Re-import may create duplicate workflows in n8n; delete old copies in the UI if needed.
+Re-import updates a workflow that already exists with the same name (the n8n id is reused).
+Code nodes need `NODE_FUNCTION_ALLOW_BUILTIN=crypto,http,https` (set in compose for `bizos-n8n`).
 
 ## Activation checklist
 

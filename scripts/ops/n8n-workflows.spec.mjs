@@ -4,6 +4,8 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { DELIVER_ALERT, FETCH_GITHUB_RUNS } from "./n8n-code-snippets.mjs";
+
 const WORKFLOW_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../docs/operations/n8n-workflows",
@@ -94,4 +96,30 @@ test("webhook and cron workflows deliver alerts instead of log-only stubs", () =
     ),
     false,
   );
+});
+
+test("Code nodes use Node http/https instead of fetch, and skip Merge", () => {
+  for (const { name, workflow } of loadWorkflows()) {
+    const serialized = JSON.stringify(workflow);
+    assert.equal(serialized.includes("await fetch("), false, `${name} still uses fetch`);
+    assert.equal(
+      workflow.nodes.some((node) => node.name === "Merge"),
+      false,
+      `${name} must not use a Merge node`,
+    );
+    const deliver = (workflow.nodes ?? []).find((node) => node.name === "Deliver Alert");
+    assert.ok(deliver, `${name} missing Deliver Alert`);
+    assert.match(deliver.parameters.jsCode, /require\('http'\)/);
+    assert.match(deliver.parameters.jsCode, /require\('https'\)/);
+  }
+
+  const github = loadWorkflows().find((entry) => entry.name === "github-actions-poll.json");
+  const fetchRuns = github.workflow.nodes.find((node) => node.name === "Fetch Recent Runs");
+  assert.match(fetchRuns.parameters.jsCode, /require\('https'\)/);
+  assert.equal(fetchRuns.parameters.jsCode, FETCH_GITHUB_RUNS);
+
+  for (const { workflow } of loadWorkflows()) {
+    const deliver = workflow.nodes.find((node) => node.name === "Deliver Alert");
+    assert.equal(deliver.parameters.jsCode, DELIVER_ALERT);
+  }
 });

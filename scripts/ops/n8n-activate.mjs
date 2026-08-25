@@ -82,9 +82,15 @@ function loadTemplate(path) {
 }
 
 function importViaCli(container, files) {
+  const existingByName = new Map(listWorkflows(container).map((row) => [row.name, row]));
   const tempDir = mkdtempSync(join(tmpdir(), "bizos-n8n-"));
   for (const file of files) {
     const workflow = loadTemplate(file);
+    const existing = existingByName.get(workflow.name);
+    if (existing?.id) {
+      workflow.id = existing.id;
+      process.stderr.write(`Updating ${workflow.name} (${existing.id})\n`);
+    }
     const payload = [workflow];
     const staged = join(tempDir, `${workflow.name.replaceAll(" ", "-")}.json`);
     writeFileSync(staged, JSON.stringify(payload));
@@ -97,54 +103,33 @@ function importViaCli(container, files) {
   }
 }
 
-function parseWorkflowList(text) {
+function parseListedWorkflows(text, active) {
   const workflows = [];
-  const jsonMatch = text.trim().startsWith("[") || text.trim().startsWith("{");
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(text);
-      const rows = Array.isArray(parsed) ? parsed : (parsed.data ?? parsed.workflows ?? []);
-      for (const row of rows) {
-        if (row?.id && row?.name) {
-          workflows.push({
-            id: String(row.id),
-            name: String(row.name),
-            active: Boolean(row.active),
-          });
-        }
-      }
-      return workflows;
-    } catch {
-      // fall through to text parse
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("User settings") || line.startsWith("Permissions")) {
+      continue;
+    }
+    const separator = line.indexOf("|");
+    if (separator <= 0) {
+      continue;
+    }
+    const id = line.slice(0, separator).trim();
+    const name = line.slice(separator + 1).trim();
+    if (id && name && /bizos/i.test(name)) {
+      workflows.push({ id, name, active });
     }
   }
-
-  for (const line of text.split("\n")) {
-    const columns = line.split("|").map((part) => part.trim());
-    if (columns.length >= 3 && /^\d+$/.test(columns[0])) {
-      workflows.push({
-        id: columns[0],
-        name: columns[1],
-        active: columns[2] === "true" || columns[2] === "Active",
-      });
-    }
-  }
-  return workflows.filter((row) => row.name.toLowerCase().includes("bizos"));
+  return workflows;
 }
 
 function listWorkflows(container) {
-  let rows = [];
-  try {
-    const json = docker(["exec", container, "n8n", "list:workflow", "--onlyId"]);
-    rows = parseWorkflowList(json);
-  } catch {
-    // older CLI without --onlyId
-  }
-  if (rows.length === 0) {
-    const text = docker(["exec", container, "n8n", "list:workflow"]);
-    rows = parseWorkflowList(text);
-  }
-  return rows.filter((row) => /bizos/i.test(row.name));
+  const activeText = docker(["exec", container, "n8n", "list:workflow", "--active=true"]);
+  const inactiveText = docker(["exec", container, "n8n", "list:workflow", "--active=false"]);
+  return [
+    ...parseListedWorkflows(activeText, true),
+    ...parseListedWorkflows(inactiveText, false),
+  ];
 }
 
 function activateViaCli(container, workflows) {
@@ -280,6 +265,9 @@ async function main() {
   importViaCli(container, files);
 
   const workflows = listWorkflows(container);
+  if (workflows.length === 0) {
+    throw new Error("No bizOS workflows listed after import");
+  }
   process.stderr.write(
     `Imported bizOS workflows:\n${workflows.map((row) => `  ${row.id}  ${row.active ? "active" : "inactive"}  ${row.name}`).join("\n")}\n`,
   );
@@ -307,7 +295,11 @@ async function main() {
       `Activation incomplete: ${inactive.map((row) => row.name).join(", ")} still inactive`,
     );
   }
-  process.stderr.write("All imported bizOS workflows are active.\n");
+
+  process.stderr.write("Restarting n8n so production webhooks register...\n");
+  docker(["restart", container]);
+  await waitForHealth();
+  process.stderr.write("All imported bizOS workflows are active and n8n is healthy.\n");
 }
 
 main().catch((error) => {

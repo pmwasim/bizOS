@@ -12,7 +12,10 @@
       "name": "Setup Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [80, -120]
+      "position": [
+        80,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -27,7 +30,10 @@
       "name": "Customization Request Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [260, 0],
+      "position": [
+        260,
+        0
+      ],
       "webhookId": "bizos-customization-request"
     },
     {
@@ -38,7 +44,10 @@
       "name": "Verify Signature",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -56,7 +65,10 @@
       "name": "High Urgency?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -86,7 +98,10 @@
       "name": "Build Urgent Notification",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [1040, -120]
+      "position": [
+        1040,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -116,29 +131,23 @@
       "name": "Build Standard Notification",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [1040, 120]
+      "position": [
+        1040,
+        120
+      ]
     },
     {
       "parameters": {
-        "mode": "combine",
-        "combinationMode": "multiplex",
-        "options": {}
-      },
-      "id": "merge-notification-branches",
-      "name": "Merge",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [1300, 0]
-    },
-    {
-      "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] customization request';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.channel === 'ops-urgent' ? 'high' : 'medium';\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await fetch(url, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        From: { Email: from, Name: 'bizOS n8n' },\n        To: [{ Email: to }],\n        Subject: title,\n        Text: String(severity).toUpperCase() + '\\n\\n' + message,\n      }),\n    });\n    if (!response.ok) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + (await response.text()));\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await fetch(webhook, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ ...item, title, message, severity }),\n    });\n    if (!response.ok) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, workflow: 'bizos-customization-request-notify', deliveredAt: new Date().toISOString() } }];"
+        "jsCode": "const http = require('http');\nconst https = require('https');\n\nfunction postJson(targetUrl, body) {\n  const payload = JSON.stringify(body);\n  return new Promise((resolve, reject) => {\n    const url = new URL(targetUrl);\n    const lib = url.protocol === 'https:' ? https : http;\n    const req = lib.request(\n      {\n        hostname: url.hostname,\n        port: url.port || (url.protocol === 'https:' ? 443 : 80),\n        path: url.pathname + url.search,\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'Content-Length': Buffer.byteLength(payload),\n        },\n      },\n      (res) => {\n        const chunks = [];\n        res.on('data', (chunk) => chunks.push(chunk));\n        res.on('end', () => {\n          resolve({\n            status: res.statusCode,\n            text: Buffer.concat(chunks).toString('utf8'),\n          });\n        });\n      },\n    );\n    req.on('error', reject);\n    req.write(payload);\n    req.end();\n  });\n}\n\nconst item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] alert';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.severity || (item.channel === 'ops-urgent' ? 'high' : 'medium');\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await postJson(url, {\n      From: { Email: from, Name: 'bizOS n8n' },\n      To: [{ Email: to }],\n      Subject: title,\n      Text: String(severity).toUpperCase() + '\\n\\n' + message,\n    });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + response.text);\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await postJson(webhook, { ...item, title, message, severity });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, deliveredAt: new Date().toISOString() } }];"
       },
       "id": "code-deliver-customization-alert",
       "name": "Deliver Alert",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 0]
+      "position": [
+        1560,
+        0
+      ]
     }
   ],
   "connections": {
@@ -186,7 +195,7 @@
       "main": [
         [
           {
-            "node": "Merge",
+            "node": "Deliver Alert",
             "type": "main",
             "index": 0
           }
@@ -194,17 +203,6 @@
       ]
     },
     "Build Standard Notification": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Merge": {
       "main": [
         [
           {

@@ -12,7 +12,10 @@
       "name": "Setup Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [80, -120]
+      "position": [
+        80,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -29,7 +32,10 @@
       "name": "Every 5 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -48,7 +54,10 @@
       "name": "Check API Health",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, -80],
+      "position": [
+        520,
+        -80
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -68,7 +77,10 @@
       "name": "Check Web Health",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 80],
+      "position": [
+        520,
+        80
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -79,7 +91,10 @@
       "name": "Evaluate Health",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -96,7 +111,10 @@
       "name": "Unhealthy?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -126,7 +144,10 @@
       "name": "Build Alert",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [1300, -80]
+      "position": [
+        1300,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -144,45 +165,103 @@
       "name": "Healthy (no alert)",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [1300, 80]
+      "position": [
+        1300,
+        80
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] Health degraded';\nconst message = item.message || item.issues || JSON.stringify(item);\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await fetch(url, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        From: { Email: from, Name: 'bizOS n8n' },\n        To: [{ Email: to }],\n        Subject: title,\n        Text: message,\n      }),\n    });\n    if (!response.ok) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + (await response.text()));\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await fetch(webhook, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ ...item, title, message }),\n    });\n    if (!response.ok) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, deliveredAt: new Date().toISOString() } }];"
+        "jsCode": "const http = require('http');\nconst https = require('https');\n\nfunction postJson(targetUrl, body) {\n  const payload = JSON.stringify(body);\n  return new Promise((resolve, reject) => {\n    const url = new URL(targetUrl);\n    const lib = url.protocol === 'https:' ? https : http;\n    const req = lib.request(\n      {\n        hostname: url.hostname,\n        port: url.port || (url.protocol === 'https:' ? 443 : 80),\n        path: url.pathname + url.search,\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'Content-Length': Buffer.byteLength(payload),\n        },\n      },\n      (res) => {\n        const chunks = [];\n        res.on('data', (chunk) => chunks.push(chunk));\n        res.on('end', () => {\n          resolve({\n            status: res.statusCode,\n            text: Buffer.concat(chunks).toString('utf8'),\n          });\n        });\n      },\n    );\n    req.on('error', reject);\n    req.write(payload);\n    req.end();\n  });\n}\n\nconst item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] alert';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.severity || (item.channel === 'ops-urgent' ? 'high' : 'medium');\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await postJson(url, {\n      From: { Email: from, Name: 'bizOS n8n' },\n      To: [{ Email: to }],\n      Subject: title,\n      Text: String(severity).toUpperCase() + '\\n\\n' + message,\n    });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + response.text);\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await postJson(webhook, { ...item, title, message, severity });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, deliveredAt: new Date().toISOString() } }];"
       },
       "id": "code-deliver-health-alert",
       "name": "Deliver Alert",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, -80]
+      "position": [
+        1560,
+        -80
+      ]
     }
   ],
   "connections": {
     "Every 5 Minutes": {
       "main": [
         [
-          { "node": "Check API Health", "type": "main", "index": 0 },
-          { "node": "Check Web Health", "type": "main", "index": 0 }
+          {
+            "node": "Check API Health",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Web Health",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Check API Health": {
-      "main": [[{ "node": "Evaluate Health", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Evaluate Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Web Health": {
-      "main": [[{ "node": "Evaluate Health", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Evaluate Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Evaluate Health": {
-      "main": [[{ "node": "Unhealthy?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Unhealthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Unhealthy?": {
       "main": [
-        [{ "node": "Build Alert", "type": "main", "index": 0 }],
-        [{ "node": "Healthy (no alert)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Build Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Healthy (no alert)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Build Alert": {
-      "main": [[{ "node": "Deliver Alert", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Deliver Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
