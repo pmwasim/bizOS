@@ -94,16 +94,29 @@ return [{ json: { ...payload, verified: true } }];`;
 export const HTTP_POST_JSON = `const http = require('http');
 const https = require('https');
 
+function parseHttpUrl(targetUrl) {
+  const raw = String(targetUrl);
+  const protocol = raw.startsWith('https:') ? 'https:' : 'http:';
+  const withoutProtocol = raw.replace(/^https?:\\/\\//, '');
+  const slash = withoutProtocol.indexOf('/');
+  const hostPort = slash === -1 ? withoutProtocol : withoutProtocol.slice(0, slash);
+  const path = slash === -1 ? '/' : withoutProtocol.slice(slash);
+  const colon = hostPort.lastIndexOf(':');
+  const hostname = colon === -1 ? hostPort : hostPort.slice(0, colon);
+  const port = colon === -1 ? (protocol === 'https:' ? 443 : 80) : Number(hostPort.slice(colon + 1));
+  return { protocol, hostname, port, path };
+}
+
 function postJson(targetUrl, body) {
   const payload = JSON.stringify(body);
   return new Promise((resolve, reject) => {
-    const url = new URL(targetUrl);
-    const lib = url.protocol === 'https:' ? https : http;
+    const parsed = parseHttpUrl(targetUrl);
+    const lib = parsed.protocol === 'https:' ? https : http;
     const req = lib.request(
       {
-        hostname: url.hostname,
-        port: url.port || (url.protocol === 'https:' ? 443 : 80),
-        path: url.pathname + url.search,
+        hostname: parsed.hostname,
+        port: parsed.port,
+        path: parsed.path,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
