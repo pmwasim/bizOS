@@ -15,6 +15,8 @@ Rules:
 
 ## Entries
 
+- [2026-08-25 — Implement and activate n8n automations](2026-08-25-implement-and-activate-n8n-automations.md)
+  - Agent: cursor-n8n-561e · Status: In progress
 - [2026-08-23 — Repair recurring production health false failures](2026-08-23-repair-recurring-production-health-false-failures.md)
   - Agent: codex-prod-health-20260823 · Status: Complete
 - [2026-08-23 — Complete bizOS production release and clear E2E gate](2026-08-23-complete-bizos-production-release-and-clear-e2e-gate.md)
