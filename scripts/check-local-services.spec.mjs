@@ -39,6 +39,15 @@ test("rejects wildcard publication for every private service", () => {
   }
 });
 
+test("rejects wildcard publication for optional n8n when present", () => {
+  const compose = secureCompose();
+  compose.services.n8n = {
+    ports: [{ host_ip: "0.0.0.0", published: "5678", target: 5678 }],
+  };
+
+  assert.match(validateLocalServices(compose).join("\n"), /n8n .* must bind to loopback/);
+});
+
 test("rejects unauthenticated Redis and trusted PostgreSQL", () => {
   const compose = secureCompose();
   compose.services.redis.command = ["redis-server"];

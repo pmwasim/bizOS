@@ -1,0 +1,72 @@
+{
+  "name": "bizOS Ops Event Notify",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## bizOS product ops events\n\nPath: `POST /webhook/bizos/ops-event`\n\nHandles customization fallback, failed document email, onboarding applied, and System Admin assignment/template events.\n\nSet `BIZOS_WEBHOOK_SECRET` to match bizOS `N8N_WEBHOOK_SECRET`.\nDelivery: Mailpit (`BIZOS_OPS_MAILPIT_URL`) or `BIZOS_OPS_ALERT_WEBHOOK_URL`.",
+        "height": 220,
+        "width": 480
+      },
+      "id": "sticky-note-bizos-ops-event",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [80, -160]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bizos/ops-event",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-bizos-ops-event",
+      "name": "Ops Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 0],
+      "webhookId": "bizos-ops-event"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nconst secret = $env.BIZOS_WEBHOOK_SECRET;\nif (!secret) {\n  throw new Error('BIZOS_WEBHOOK_SECRET is not configured in n8n');\n}\n\nconst item = $input.first().json;\nconst headers = item.headers ?? {};\nconst signature = headers['x-signature'] ?? headers['X-Signature'];\nif (!signature) {\n  throw new Error('Missing X-Signature header');\n}\n\nconst idempotencyKey = headers['x-idempotency-key'] ?? headers['X-Idempotency-Key'];\nconst body = item.body;\nconst rawBody = typeof item.rawBody === 'string' ? item.rawBody : (typeof body === 'string' ? body : JSON.stringify(body));\n\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\nif (expected.length !== signature.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {\n  throw new Error('Invalid webhook signature');\n}\n\nconst payload = typeof body === 'string' ? JSON.parse(body) : body;\nif (idempotencyKey && payload.idempotencyKey && idempotencyKey !== payload.idempotencyKey) {\n  throw new Error('Idempotency key mismatch');\n}\n\nreturn [{ json: { ...payload, idempotencyKey: idempotencyKey ?? payload.idempotencyKey, verified: true } }];"
+      },
+      "id": "code-verify-ops-signature",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] ops alert';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.severity || 'medium';\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await fetch(url, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        From: { Email: from, Name: 'bizOS n8n' },\n        To: [{ Email: to }],\n        Subject: title,\n        Text: String(severity).toUpperCase() + '\\n\\n' + message,\n      }),\n    });\n    if (!response.ok) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + (await response.text()));\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await fetch(webhook, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ ...item, title, message, severity }),\n    });\n    if (!response.ok) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, deliveredAt: new Date().toISOString() } }];"
+      },
+      "id": "code-deliver-ops-alert",
+      "name": "Deliver Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0]
+    }
+  ],
+  "connections": {
+    "Ops Event Webhook": {
+      "main": [[{ "node": "Verify Signature", "type": "main", "index": 0 }]]
+    },
+    "Verify Signature": {
+      "main": [[{ "node": "Deliver Alert", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Routes signed bizOS product ops events to Mailpit or an alert webhook."
+  }
+}

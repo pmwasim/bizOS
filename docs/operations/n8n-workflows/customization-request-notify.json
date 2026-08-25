@@ -4,7 +4,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## bizOS customization-request webhook\n\nImport only. Set credential **bizOS Webhook Secret** to match `N8N_WEBHOOK_SECRET` in bizOS API env.\n\nActivate after manual test POST with signed payload.",
+        "content": "## bizOS customization-request webhook\n\nPath: `POST /webhook/bizos/customization-request`\n\nSet `BIZOS_WEBHOOK_SECRET` to match bizOS `N8N_WEBHOOK_SECRET`.\nDelivery: Mailpit (`BIZOS_OPS_MAILPIT_URL`) or `BIZOS_OPS_ALERT_WEBHOOK_URL`.",
         "height": 200,
         "width": 420
       },
@@ -19,7 +19,9 @@
         "httpMethod": "POST",
         "path": "bizos/customization-request",
         "responseMode": "onReceived",
-        "options": {}
+        "options": {
+          "rawBody": true
+        }
       },
       "id": "webhook-bizos-customization",
       "name": "Customization Request Webhook",
@@ -130,28 +132,12 @@
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "workflow",
-              "value": "bizos-customization-request-notify"
-            },
-            {
-              "name": "routedAt",
-              "value": "={{ $now.toISO() }}"
-            },
-            {
-              "name": "status",
-              "value": "routed"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] customization request';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.channel === 'ops-urgent' ? 'high' : 'medium';\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await fetch(url, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        From: { Email: from, Name: 'bizOS n8n' },\n        To: [{ Email: to }],\n        Subject: title,\n        Text: String(severity).toUpperCase() + '\\n\\n' + message,\n      }),\n    });\n    if (!response.ok) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + (await response.text()));\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await fetch(webhook, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ ...item, title, message, severity }),\n    });\n    if (!response.ok) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, workflow: 'bizos-customization-request-notify', deliveredAt: new Date().toISOString() } }];"
       },
-      "id": "set-execution-log",
-      "name": "Log Route",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
+      "id": "code-deliver-customization-alert",
+      "name": "Deliver Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [1560, 0]
     }
   ],
@@ -222,7 +208,7 @@
       "main": [
         [
           {
-            "node": "Log Route",
+            "node": "Deliver Alert",
             "type": "main",
             "index": 0
           }
@@ -237,6 +223,6 @@
   },
   "meta": {
     "templateCredsSetupCompleted": false,
-    "description": "Sanitized template — no secrets. Configure BIZOS_WEBHOOK_SECRET in n8n environment. Replace Log Route with Slack/email node before activation."
+    "description": "Signed customization-request webhook. Delivers via Mailpit or an alert webhook."
   }
 }

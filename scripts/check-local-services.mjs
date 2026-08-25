@@ -2,30 +2,40 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const privateServices = new Set(["mailpit", "postgres", "redis"]);
+const optionalPrivateServices = new Set(["n8n"]);
 const loopbackAddresses = new Set(["127.0.0.1", "::1"]);
+
+function assertLoopbackService(errors, serviceName, service, { required }) {
+  if (!service) {
+    if (required) {
+      errors.push(`required private service "${serviceName}" is missing`);
+    }
+    return;
+  }
+
+  if (service.network_mode === "host") {
+    errors.push(`${serviceName} must not use host networking`);
+  }
+
+  for (const port of service.ports ?? []) {
+    if (!loopbackAddresses.has(port.host_ip)) {
+      errors.push(
+        `${serviceName} port ${String(port.published ?? port.target)} must bind to loopback`,
+      );
+    }
+  }
+}
 
 export function validateLocalServices(compose) {
   const errors = [];
   const services = compose.services ?? {};
 
   for (const serviceName of privateServices) {
-    const service = services[serviceName];
-    if (!service) {
-      errors.push(`required private service "${serviceName}" is missing`);
-      continue;
-    }
+    assertLoopbackService(errors, serviceName, services[serviceName], { required: true });
+  }
 
-    if (service.network_mode === "host") {
-      errors.push(`${serviceName} must not use host networking`);
-    }
-
-    for (const port of service.ports ?? []) {
-      if (!loopbackAddresses.has(port.host_ip)) {
-        errors.push(
-          `${serviceName} port ${String(port.published ?? port.target)} must bind to loopback`,
-        );
-      }
-    }
+  for (const serviceName of optionalPrivateServices) {
+    assertLoopbackService(errors, serviceName, services[serviceName], { required: false });
   }
 
   const redis = services.redis;
@@ -52,14 +62,18 @@ export function validateLocalServices(compose) {
 }
 
 export function readNormalizedCompose() {
-  const result = spawnSync("docker", ["compose", "config", "--format", "json"], {
-    cwd: new URL("..", import.meta.url),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      REDIS_PASSWORD: "local-service-policy-verification-only",
+  const result = spawnSync(
+    "docker",
+    ["compose", "--profile", "ops", "config", "--format", "json"],
+    {
+      cwd: new URL("..", import.meta.url),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        REDIS_PASSWORD: "local-service-policy-verification-only",
+      },
     },
-  });
+  );
 
   if (result.error) {
     throw new Error(`Docker Compose is required to validate local service policy: ${result.error}`);

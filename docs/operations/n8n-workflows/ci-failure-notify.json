@@ -4,7 +4,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## bizOS CI / deploy failure webhook\n\nPath: `POST /webhook/bizos/ci-failure`\n\nSet `BIZOS_WEBHOOK_SECRET` in n8n env to match GitHub secret `N8N_WEBHOOK_SECRET`.\n\nGitHub Actions posts here when `N8N_CI_WEBHOOK_URL` is configured. For localhost-only n8n, prefer **bizOS GitHub Actions Poll** (no inbound webhook required).\n\nReplace **Log Route** with Slack/email before activation.",
+        "content": "## bizOS CI / deploy webhook\n\nPath: `POST /webhook/bizos/ci-failure`\n\nSet `BIZOS_WEBHOOK_SECRET` to match GitHub/`N8N_WEBHOOK_SECRET`.\nGitHub-hosted runners cannot reach localhost; use **bizOS GitHub Actions Poll** or a reachable webhook URL.\nDelivery: Mailpit (`BIZOS_OPS_MAILPIT_URL`) or `BIZOS_OPS_ALERT_WEBHOOK_URL`.",
         "height": 220,
         "width": 460
       },
@@ -19,7 +19,9 @@
         "httpMethod": "POST",
         "path": "bizos/ci-failure",
         "responseMode": "onReceived",
-        "options": {}
+        "options": {
+          "rawBody": true
+        }
       },
       "id": "webhook-bizos-ci-failure",
       "name": "CI Failure Webhook",
@@ -78,20 +80,12 @@
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "status",
-              "value": "routed"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] CI event';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.severity || 'high';\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await fetch(url, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        From: { Email: from, Name: 'bizOS n8n' },\n        To: [{ Email: to }],\n        Subject: title,\n        Text: String(severity).toUpperCase() + '\\n\\n' + message,\n      }),\n    });\n    if (!response.ok) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + (await response.text()));\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await fetch(webhook, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ ...item, title, message, severity }),\n    });\n    if (!response.ok) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, deliveredAt: new Date().toISOString() } }];"
       },
-      "id": "set-ci-log",
-      "name": "Log Route",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
+      "id": "code-deliver-ci-alert",
+      "name": "Deliver Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [1040, 0]
     }
   ],
@@ -103,7 +97,7 @@
       "main": [[{ "node": "Build Notification", "type": "main", "index": 0 }]]
     },
     "Build Notification": {
-      "main": [[{ "node": "Log Route", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Deliver Alert", "type": "main", "index": 0 }]]
     }
   },
   "settings": {
@@ -113,6 +107,6 @@
   },
   "meta": {
     "templateCredsSetupCompleted": false,
-    "description": "Sanitized template for CI/deploy failure notifications. active: false until ops review."
+    "description": "Signed CI/deploy webhook. Delivers via Mailpit or an alert webhook."
   }
 }
