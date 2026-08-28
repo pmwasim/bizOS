@@ -543,6 +543,7 @@ model Lead {
   phone                  String?   @db.VarChar(40)
   source                 String?   @db.VarChar(80)
   status                 String    @default("NEW") @db.VarChar(40)
+  score                  Int       @default(0) @db.SmallInt
   estimatedValue         Decimal?  @map("estimated_value") @db.Decimal(38, 0)
   currencyCode           String?   @map("currency_code") @db.Char(3)
   notes                  String?   @db.VarChar(2000)
