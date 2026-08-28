@@ -46,12 +46,25 @@ export const leadSchema = z.strictObject({
   phone: z.string().nullable(),
   source: z.string().nullable(),
   status: leadStatusSchema,
+  score: z.number().int().min(0).max(100),
   estimatedValue: z.string().nullable(),
   currencyCode: z.string().nullable(),
   notes: z.string().nullable(),
   convertedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+});
+
+/**
+ * Response for POST /leads/:leadId/convert. Converting a lead flips its status
+ * to CONVERTED and creates a linked opportunity in the same transaction. The
+ * created (or, when the lead was already converted, the existing linked)
+ * opportunity's public id is returned alongside the lead. `opportunityId` is
+ * null only for a lead converted before this progression existed.
+ */
+export const convertLeadResponseSchema = z.strictObject({
+  lead: leadSchema,
+  opportunityId: z.uuid().nullable(),
 });
 
 export const opportunityStageSchema = z.enum([
@@ -135,6 +148,7 @@ export type LeadStatus = z.infer<typeof leadStatusSchema>;
 export type Lead = z.infer<typeof leadSchema>;
 export type CreateLeadRequest = z.infer<typeof createLeadRequestSchema>;
 export type UpdateLeadRequest = z.infer<typeof updateLeadRequestSchema>;
+export type ConvertLeadResponse = z.infer<typeof convertLeadResponseSchema>;
 export type OpportunityStage = z.infer<typeof opportunityStageSchema>;
 export type Opportunity = z.infer<typeof opportunitySchema>;
 export type CreateOpportunityRequest = z.infer<typeof createOpportunityRequestSchema>;
