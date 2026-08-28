@@ -408,8 +408,9 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
         "req-feat28-2",
       );
 
-      expect(convertedLead.status).toBe("CONVERTED");
-      expect(convertedLead.convertedAt).not.toBeNull();
+      expect(convertedLead.lead.status).toBe("CONVERTED");
+      expect(convertedLead.lead.convertedAt).not.toBeNull();
+      expect(convertedLead.opportunityId).not.toBeNull();
     });
 
     it("FEAT-29: creates Projects with linked Milestones and tracks progress states", async () => {
@@ -753,7 +754,7 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
         lead.id,
         "int1-req-2",
       );
-      expect(converted.status).toBe("CONVERTED");
+      expect(converted.lead.status).toBe("CONVERTED");
 
       // 3. Create Project & Milestones
       const project = await projectsService.create(
@@ -932,7 +933,7 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
         lead.id,
         "wl2-phase2",
       );
-      expect(convertedLead.status).toBe("CONVERTED");
+      expect(convertedLead.lead.status).toBe("CONVERTED");
 
       const opp = await opportunitiesService.create(
         USER_A_PUBLIC,

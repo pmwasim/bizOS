@@ -33,6 +33,7 @@ function leadRecord(overrides: Record<string, unknown> = {}) {
     phone: null,
     source: null,
     status: "NEW",
+    score: 0,
     estimatedValue: null,
     currencyCode: null,
     notes: null,
@@ -58,13 +59,30 @@ function createDatabaseMock(initial: ReturnType<typeof leadRecord> | null = null
       return row;
     }),
   };
+  const opportunities: Array<Record<string, unknown>> = [];
+  const opportunity = {
+    create: vi.fn().mockImplementation(async (args: { data: Record<string, unknown> }) => {
+      const created = {
+        ...args.data,
+        id: 700n,
+        publicId: "o0000000-0000-4000-8000-000000000001",
+      };
+      opportunities.push(created);
+      return created;
+    }),
+    findFirst: vi
+      .fn()
+      .mockImplementation(async () =>
+        opportunities.length > 0 ? opportunities[opportunities.length - 1] : null,
+      ),
+  };
   const auditEvent = {
     create: vi.fn().mockImplementation(async (args: { data: unknown }) => {
       auditEvents.push(args.data);
       return args.data;
     }),
   };
-  const transaction = { lead, auditEvent };
+  const transaction = { lead, opportunity, auditEvent };
   const database = {
     withScope: vi
       .fn()
@@ -72,7 +90,14 @@ function createDatabaseMock(initial: ReturnType<typeof leadRecord> | null = null
         work(transaction),
       ),
   };
-  return { database: database as unknown as DatabaseService, lead, auditEvent, auditEvents };
+  return {
+    database: database as unknown as DatabaseService,
+    lead,
+    opportunity,
+    auditEvent,
+    auditEvents,
+    opportunities,
+  };
 }
 
 describe("LeadsService", () => {
@@ -160,9 +185,65 @@ describe("LeadsService", () => {
     );
   });
 
-  it("convert() sets status to CONVERTED and stamps convertedAt", async () => {
+  it("create() computes and persists a deterministic score", async () => {
     const access = createBusinessAccessMock();
-    const { database, lead, auditEvents } = createDatabaseMock(leadRecord());
+    const { database, lead } = createDatabaseMock();
+    const service = new LeadsService(database, access);
+
+    const result = await service.create(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      {
+        name: "Jane Prospect",
+        company: "Prospect Inc",
+        email: "jane@prospect.example",
+        phone: "+1 555 123 4567",
+        source: "referral",
+        estimatedValue: null,
+        currencyCode: null,
+        notes: null,
+      },
+      "req-score",
+    );
+
+    // email 12 + phone 10 + company 8 + referral 20 + no value 0 + NEW 0 = 50
+    expect(result.score).toBe(50);
+    expect(lead.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ score: 50 }) }),
+    );
+  });
+
+  it("update() recomputes the score from the merged lead state", async () => {
+    const access = createBusinessAccessMock();
+    const { database, lead } = createDatabaseMock(
+      leadRecord({ email: "j@x.example", company: "Acme", source: "web", score: 0 }),
+    );
+    const service = new LeadsService(database, access);
+
+    const result = await service.update(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      "l0000000-0000-4000-8000-000000000001",
+      { name: "Jane Prospect", status: "QUALIFIED" },
+      "req-upd",
+    );
+
+    // email 12 + company 8 + web 12 + no value 0 + QUALIFIED 18 = 50
+    expect(result.score).toBe(50);
+    expect(lead.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ score: 50 }) }),
+    );
+  });
+
+  it("convert() sets CONVERTED, creates a linked opportunity, and returns its id", async () => {
+    const access = createBusinessAccessMock();
+    const { database, lead, opportunity, auditEvents } = createDatabaseMock(
+      leadRecord({
+        company: "Prospect Inc",
+        estimatedValue: { toFixed: () => "250000" },
+        currencyCode: "USD",
+      }),
+    );
     const service = new LeadsService(database, access);
 
     const result = await service.convert(
@@ -175,8 +256,43 @@ describe("LeadsService", () => {
     expect(lead.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "CONVERTED" }) }),
     );
-    expect(result.status).toBe("CONVERTED");
-    expect(result.convertedAt).not.toBeNull();
-    expect(auditEvents.map((e) => (e as { action: string }).action)).toContain("lead.converted");
+    expect(opportunity.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          leadId: 900n,
+          name: "Prospect Inc",
+          stage: "PROSPECTING",
+          currencyCode: "USD",
+        }),
+      }),
+    );
+    expect(result.lead.status).toBe("CONVERTED");
+    expect(result.lead.convertedAt).not.toBeNull();
+    expect(result.opportunityId).toBe("o0000000-0000-4000-8000-000000000001");
+    expect(auditEvents.map((e) => (e as { action: string }).action)).toEqual(
+      expect.arrayContaining(["lead.converted", "opportunity.created"]),
+    );
+  });
+
+  it("convert() is idempotent: an already-converted lead spawns no second opportunity", async () => {
+    const access = createBusinessAccessMock();
+    const { database, opportunity } = createDatabaseMock(
+      leadRecord({ status: "CONVERTED", convertedAt: new Date("2026-08-07T00:00:00.000Z") }),
+    );
+    // Pretend the original conversion already created an opportunity.
+    await opportunity.create({ data: { leadId: 900n } });
+    opportunity.create.mockClear();
+    const service = new LeadsService(database, access);
+
+    const result = await service.convert(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      "l0000000-0000-4000-8000-000000000001",
+      "req-idem",
+    );
+
+    expect(opportunity.create).not.toHaveBeenCalled();
+    expect(result.lead.status).toBe("CONVERTED");
+    expect(result.opportunityId).toBe("o0000000-0000-4000-8000-000000000001");
   });
 });
