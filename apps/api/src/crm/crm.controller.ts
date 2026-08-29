@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Inject, Param, Post, Put } from "@nestjs/common";
 
 import {
+  convertOpportunityRequestSchema,
+  type ConvertOpportunityRequest,
   createLeadRequestSchema,
   type CreateLeadRequest,
   createOpportunityRequestSchema,
@@ -105,5 +107,22 @@ export class OpportunitiesController {
     @RequestId() requestId: string,
   ) {
     return this.opportunities.update(principal.userId, businessId, opportunityId, input, requestId);
+  }
+
+  @Post(":opportunityId/convert-to-quotation")
+  convertToQuotation(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Param("opportunityId") opportunityId: string,
+    @Body(new ContractPipe(convertOpportunityRequestSchema)) input: ConvertOpportunityRequest,
+    @RequestId() requestId: string,
+  ) {
+    return this.opportunities.convertToQuotation(
+      principal.userId,
+      businessId,
+      opportunityId,
+      input,
+      requestId,
+    );
   }
 }

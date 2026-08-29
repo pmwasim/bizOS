@@ -97,7 +97,9 @@ describe.runIf(databaseEnabled)("phase 1 modules journey with PostgreSQL boundar
     inventory = new InventoryService(database, access);
     projects = new ProjectsService(database, access);
     leads = new LeadsService(database, access);
-    opportunities = new OpportunitiesService(database, access);
+    // This suite exercises only opportunities.create, never the quotation
+    // conversion, so the quotation engine is stubbed rather than fully wired.
+    opportunities = new OpportunitiesService(database, access, {} as never);
     salesOrders = new SalesOrdersService(database, access);
     deliveryNotes = new DeliveryNotesService(database, access);
     creditNotes = new CreditNotesService(database, access);
