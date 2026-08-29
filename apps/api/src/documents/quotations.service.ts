@@ -112,6 +112,7 @@ export class QuotationsService {
     businessPublicId: string,
     input: SaveQuotationRequest,
     requestId: string,
+    options?: { sourceOpportunityId?: bigint },
   ): Promise<Quotation> {
     const access = await this.authorize(userPublicId, businessPublicId, "create");
 
@@ -163,6 +164,10 @@ export class QuotationsService {
           businessId: access.businessId,
           customerId: customer.id,
           type: DocumentType.QUOTATION,
+          // Back-reference to the CRM opportunity when this quotation is created
+          // by conversion, so a retried conversion recovers this row instead of
+          // creating a duplicate (a partial unique index enforces one-per-opp).
+          sourceOpportunityId: options?.sourceOpportunityId ?? null,
           number: allocated.number,
           issueDate: this.toDatabaseDate(issueDate),
           validUntil: this.toDatabaseDate(validUntil),
