@@ -202,6 +202,22 @@ export class OpportunitiesService {
         },
       });
 
+      // Record stage transitions on the CRM activity timeline so the journal
+      // captures pipeline progression, not just manually logged interactions.
+      if (input.stage !== undefined && input.stage !== existing.stage) {
+        await transaction.crmActivity.create({
+          data: {
+            tenantId: access.tenantId,
+            businessId: access.businessId,
+            type: "STAGE_CHANGE",
+            subject: `Stage changed from ${existing.stage} to ${input.stage}`,
+            occurredAt: new Date(),
+            opportunityId: existing.id,
+            actorMembershipId: access.membershipId,
+          },
+        });
+      }
+
       return this.mapOpportunity(record);
     });
   }

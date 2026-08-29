@@ -308,6 +308,7 @@ model Business {
   suppliers                Supplier[]
   leads                    Lead[]
   opportunities            Opportunity[]
+  crmActivities            CrmActivity[]
   projects                 Project[]
   inventoryItems           InventoryItem[]
   creditNoteAllocations    CreditNoteAllocation[]
@@ -411,6 +412,7 @@ model Customer {
   documents      Document[]
   purchaseOrders PurchaseOrder[]
   projects       Project[]
+  crmActivities  CrmActivity[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, name])
@@ -559,6 +561,7 @@ model Lead {
 
   business      Business      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   opportunities Opportunity[]
+  activities    CrmActivity[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, status])
@@ -587,10 +590,49 @@ model Opportunity {
   business  Business  @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
   lead      Lead?     @relation(fields: [tenantId, businessId, leadId], references: [tenantId, businessId, id], onDelete: Restrict)
   quotation Document? @relation("OpportunityQuotation", fields: [tenantId, businessId, quotationId], references: [tenantId, businessId, id], onDelete: Restrict)
+  activities CrmActivity[]
 
   @@unique([tenantId, businessId, id])
   @@index([tenantId, businessId, stage])
   @@map("opportunities")
+}
+
+enum CrmActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  STAGE_CHANGE
+}
+
+// Append-only interaction journal: notes, calls, emails, meetings and
+// automatic stage-change entries, each attached to a customer, opportunity
+// and/or lead. Rows are never updated or deleted (there is no update path).
+model CrmActivity {
+  id                BigInt          @id @default(autoincrement())
+  publicId          String          @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId          BigInt          @map("tenant_id")
+  businessId        BigInt          @map("business_id")
+  type              CrmActivityType
+  subject           String          @db.VarChar(200)
+  body              String?         @db.VarChar(4000)
+  occurredAt        DateTime        @map("occurred_at") @db.Timestamptz(3)
+  customerId        BigInt?         @map("customer_id")
+  opportunityId     BigInt?         @map("opportunity_id")
+  leadId            BigInt?         @map("lead_id")
+  actorMembershipId BigInt?         @map("actor_membership_id")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business    Business     @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  customer    Customer?    @relation(fields: [tenantId, businessId, customerId], references: [tenantId, businessId, id], onDelete: Restrict)
+  opportunity Opportunity? @relation(fields: [tenantId, businessId, opportunityId], references: [tenantId, businessId, id], onDelete: Restrict)
+  lead        Lead?        @relation(fields: [tenantId, businessId, leadId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, customerId, occurredAt])
+  @@index([tenantId, businessId, opportunityId, occurredAt])
+  @@index([tenantId, businessId, occurredAt])
+  @@map("crm_activities")
 }
 
 model Project {

@@ -180,6 +180,50 @@ export const convertOpportunityResponseSchema = opportunitySchema.extend({
   quotationId: z.uuid(),
 });
 
+// ── CRM interaction journal (activity timeline) ──────────────────────────────
+
+export const crmActivityTypeSchema = z.enum(["NOTE", "CALL", "EMAIL", "MEETING", "STAGE_CHANGE"]);
+
+export const crmActivityTypeLabelByCode = {
+  NOTE: "Note",
+  CALL: "Call",
+  EMAIL: "Email",
+  MEETING: "Meeting",
+  STAGE_CHANGE: "Stage change",
+} as const satisfies Record<z.infer<typeof crmActivityTypeSchema>, string>;
+
+export function crmActivityTypeLabel(type: z.infer<typeof crmActivityTypeSchema>): string {
+  return crmActivityTypeLabelByCode[type];
+}
+
+// Users log interactions; STAGE_CHANGE entries are written by the system when an
+// opportunity's stage changes, so they cannot be created through the API.
+export const createCrmActivityRequestSchema = z
+  .strictObject({
+    type: z.enum(["NOTE", "CALL", "EMAIL", "MEETING"]),
+    subject: z.string().trim().min(1).max(200),
+    body: z.string().trim().max(4000).nullable().optional(),
+    occurredAt: z.iso.datetime().optional(),
+    customerId: z.uuid().nullable().optional(),
+    opportunityId: z.uuid().nullable().optional(),
+    leadId: z.uuid().nullable().optional(),
+  })
+  .refine((value) => Boolean(value.customerId || value.opportunityId || value.leadId), {
+    message: "An activity must reference a customer, opportunity or lead.",
+  });
+
+export const crmActivitySchema = z.strictObject({
+  id: z.uuid(),
+  type: crmActivityTypeSchema,
+  subject: z.string(),
+  body: z.string().nullable(),
+  occurredAt: z.iso.datetime(),
+  customerId: z.uuid().nullable(),
+  opportunityId: z.uuid().nullable(),
+  leadId: z.uuid().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
 export type LeadStatus = z.infer<typeof leadStatusSchema>;
 export type Lead = z.infer<typeof leadSchema>;
 export type CreateLeadRequest = z.infer<typeof createLeadRequestSchema>;
@@ -191,3 +235,6 @@ export type CreateOpportunityRequest = z.infer<typeof createOpportunityRequestSc
 export type UpdateOpportunityRequest = z.infer<typeof updateOpportunityRequestSchema>;
 export type ConvertOpportunityRequest = z.infer<typeof convertOpportunityRequestSchema>;
 export type ConvertOpportunityResponse = z.infer<typeof convertOpportunityResponseSchema>;
+export type CrmActivityType = z.infer<typeof crmActivityTypeSchema>;
+export type CreateCrmActivityRequest = z.infer<typeof createCrmActivityRequestSchema>;
+export type CrmActivity = z.infer<typeof crmActivitySchema>;

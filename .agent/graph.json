@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 228,
-      "testFiles": 82,
+      "sourceFiles": 230,
+      "testFiles": 83,
       "areas": [
         {
           "name": "ai",
@@ -99,8 +99,8 @@
         {
           "name": "crm",
           "path": "apps/api/src/crm",
-          "sourceFiles": 8,
-          "testFiles": 3
+          "sourceFiles": 10,
+          "testFiles": 4
         },
         {
           "name": "customers",

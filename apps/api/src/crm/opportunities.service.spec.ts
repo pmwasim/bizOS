@@ -89,7 +89,10 @@ function createDatabaseMock(initial: ReturnType<typeof opportunityRecord> | null
       return args.data;
     }),
   };
-  const transaction = { lead, opportunity, auditEvent };
+  const crmActivity = {
+    create: vi.fn().mockResolvedValue({}),
+  };
+  const transaction = { lead, opportunity, auditEvent, crmActivity };
   const database = {
     withScope: vi
       .fn()
@@ -97,7 +100,12 @@ function createDatabaseMock(initial: ReturnType<typeof opportunityRecord> | null
         work(transaction),
       ),
   };
-  return { database: database as unknown as DatabaseService, opportunity, auditEvents };
+  return {
+    database: database as unknown as DatabaseService,
+    opportunity,
+    crmActivity,
+    auditEvents,
+  };
 }
 
 describe("OpportunitiesService", () => {
@@ -180,7 +188,7 @@ describe("OpportunitiesService", () => {
 
   it("update() only overwrites fields explicitly present in the request", async () => {
     const access = createBusinessAccessMock();
-    const { database, opportunity } = createDatabaseMock(
+    const { database, opportunity, crmActivity } = createDatabaseMock(
       opportunityRecord({ probability: 20, notes: "keep me" }),
     );
     const service = new OpportunitiesService(database, access, createQuotationsMock().service);
@@ -198,6 +206,33 @@ describe("OpportunitiesService", () => {
         data: expect.objectContaining({ stage: "PROPOSAL", probability: 20, notes: "keep me" }),
       }),
     );
+    // Changing the stage records a STAGE_CHANGE entry on the activity timeline.
+    expect(crmActivity.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: "STAGE_CHANGE",
+          opportunityId: 900n,
+        }),
+      }),
+    );
+  });
+
+  it("update() does not record a stage-change activity when the stage is unchanged", async () => {
+    const access = createBusinessAccessMock();
+    const { database, crmActivity } = createDatabaseMock(
+      opportunityRecord({ stage: "PROSPECTING" }),
+    );
+    const service = new OpportunitiesService(database, access, createQuotationsMock().service);
+
+    await service.update(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      "o0000000-0000-4000-8000-000000000001",
+      { notes: "just a note" },
+      "req-4b",
+    );
+
+    expect(crmActivity.create).not.toHaveBeenCalled();
   });
 
   it("maps the linked quotation record onto the public `quotation` field", async () => {
