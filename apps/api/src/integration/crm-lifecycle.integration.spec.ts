@@ -19,8 +19,15 @@ const RUN_ID = crypto.randomUUID().slice(0, 8);
 // End-to-end verification gate for Sprint 7 (Commercial CRM): drives one lead
 // all the way through scoring, lead→opportunity progression, the interaction
 // journal (including the automatic stage-change entry), opportunity→quotation
-// conversion and its idempotency, then asserts cross-tenant isolation — all
-// against a real PostgreSQL instance with row-level security in force.
+// conversion and its idempotency, then asserts cross-tenant isolation at the
+// application (service) layer — all against a real PostgreSQL instance.
+//
+// Scope note: this exercises the tenant-scoping the API relies on (every read
+// resolves its targets within the caller's business). It does NOT assert the
+// database row-level-security policy directly, because CI connects as the
+// superuser `bizo` role, which bypasses RLS; a true RLS-enforcement test needs a
+// NOBYPASSRLS application role. The policy itself is enabled+forced by the
+// crm_activities migration as defense-in-depth beneath this application check.
 describe.runIf(databaseEnabled)(
   "CRM lifecycle gate (Sprint 7: leads → opportunities → journal)",
   () => {
@@ -170,7 +177,7 @@ describe.runIf(databaseEnabled)(
       expect(again.quotationId).toBe(quoted.quotationId);
     });
 
-    it("isolates the interaction journal across tenants", async () => {
+    it("isolates the interaction journal across tenants at the service layer", async () => {
       const { owner, business } = await provisionBusiness("Tenant-A");
       const lead = await leads.create(
         owner.id,
