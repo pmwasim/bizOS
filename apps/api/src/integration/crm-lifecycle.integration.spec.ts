@@ -110,7 +110,7 @@ describe.runIf(databaseEnabled)(
         owner.id,
         business.id,
         lead.id,
-        { status: "QUALIFIED" },
+        { name: lead.name, status: "QUALIFIED" },
         "gate-lead-qualify",
       );
       expect(qualified.score).toBeGreaterThan(lead.score);
