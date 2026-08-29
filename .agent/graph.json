@@ -63,8 +63,8 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 230,
-      "testFiles": 83,
+      "sourceFiles": 231,
+      "testFiles": 84,
       "areas": [
         {
           "name": "ai",
@@ -159,8 +159,8 @@
         {
           "name": "integration",
           "path": "apps/api/src/integration",
-          "sourceFiles": 9,
-          "testFiles": 9
+          "sourceFiles": 10,
+          "testFiles": 10
         },
         {
           "name": "inventory",

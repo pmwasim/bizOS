@@ -343,8 +343,8 @@ function createConvertDatabaseMock(
     findUniqueOrThrow: vi.fn().mockResolvedValue({
       baseCurrency: options.baseCurrency ?? "USD",
       currencyScale: 2,
-      settings: options.configured === false ? null : { id: 1n },
-      taxProfile: options.configured === false ? null : { id: 1n },
+      settings: options.configured === false ? null : { businessId: 44n },
+      taxProfile: options.configured === false ? null : { businessId: 44n },
     }),
   };
   const document = {
