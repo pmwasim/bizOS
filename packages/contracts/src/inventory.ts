@@ -109,6 +109,13 @@ export const stockOnHandSchema = z.strictObject({
   quantityOnHand: z.number().int(),
 });
 
+// Query for GET .../stock/on-hand: itemId is required and must be a UUID, so a
+// missing/malformed value fails closed with a 400 instead of reaching Prisma.
+export const stockOnHandQuerySchema = z.strictObject({
+  itemId: z.uuid(),
+  locationId: z.uuid().optional(),
+});
+
 export type InventoryItemType = z.infer<typeof inventoryItemStatusSchema>;
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;
 export type CreateInventoryItemRequest = z.infer<typeof createInventoryItemRequestSchema>;
@@ -120,3 +127,4 @@ export type RecordStockMovementRequest = z.infer<typeof recordStockMovementReque
 export type TransferStockRequest = z.infer<typeof transferStockRequestSchema>;
 export type StockMovement = z.infer<typeof stockMovementSchema>;
 export type StockOnHand = z.infer<typeof stockOnHandSchema>;
+export type StockOnHandQuery = z.infer<typeof stockOnHandQuerySchema>;

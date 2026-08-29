@@ -34,6 +34,7 @@ CREATE TABLE "stock_movements" (
     "unit_cost_minor" DECIMAL(38,0) NOT NULL DEFAULT 0,
     "reference_type" VARCHAR(20),
     "reference_id" VARCHAR(64),
+    "request_id" VARCHAR(64),
     "occurred_at" TIMESTAMPTZ(3) NOT NULL,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -49,6 +50,7 @@ CREATE UNIQUE INDEX "stock_movements_public_id_key" ON "stock_movements"("public
 CREATE INDEX "stock_movements_tenant_id_business_id_item_id_location_id_o_idx" ON "stock_movements"("tenant_id", "business_id", "item_id", "location_id", "occurred_at");
 CREATE INDEX "stock_movements_tenant_id_business_id_location_id_occurred__idx" ON "stock_movements"("tenant_id", "business_id", "location_id", "occurred_at");
 CREATE UNIQUE INDEX "stock_movements_tenant_id_business_id_id_key" ON "stock_movements"("tenant_id", "business_id", "id");
+CREATE UNIQUE INDEX "stock_movements_business_id_request_id_location_id_key" ON "stock_movements"("business_id", "request_id", "location_id") WHERE "request_id" IS NOT NULL;
 
 -- AddForeignKey
 ALTER TABLE "stock_locations" ADD CONSTRAINT "stock_locations_tenant_id_business_id_fkey" FOREIGN KEY ("tenant_id", "business_id") REFERENCES "businesses"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;

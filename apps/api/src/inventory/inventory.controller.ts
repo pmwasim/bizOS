@@ -7,6 +7,8 @@ import {
   type CreateStockLocationRequest,
   recordStockMovementRequestSchema,
   type RecordStockMovementRequest,
+  stockOnHandQuerySchema,
+  type StockOnHandQuery,
   transferStockRequestSchema,
   type TransferStockRequest,
   updateInventoryItemRequestSchema,
@@ -128,9 +130,8 @@ export class StockController {
   onHand(
     @Principal() principal: AuthenticatedPrincipal,
     @Param("businessId") businessId: string,
-    @Query("itemId") itemId: string,
-    @Query("locationId") locationId?: string,
+    @Query(new ContractPipe(stockOnHandQuerySchema)) query: StockOnHandQuery,
   ) {
-    return this.inventory.onHand(principal.userId, businessId, itemId, locationId);
+    return this.inventory.onHand(principal.userId, businessId, query.itemId, query.locationId);
   }
 }

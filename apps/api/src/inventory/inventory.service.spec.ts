@@ -65,6 +65,8 @@ function createDatabaseMock(
   };
   const stockMovement = {
     findMany: vi.fn().mockResolvedValue(options.onHandRows ?? []),
+    // Idempotency dedup lookup: no prior movement for the request by default.
+    findFirst: vi.fn().mockResolvedValue(null),
     create: vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) =>
       movementRow({
         movementType: data.movementType,
@@ -74,7 +76,14 @@ function createDatabaseMock(
     ),
   };
   const auditEvent = { create: vi.fn().mockResolvedValue({}) };
-  const transaction = { inventoryItem, stockLocation, stockMovement, auditEvent };
+  const transaction = {
+    inventoryItem,
+    stockLocation,
+    stockMovement,
+    auditEvent,
+    // Advisory-lock calls (pg_advisory_xact_lock) are no-ops against the mock.
+    $executeRaw: vi.fn().mockResolvedValue(1),
+  };
   const database = {
     withScope: vi
       .fn()
@@ -142,6 +151,24 @@ describe("InventoryService: multi-location stock", () => {
     );
     expect(movement.movementType).toBe("RECEIPT");
     expect(movement.unitCostMinor).toBe("1500");
+  });
+
+  it("dedups a retried movement command by request id instead of double-posting", async () => {
+    const mock = createDatabaseMock();
+    mock.stockMovement.findFirst.mockResolvedValueOnce(
+      movementRow({ movementType: "RECEIPT", quantity: 10 }),
+    );
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    const movement = await service.recordMovement(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      { itemId: ITEM, locationId: LOC_A, movementType: "RECEIPT", quantity: 10 },
+      "req-dup",
+    );
+
+    expect(mock.stockMovement.create).not.toHaveBeenCalled();
+    expect(movement.movementType).toBe("RECEIPT");
   });
 
   it("computes on-hand from the movement ledger (receipts − dispatches + signed adjustments)", async () => {

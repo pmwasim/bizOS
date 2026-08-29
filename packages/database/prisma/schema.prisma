@@ -734,6 +734,9 @@ model StockMovement {
   unitCostMinor Decimal           @default(0) @map("unit_cost_minor") @db.Decimal(38, 0)
   referenceType String?           @map("reference_type") @db.VarChar(20)
   referenceId   String?           @map("reference_id") @db.VarChar(64)
+  // Idempotency key (the command's x-request-id): a retried movement command
+  // dedups on (business, requestId, location) instead of double-posting stock.
+  requestId     String?           @map("request_id") @db.VarChar(64)
   occurredAt    DateTime          @map("occurred_at") @db.Timestamptz(3)
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
 

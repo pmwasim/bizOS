@@ -231,8 +231,10 @@ export class InventoryService {
   ): Promise<StockLocation> {
     const access = await this.authorize(userPublicId, businessPublicId, "create");
     return this.database.withScope(access, async (transaction) => {
-      // At most one default location per business.
+      // At most one default location per business. Serialize concurrent default
+      // changes so two requests cannot both clear-and-set and commit two defaults.
       if (input.isDefault) {
+        await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`stock-default-location:${access.businessId}`}))`;
         await transaction.stockLocation.updateMany({
           where: { businessId: access.businessId, isDefault: true },
           data: { isDefault: false },
@@ -285,6 +287,17 @@ export class InventoryService {
       const itemId = await this.resolveItemId(transaction, access, input.itemId);
       const locationId = await this.resolveLocationId(transaction, access, input.locationId);
 
+      // Serialize all concurrent stock mutations for this item so two dispatches
+      // cannot both read the same on-hand and each pass the guard (which would
+      // drive the committed ledger negative). Released on commit/rollback.
+      await this.lockItem(transaction, access.businessId, itemId);
+
+      // Idempotency: a retried command (same x-request-id) must not double-post.
+      const existing = await this.findMovementByRequest(transaction, access, requestId, locationId);
+      if (existing) {
+        return this.mapMovement(existing);
+      }
+
       // A DISPATCH must never drive on-hand negative at its location.
       if (input.movementType === "DISPATCH") {
         const onHand = await this.onHandQuantity(transaction, access, itemId, locationId);
@@ -307,6 +320,7 @@ export class InventoryService {
           unitCostMinor: input.unitCostMinor ?? "0",
           referenceType: input.referenceType ?? null,
           referenceId: input.referenceId ?? null,
+          requestId,
           occurredAt: input.occurredAt ? new Date(input.occurredAt) : new Date(),
         },
         include: this.movementInclude(),
@@ -344,6 +358,15 @@ export class InventoryService {
       const fromId = await this.resolveLocationId(transaction, access, input.fromLocationId);
       const toId = await this.resolveLocationId(transaction, access, input.toLocationId);
 
+      // Serialize concurrent mutations for this item, then dedup a retried
+      // transfer (same x-request-id) by returning the pair it already wrote.
+      await this.lockItem(transaction, access.businessId, itemId);
+      const priorFrom = await this.findMovementByRequest(transaction, access, requestId, fromId);
+      const priorTo = await this.findMovementByRequest(transaction, access, requestId, toId);
+      if (priorFrom && priorTo) {
+        return { from: this.mapMovement(priorFrom), to: this.mapMovement(priorTo) };
+      }
+
       const onHand = await this.onHandQuantity(transaction, access, itemId, fromId);
       if (onHand < input.quantity) {
         throw new BadRequestException({
@@ -363,6 +386,7 @@ export class InventoryService {
         movementType: "TRANSFER" as const,
         unitCostMinor,
         referenceType: "MANUAL",
+        requestId,
         occurredAt,
       };
       const fromRow = (await transaction.stockMovement.create({
@@ -481,6 +505,29 @@ export class InventoryService {
     });
     if (!location) throw new NotFoundException("We could not find that stock location.");
     return location.id;
+  }
+
+  // Transaction-scoped advisory lock serializing all stock mutations for one
+  // item within a business (released on commit/rollback), matching the pattern
+  // used by payments/quotations for concurrency-sensitive writes.
+  private async lockItem(
+    transaction: Prisma.TransactionClient,
+    businessId: bigint,
+    itemId: bigint,
+  ): Promise<void> {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`stock-mutate:${businessId}:${itemId}`}))`;
+  }
+
+  private async findMovementByRequest(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    requestId: string,
+    locationId: bigint,
+  ): Promise<StockMovementDbRecord | null> {
+    return (await transaction.stockMovement.findFirst({
+      where: { businessId: access.businessId, requestId, locationId },
+      include: this.movementInclude(),
+    })) as unknown as StockMovementDbRecord | null;
   }
 
   private movementInclude() {
