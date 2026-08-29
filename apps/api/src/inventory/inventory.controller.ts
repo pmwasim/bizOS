@@ -1,8 +1,16 @@
-import { Body, Controller, Get, Inject, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Put, Query } from "@nestjs/common";
 
 import {
   createInventoryItemRequestSchema,
   type CreateInventoryItemRequest,
+  createStockLocationRequestSchema,
+  type CreateStockLocationRequest,
+  recordStockMovementRequestSchema,
+  type RecordStockMovementRequest,
+  stockOnHandQuerySchema,
+  type StockOnHandQuery,
+  transferStockRequestSchema,
+  type TransferStockRequest,
   updateInventoryItemRequestSchema,
   type UpdateInventoryItemRequest,
 } from "@bizo/contracts/inventory";
@@ -60,5 +68,70 @@ export class InventoryController {
     @RequestId() requestId: string,
   ) {
     return this.inventory.deactivate(principal.userId, _businessId, itemId, requestId);
+  }
+}
+
+@Controller("businesses/:businessId/inventory/stock")
+export class StockController {
+  constructor(@Inject(InventoryService) private readonly inventory: InventoryService) {}
+
+  @Post("locations")
+  createLocation(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Body(new ContractPipe(createStockLocationRequestSchema)) input: CreateStockLocationRequest,
+    @RequestId() requestId: string,
+  ) {
+    return this.inventory.createLocation(principal.userId, businessId, input, requestId);
+  }
+
+  @Get("locations")
+  listLocations(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+  ) {
+    return this.inventory.listLocations(principal.userId, businessId);
+  }
+
+  @Post("movements")
+  recordMovement(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Body(new ContractPipe(recordStockMovementRequestSchema)) input: RecordStockMovementRequest,
+    @RequestId() requestId: string,
+  ) {
+    return this.inventory.recordMovement(principal.userId, businessId, input, requestId);
+  }
+
+  @Get("movements")
+  listMovements(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Query("itemId") itemId?: string,
+    @Query("locationId") locationId?: string,
+  ) {
+    return this.inventory.listMovements(principal.userId, businessId, {
+      ...(itemId ? { itemPublicId: itemId } : {}),
+      ...(locationId ? { locationPublicId: locationId } : {}),
+    });
+  }
+
+  @Post("transfers")
+  transfer(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Body(new ContractPipe(transferStockRequestSchema)) input: TransferStockRequest,
+    @RequestId() requestId: string,
+  ) {
+    return this.inventory.transferStock(principal.userId, businessId, input, requestId);
+  }
+
+  @Get("on-hand")
+  onHand(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Query(new ContractPipe(stockOnHandQuerySchema)) query: StockOnHandQuery,
+  ) {
+    return this.inventory.onHand(principal.userId, businessId, query.itemId, query.locationId);
   }
 }

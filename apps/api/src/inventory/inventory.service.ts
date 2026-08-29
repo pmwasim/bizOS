@@ -2,7 +2,13 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 
 import {
   type CreateInventoryItemRequest,
+  type CreateStockLocationRequest,
   type InventoryItem,
+  type RecordStockMovementRequest,
+  type StockLocation,
+  type StockMovement,
+  type StockOnHand,
+  type TransferStockRequest,
   type UpdateInventoryItemRequest,
 } from "@bizo/contracts/inventory";
 import { type Prisma } from "@bizo/database";
@@ -14,62 +20,27 @@ import {
   BusinessAccessService,
 } from "../security/business-access.service";
 
-export interface StockMovementInput {
-  itemId: string;
-  movementType: "RECEIPT" | "DISPATCH" | "ADJUSTMENT";
-  quantity: number;
-  unitCostMinor: number;
-  referenceType?: "GRN" | "MANUAL" | "SALE" | "SO";
-  referenceId?: string;
-  timestamp?: string | Date;
+interface StockLocationRecord {
+  publicId: string;
+  code: string;
+  name: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface StockMovementRecord {
-  id: string;
-  businessId: string;
-  itemId: string;
-  movementType: "RECEIPT" | "DISPATCH" | "ADJUSTMENT";
+interface StockMovementDbRecord {
+  publicId: string;
+  movementType: string;
   quantity: number;
-  unitCostMinor: number;
+  unitCostMinor: Prisma.Decimal;
   referenceType: string | null;
   referenceId: string | null;
-  createdAt: string;
-}
-
-export interface StockValuationResult {
-  itemId: string;
-  sku?: string;
-  name?: string;
-  valuationMethod: "FIFO" | "AVCO";
-  totalQuantity: number;
-  totalAssetValueMinor: number;
-  averageUnitCostMinor: number;
-}
-
-export interface StockReservationResult {
-  itemId: string;
-  reservedQuantity: number;
-  totalReserved: number;
-  availableStock: number;
-}
-
-export interface LowStockDigestItem {
-  itemId: string;
-  sku: string;
-  name: string;
-  currentStock: number;
-  reorderLevel: number;
-  deficitQuantity: number;
-  severity: "CRITICAL" | "WARNING";
-}
-
-export interface LowStockDigest {
-  businessId: string;
-  generatedAt: string;
-  totalLowStockItems: number;
-  criticalCount: number;
-  warningCount: number;
-  items: LowStockDigestItem[];
+  occurredAt: Date;
+  createdAt: Date;
+  item: { publicId: string };
+  location: { publicId: string };
 }
 
 interface InventoryItemRecord {
@@ -91,10 +62,6 @@ interface InventoryItemRecord {
 
 @Injectable()
 export class InventoryService {
-  private readonly movementLedger = new Map<string, StockMovementRecord[]>();
-  private readonly stockReservations = new Map<string, number>();
-  private readonly stockLevels = new Map<string, number>();
-
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
@@ -255,252 +222,345 @@ export class InventoryService {
   /**
    * Records a stock movement entry in the stock_movement_ledger.
    */
-  async recordStockMovement(
-    arg1: string,
-    arg2: string | StockMovementInput,
-    arg3?: StockMovementInput,
-    _requestId?: string,
-  ): Promise<StockMovementRecord> {
-    let businessId: string;
-    let input: StockMovementInput;
-
-    if (typeof arg2 === "object" && arg2 !== null) {
-      businessId = arg1;
-      input = arg2 as StockMovementInput;
-    } else {
-      businessId = arg2 as string;
-      input = arg3 as StockMovementInput;
-    }
-
-    if (input.quantity <= 0 && input.movementType !== "ADJUSTMENT") {
-      throw new BadRequestException("Quantity must be positive for stock movement.");
-    }
-
-    const key = `${businessId}:${input.itemId}`;
-    const now = input.timestamp
-      ? new Date(input.timestamp).toISOString()
-      : new Date().toISOString();
-
-    const record: StockMovementRecord = {
-      id: `mov-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      businessId,
-      itemId: input.itemId,
-      movementType: input.movementType,
-      quantity: input.quantity,
-      unitCostMinor: input.unitCostMinor,
-      referenceType: input.referenceType ?? null,
-      referenceId: input.referenceId ?? null,
-      createdAt: now,
-    };
-
-    const ledger = this.movementLedger.get(key) || [];
-    ledger.push(record);
-    this.movementLedger.set(key, ledger);
-
-    // Update stock levels map
-    const currentStock = this.stockLevels.get(key) || 0;
-    let stockDelta: number;
-    if (input.movementType === "RECEIPT") {
-      stockDelta = input.quantity;
-    } else if (input.movementType === "DISPATCH") {
-      stockDelta = -input.quantity;
-    } else {
-      stockDelta = input.quantity;
-    }
-    const newStock = Math.max(0, currentStock + stockDelta);
-    this.stockLevels.set(key, newStock);
-
-    return record;
-  }
-
-  /**
-   * Calculates inventory asset value based on FIFO queue or AVCO (Moving Average Costing).
-   */
-  async calculateValuation(
-    arg1: string,
-    arg2: string,
-    arg3: "FIFO" | "AVCO" = "FIFO",
-  ): Promise<StockValuationResult> {
-    let businessId: string;
-    let itemId: string;
-    let method: "FIFO" | "AVCO";
-
-    if (arg3 === "FIFO" || arg3 === "AVCO") {
-      businessId = arg1;
-      itemId = arg2;
-      method = arg3;
-    } else {
-      businessId = arg2;
-      itemId = arg3 as unknown as string;
-      method = "FIFO";
-    }
-
-    const key = `${businessId}:${itemId}`;
-    const movements = this.movementLedger.get(key) || [];
-
-    if (method === "FIFO") {
-      const queue: Array<{ quantity: number; unitCostMinor: number }> = [];
-
-      for (const mov of movements) {
-        if (
-          mov.movementType === "RECEIPT" ||
-          (mov.movementType === "ADJUSTMENT" && mov.quantity > 0)
-        ) {
-          queue.push({ quantity: mov.quantity, unitCostMinor: mov.unitCostMinor });
-        } else if (
-          mov.movementType === "DISPATCH" ||
-          (mov.movementType === "ADJUSTMENT" && mov.quantity < 0)
-        ) {
-          let qtyToConsume = Math.abs(mov.quantity);
-          while (qtyToConsume > 0 && queue.length > 0) {
-            const head = queue[0]!;
-            if (head.quantity <= qtyToConsume) {
-              qtyToConsume -= head.quantity;
-              queue.shift();
-            } else {
-              head.quantity -= qtyToConsume;
-              qtyToConsume = 0;
-            }
-          }
-        }
-      }
-
-      const totalQuantity = queue.reduce((sum, layer) => sum + layer.quantity, 0);
-      const totalAssetValueMinor = queue.reduce(
-        (sum, layer) => sum + Math.round(layer.quantity * layer.unitCostMinor),
-        0,
-      );
-      const averageUnitCostMinor =
-        totalQuantity > 0 ? Math.round(totalAssetValueMinor / totalQuantity) : 0;
-
-      return {
-        itemId,
-        valuationMethod: "FIFO",
-        totalQuantity,
-        totalAssetValueMinor,
-        averageUnitCostMinor,
-      };
-    } else {
-      // Moving Average Costing (AVCO)
-      let totalQty = 0;
-      let totalCostMinor = 0;
-
-      for (const mov of movements) {
-        if (
-          mov.movementType === "RECEIPT" ||
-          (mov.movementType === "ADJUSTMENT" && mov.quantity > 0)
-        ) {
-          totalCostMinor += mov.quantity * mov.unitCostMinor;
-          totalQty += mov.quantity;
-        } else if (
-          mov.movementType === "DISPATCH" ||
-          (mov.movementType === "ADJUSTMENT" && mov.quantity < 0)
-        ) {
-          const removeQty = Math.abs(mov.quantity);
-          const currentAvgCost = totalQty > 0 ? totalCostMinor / totalQty : 0;
-          totalCostMinor = Math.max(0, totalCostMinor - removeQty * currentAvgCost);
-          totalQty = Math.max(0, totalQty - removeQty);
-        }
-      }
-
-      const roundedAssetValue = Math.round(totalCostMinor);
-      const averageUnitCostMinor = totalQty > 0 ? Math.round(roundedAssetValue / totalQty) : 0;
-
-      return {
-        itemId,
-        valuationMethod: "AVCO",
-        totalQuantity: totalQty,
-        totalAssetValueMinor: roundedAssetValue,
-        averageUnitCostMinor,
-      };
-    }
-  }
-
-  /**
-   * Reserve stock on sales order confirmation.
-   */
-  async reserveStock(
-    arg1: string,
-    arg2: string | number,
-    arg3?: number,
-  ): Promise<StockReservationResult> {
-    let businessId: string;
-    let itemId: string;
-    let quantity: number;
-
-    if (typeof arg2 === "string" && typeof arg3 === "number") {
-      businessId = arg1;
-      itemId = arg2;
-      quantity = arg3;
-    } else {
-      businessId = arg1;
-      itemId = arg1;
-      quantity = arg2 as number;
-    }
-
-    const key = `${businessId}:${itemId}`;
-    const currentStock = this.stockLevels.get(key) || 0;
-    const currentReserved = this.stockReservations.get(key) || 0;
-    const availableStock = currentStock - currentReserved;
-
-    if (availableStock < quantity) {
-      throw new BadRequestException("Insufficient stock available for reservation.");
-    }
-
-    const newReserved = currentReserved + quantity;
-    this.stockReservations.set(key, newReserved);
-
-    return {
-      itemId,
-      reservedQuantity: quantity,
-      totalReserved: newReserved,
-      availableStock: currentStock - newReserved,
-    };
-  }
-
-  /**
-   * Generates low-stock digest alert summary for reorder items.
-   */
-  async getLowStockDigest(arg1: string, arg2?: string): Promise<LowStockDigest> {
-    const businessId = arg2 ? arg2 : arg1;
-    const now = new Date().toISOString();
-
-    const items: LowStockDigestItem[] = [];
-    let criticalCount = 0;
-    let warningCount = 0;
-
-    for (const [key, stock] of this.stockLevels.entries()) {
-      if (!key.startsWith(`${businessId}:`)) continue;
-      const itemId = key.substring(businessId.length + 1);
-      const reserved = this.stockReservations.get(key) || 0;
-      const available = stock - reserved;
-
-      const reorderLevel = 10;
-      if (available <= reorderLevel) {
-        const deficitQuantity = reorderLevel - available;
-        const severity: "CRITICAL" | "WARNING" = deficitQuantity > 5 ? "CRITICAL" : "WARNING";
-        if (severity === "CRITICAL") criticalCount++;
-        else warningCount++;
-
-        items.push({
-          itemId,
-          sku: `SKU-${itemId}`,
-          name: `Item ${itemId}`,
-          currentStock: available,
-          reorderLevel,
-          deficitQuantity,
-          severity,
+  // ── Stock locations ────────────────────────────────────────────────────
+  async createLocation(
+    userPublicId: string,
+    businessPublicId: string,
+    input: CreateStockLocationRequest,
+    requestId: string,
+  ): Promise<StockLocation> {
+    const access = await this.authorize(userPublicId, businessPublicId, "create");
+    return this.database.withScope(access, async (transaction) => {
+      // At most one default location per business. Serialize concurrent default
+      // changes so two requests cannot both clear-and-set and commit two defaults.
+      if (input.isDefault) {
+        await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`stock-default-location:${access.businessId}`}))`;
+        await transaction.stockLocation.updateMany({
+          where: { businessId: access.businessId, isDefault: true },
+          data: { isDefault: false },
         });
       }
-    }
+      const record = (await transaction.stockLocation.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          code: input.code,
+          name: input.name,
+          isDefault: input.isDefault ?? false,
+        },
+      })) as unknown as StockLocationRecord;
+      await transaction.auditEvent.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          actorUserId: access.userId,
+          action: "stock_location.created",
+          targetType: "stock_location",
+          targetPublicId: record.publicId,
+          requestId,
+        },
+      });
+      return this.mapLocation(record);
+    });
+  }
 
+  async listLocations(userPublicId: string, businessPublicId: string): Promise<StockLocation[]> {
+    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    return this.database.withScope(access, async (transaction) => {
+      const rows = (await transaction.stockLocation.findMany({
+        where: { businessId: access.businessId },
+        orderBy: [{ isDefault: "desc" }, { code: "asc" }],
+      })) as unknown as StockLocationRecord[];
+      return rows.map((row) => this.mapLocation(row));
+    });
+  }
+
+  // ── Movement journal ───────────────────────────────────────────────────
+  async recordMovement(
+    userPublicId: string,
+    businessPublicId: string,
+    input: RecordStockMovementRequest,
+    requestId: string,
+  ): Promise<StockMovement> {
+    const access = await this.authorize(userPublicId, businessPublicId, "update");
+    return this.database.withScope(access, async (transaction) => {
+      const itemId = await this.resolveItemId(transaction, access, input.itemId);
+      const locationId = await this.resolveLocationId(transaction, access, input.locationId);
+
+      // Serialize all concurrent stock mutations for this item so two dispatches
+      // cannot both read the same on-hand and each pass the guard (which would
+      // drive the committed ledger negative). Released on commit/rollback.
+      await this.lockItem(transaction, access.businessId, itemId);
+
+      // Idempotency: a retried command (same x-request-id) must not double-post.
+      const existing = await this.findMovementByRequest(transaction, access, requestId, locationId);
+      if (existing) {
+        return this.mapMovement(existing);
+      }
+
+      // A DISPATCH must never drive on-hand negative at its location.
+      if (input.movementType === "DISPATCH") {
+        const onHand = await this.onHandQuantity(transaction, access, itemId, locationId);
+        if (onHand < input.quantity) {
+          throw new BadRequestException({
+            code: "INSUFFICIENT_STOCK",
+            detail: `Only ${onHand} unit(s) on hand at this location.`,
+          });
+        }
+      }
+
+      const record = (await transaction.stockMovement.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          itemId,
+          locationId,
+          movementType: input.movementType,
+          quantity: input.quantity,
+          unitCostMinor: input.unitCostMinor ?? "0",
+          referenceType: input.referenceType ?? null,
+          referenceId: input.referenceId ?? null,
+          requestId,
+          occurredAt: input.occurredAt ? new Date(input.occurredAt) : new Date(),
+        },
+        include: this.movementInclude(),
+      })) as unknown as StockMovementDbRecord;
+      await transaction.auditEvent.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          actorUserId: access.userId,
+          action: "stock_movement.recorded",
+          targetType: "stock_movement",
+          targetPublicId: record.publicId,
+          requestId,
+        },
+      });
+      return this.mapMovement(record);
+    });
+  }
+
+  async transferStock(
+    userPublicId: string,
+    businessPublicId: string,
+    input: TransferStockRequest,
+    requestId: string,
+  ): Promise<{ from: StockMovement; to: StockMovement }> {
+    const access = await this.authorize(userPublicId, businessPublicId, "update");
+    if (input.fromLocationId === input.toLocationId) {
+      throw new BadRequestException({
+        code: "SAME_LOCATION_TRANSFER",
+        detail: "The source and destination locations must differ.",
+      });
+    }
+    return this.database.withScope(access, async (transaction) => {
+      const itemId = await this.resolveItemId(transaction, access, input.itemId);
+      const fromId = await this.resolveLocationId(transaction, access, input.fromLocationId);
+      const toId = await this.resolveLocationId(transaction, access, input.toLocationId);
+
+      // Serialize concurrent mutations for this item, then dedup a retried
+      // transfer (same x-request-id) by returning the pair it already wrote.
+      await this.lockItem(transaction, access.businessId, itemId);
+      const priorFrom = await this.findMovementByRequest(transaction, access, requestId, fromId);
+      const priorTo = await this.findMovementByRequest(transaction, access, requestId, toId);
+      if (priorFrom && priorTo) {
+        return { from: this.mapMovement(priorFrom), to: this.mapMovement(priorTo) };
+      }
+
+      const onHand = await this.onHandQuantity(transaction, access, itemId, fromId);
+      if (onHand < input.quantity) {
+        throw new BadRequestException({
+          code: "INSUFFICIENT_STOCK",
+          detail: `Only ${onHand} unit(s) on hand at the source location.`,
+        });
+      }
+
+      // A transfer is two TRANSFER rows carrying a signed quantity: it leaves
+      // the source (−q) and arrives at the destination (+q), so on-hand nets out.
+      const occurredAt = input.occurredAt ? new Date(input.occurredAt) : new Date();
+      const unitCostMinor = input.unitCostMinor ?? "0";
+      const base = {
+        tenantId: access.tenantId,
+        businessId: access.businessId,
+        itemId,
+        movementType: "TRANSFER" as const,
+        unitCostMinor,
+        referenceType: "MANUAL",
+        requestId,
+        occurredAt,
+      };
+      const fromRow = (await transaction.stockMovement.create({
+        data: { ...base, locationId: fromId, quantity: -input.quantity },
+        include: this.movementInclude(),
+      })) as unknown as StockMovementDbRecord;
+      const toRow = (await transaction.stockMovement.create({
+        data: { ...base, locationId: toId, quantity: input.quantity },
+        include: this.movementInclude(),
+      })) as unknown as StockMovementDbRecord;
+      await transaction.auditEvent.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          actorUserId: access.userId,
+          action: "stock.transferred",
+          targetType: "inventory_item",
+          targetPublicId: input.itemId,
+          requestId,
+        },
+      });
+      return { from: this.mapMovement(fromRow), to: this.mapMovement(toRow) };
+    });
+  }
+
+  async listMovements(
+    userPublicId: string,
+    businessPublicId: string,
+    filter: { itemPublicId?: string; locationPublicId?: string },
+  ): Promise<StockMovement[]> {
+    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    return this.database.withScope(access, async (transaction) => {
+      const where: Prisma.StockMovementWhereInput = { businessId: access.businessId };
+      if (filter.itemPublicId) {
+        where.itemId = await this.resolveItemId(transaction, access, filter.itemPublicId);
+      }
+      if (filter.locationPublicId) {
+        where.locationId = await this.resolveLocationId(
+          transaction,
+          access,
+          filter.locationPublicId,
+        );
+      }
+      const rows = (await transaction.stockMovement.findMany({
+        where,
+        include: this.movementInclude(),
+        orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+        take: 500,
+      })) as unknown as StockMovementDbRecord[];
+      return rows.map((row) => this.mapMovement(row));
+    });
+  }
+
+  async onHand(
+    userPublicId: string,
+    businessPublicId: string,
+    itemPublicId: string,
+    locationPublicId?: string,
+  ): Promise<StockOnHand> {
+    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    return this.database.withScope(access, async (transaction) => {
+      const itemId = await this.resolveItemId(transaction, access, itemPublicId);
+      const locationId = locationPublicId
+        ? await this.resolveLocationId(transaction, access, locationPublicId)
+        : undefined;
+      const quantityOnHand = await this.onHandQuantity(transaction, access, itemId, locationId);
+      return { itemId: itemPublicId, locationId: locationPublicId ?? null, quantityOnHand };
+    });
+  }
+
+  private async onHandQuantity(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    itemId: bigint,
+    locationId?: bigint,
+  ): Promise<number> {
+    const rows = (await transaction.stockMovement.findMany({
+      where: {
+        businessId: access.businessId,
+        itemId,
+        ...(locationId !== undefined ? { locationId } : {}),
+      },
+      select: { movementType: true, quantity: true },
+    })) as Array<{ movementType: string; quantity: number }>;
+    let quantity = 0;
+    for (const movement of rows) {
+      if (movement.movementType === "RECEIPT") quantity += movement.quantity;
+      else if (movement.movementType === "DISPATCH") quantity -= movement.quantity;
+      // ADJUSTMENT and TRANSFER rows carry a signed quantity.
+      else quantity += movement.quantity;
+    }
+    return quantity;
+  }
+
+  private async resolveItemId(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    publicId: string,
+  ): Promise<bigint> {
+    const item = await transaction.inventoryItem.findFirst({
+      where: { businessId: access.businessId, publicId },
+      select: { id: true },
+    });
+    if (!item) throw new NotFoundException("We could not find that inventory item.");
+    return item.id;
+  }
+
+  private async resolveLocationId(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    publicId: string,
+  ): Promise<bigint> {
+    const location = await transaction.stockLocation.findFirst({
+      where: { businessId: access.businessId, publicId },
+      select: { id: true },
+    });
+    if (!location) throw new NotFoundException("We could not find that stock location.");
+    return location.id;
+  }
+
+  // Transaction-scoped advisory lock serializing all stock mutations for one
+  // item within a business (released on commit/rollback), matching the pattern
+  // used by payments/quotations for concurrency-sensitive writes.
+  private async lockItem(
+    transaction: Prisma.TransactionClient,
+    businessId: bigint,
+    itemId: bigint,
+  ): Promise<void> {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`stock-mutate:${businessId}:${itemId}`}))`;
+  }
+
+  private async findMovementByRequest(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    requestId: string,
+    locationId: bigint,
+  ): Promise<StockMovementDbRecord | null> {
+    return (await transaction.stockMovement.findFirst({
+      where: { businessId: access.businessId, requestId, locationId },
+      include: this.movementInclude(),
+    })) as unknown as StockMovementDbRecord | null;
+  }
+
+  private movementInclude() {
     return {
-      businessId,
-      generatedAt: now,
-      totalLowStockItems: items.length,
-      criticalCount,
-      warningCount,
-      items,
+      item: { select: { publicId: true } },
+      location: { select: { publicId: true } },
+    } satisfies Prisma.StockMovementInclude;
+  }
+
+  private mapLocation(record: StockLocationRecord): StockLocation {
+    return {
+      id: record.publicId,
+      code: record.code,
+      name: record.name,
+      isDefault: record.isDefault,
+      isActive: record.isActive,
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+    };
+  }
+
+  private mapMovement(record: StockMovementDbRecord): StockMovement {
+    return {
+      id: record.publicId,
+      itemId: record.item.publicId,
+      locationId: record.location.publicId,
+      movementType: record.movementType as StockMovement["movementType"],
+      quantity: record.quantity,
+      unitCostMinor: record.unitCostMinor.toFixed(0),
+      referenceType: record.referenceType,
+      referenceId: record.referenceId,
+      occurredAt: record.occurredAt.toISOString(),
+      createdAt: record.createdAt.toISOString(),
     };
   }
 

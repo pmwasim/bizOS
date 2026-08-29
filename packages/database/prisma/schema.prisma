@@ -309,6 +309,8 @@ model Business {
   leads                    Lead[]
   opportunities            Opportunity[]
   crmActivities            CrmActivity[]
+  stockLocations           StockLocation[]
+  stockMovements           StockMovement[]
   projects                 Project[]
   inventoryItems           InventoryItem[]
   creditNoteAllocations    CreditNoteAllocation[]
@@ -678,12 +680,74 @@ model InventoryItem {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business Business @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  stockMovements StockMovement[]
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, sku])
   @@index([tenantId, businessId, name])
   @@map("inventory_items")
+}
+
+enum StockMovementType {
+  RECEIPT
+  DISPATCH
+  TRANSFER
+  ADJUSTMENT
+}
+
+// A stock-holding location (warehouse, shop, van). Every movement is recorded
+// against one location, so on-hand quantity is known per (item, location).
+model StockLocation {
+  id         BigInt   @id @default(autoincrement())
+  publicId   String   @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId   BigInt   @map("tenant_id")
+  businessId BigInt   @map("business_id")
+  code       String   @db.VarChar(40)
+  name       String   @db.VarChar(200)
+  isDefault  Boolean  @default(false) @map("is_default")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  business  Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  movements StockMovement[]
+
+  @@unique([tenantId, businessId, id])
+  @@unique([tenantId, businessId, code])
+  @@index([tenantId, businessId, isActive])
+  @@map("stock_locations")
+}
+
+// Append-only stock ledger. On-hand and valuation are derived from these rows;
+// they are never updated or deleted. A TRANSFER is recorded as two rows (a
+// DISPATCH at the source and a RECEIPT at the destination).
+model StockMovement {
+  id            BigInt            @id @default(autoincrement())
+  publicId      String            @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId      BigInt            @map("tenant_id")
+  businessId    BigInt            @map("business_id")
+  itemId        BigInt            @map("item_id")
+  locationId    BigInt            @map("location_id")
+  movementType  StockMovementType @map("movement_type")
+  quantity      Int
+  unitCostMinor Decimal           @default(0) @map("unit_cost_minor") @db.Decimal(38, 0)
+  referenceType String?           @map("reference_type") @db.VarChar(20)
+  referenceId   String?           @map("reference_id") @db.VarChar(64)
+  // Idempotency key (the command's x-request-id): a retried movement command
+  // dedups on (business, requestId, location) instead of double-posting stock.
+  requestId     String?           @map("request_id") @db.VarChar(64)
+  occurredAt    DateTime          @map("occurred_at") @db.Timestamptz(3)
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business Business      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  item     InventoryItem @relation(fields: [tenantId, businessId, itemId], references: [tenantId, businessId, id], onDelete: Restrict)
+  location StockLocation @relation(fields: [tenantId, businessId, locationId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, itemId, locationId, occurredAt])
+  @@index([tenantId, businessId, locationId, occurredAt])
+  @@map("stock_movements")
 }
 
 model CreditNoteAllocation {
