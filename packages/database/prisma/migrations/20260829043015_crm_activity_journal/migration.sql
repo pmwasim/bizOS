@@ -51,3 +51,19 @@ ALTER TABLE "crm_activities" ADD CONSTRAINT "crm_activities_tenant_id_business_i
 
 -- AddForeignKey
 ALTER TABLE "crm_activities" ADD CONSTRAINT "crm_activities_tenant_id_business_id_lead_id_fkey" FOREIGN KEY ("tenant_id", "business_id", "lead_id") REFERENCES "leads"("tenant_id", "business_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Row-level security: crm_activities is business-scoped, so it must fail closed
+-- at the database like every other business-scoped table. DatabaseService.withScope
+-- sets app.tenant_id/app.business_id before any query, giving the policy its context.
+ALTER TABLE "crm_activities" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "crm_activities" FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_business_isolation ON "crm_activities"
+  USING (
+    tenant_id = bizo_current_tenant_id()
+    AND business_id = bizo_current_business_id()
+  )
+  WITH CHECK (
+    tenant_id = bizo_current_tenant_id()
+    AND business_id = bizo_current_business_id()
+  );
