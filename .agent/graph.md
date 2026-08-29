@@ -18,7 +18,7 @@ layer above it.
 
 | Workspace | Type | Path | Depends on | Depended on by | Source | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 230 | 83 |
+| `@bizo/api` | app | `apps/api` | `@bizo/authorization`, `@bizo/config`, `@bizo/contracts`, `@bizo/database`, `@bizo/storage` | — | 231 | 84 |
 | `@bizo/authorization` | package | `packages/authorization` | — | `@bizo/api` | 2 | 1 |
 | `@bizo/config` | package | `packages/config` | — | `@bizo/api`, `@bizo/web` | 5 | 2 |
 | `@bizo/contracts` | package | `packages/contracts` | — | `@bizo/api`, `@bizo/database`, `@bizo/queue`, `@bizo/web` | 57 | 21 |
@@ -50,7 +50,7 @@ First-level source areas. These are the natural units for a work claim
 - `apps/api/src/erpnext` — 3 source files, 1 test file
 - `apps/api/src/health` — 3 source files, 1 test file
 - `apps/api/src/identity` — 4 source files, 1 test file
-- `apps/api/src/integration` — 9 source files, 9 test files
+- `apps/api/src/integration` — 10 source files, 10 test files
 - `apps/api/src/inventory` — 4 source files, 1 test file
 - `apps/api/src/mail` — 3 source files, 1 test file
 - `apps/api/src/numbering` — 3 source files, 2 test files

@@ -298,14 +298,14 @@ export class OpportunitiesService {
         select: {
           baseCurrency: true,
           currencyScale: true,
-          settings: { select: { id: true } },
-          taxProfile: { select: { id: true } },
+          settings: { select: { businessId: true } },
+          taxProfile: { select: { businessId: true } },
         },
       })) as {
         baseCurrency: string;
         currencyScale: number;
-        settings: { id: bigint } | null;
-        taxProfile: { id: bigint } | null;
+        settings: { businessId: bigint } | null;
+        taxProfile: { businessId: bigint } | null;
       };
       if (!business.settings || !business.taxProfile) {
         throw new BadRequestException({
