@@ -37,7 +37,7 @@ First-level source areas. These are the natural units for a work claim
 
 - `apps/api/src/ai` — 9 source files, 3 test files
 - `apps/api/src/billing` — 6 source files, 1 test file
-- `apps/api/src/common` — 6 source files, 1 test file
+- `apps/api/src/common` — 8 source files, 2 test files
 - `apps/api/src/configuration` — 8 source files, 4 test files
 - `apps/api/src/credit-notes` — 4 source files, 1 test file
 - `apps/api/src/crm` — 8 source files, 3 test files

@@ -28,6 +28,26 @@
       "forcedOverlap": [
         "clm_696ecd8e"
       ]
+    },
+    {
+      "id": "clm_665acf0a",
+      "agent": "cursor-n8n-561e",
+      "task": "Implement and activate n8n automations for bizOS production and product ops",
+      "scopes": [
+        ".github/workflows",
+        "apps/api/src/common",
+        "apps/api/src/customization",
+        "apps/api/src/documents",
+        "apps/api/src/onboarding",
+        "apps/api/src/statements",
+        "apps/api/src/system-admin",
+        "compose.yaml",
+        "docs/operations",
+        "scripts/ops"
+      ],
+      "branch": "cursor/n8n-automations-561e",
+      "claimedAt": "2026-08-25T07:34:41.799Z",
+      "expiresAt": "2026-08-25T11:34:41.799Z"
     }
   ]
 }

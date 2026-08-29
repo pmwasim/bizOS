@@ -8,8 +8,9 @@ Status: Active for private beta
 | --------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
 | Web uptime            | `GET` the production `WEB_ORIGIN_HOST` expect 200; public edge is diagnostic | CF Worker cron + `Production health` workflow |
 | API health            | `GET https://api.bizos.qloudihub.com/api/v1/health` expect `status:"ok"`     | CF Worker cron + `Production health` workflow |
-| Failed deploys        | GitHub Actions → Production deploy conclusions                               | On each deploy                                |
-| SMTP / email failures | Quotation UI delivery status (`SENT` / `FAILED`)                             | Per send; review weekly                       |
+| Failed deploys        | GitHub Actions → n8n poll / optional webhook                                 | On each completed run                         |
+| SMTP / email failures | Quotation/invoice/statement UI + n8n ops-event webhook                       | Per send; n8n emails ops when the URL is set  |
+| n8n health routing    | Compose/qh-n8n **bizOS Health Monitor** (5 min)                              | Alert only when API or web is unhealthy       |
 | Deployed SHA          | Production deploy job summary                                                | Per release                                   |
 | Prisma backups        | Prisma Console / MCP `list_prisma_postgres_backups`                          | Weekly until paid backups proven              |
 

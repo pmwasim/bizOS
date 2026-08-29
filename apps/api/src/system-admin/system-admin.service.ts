@@ -47,6 +47,7 @@ import {
 } from "@bizo/contracts/system-admin";
 import { ConfigurationVersionStatus, WorkflowVersionStatus, type Prisma } from "@bizo/database";
 
+import { notifySystemAdminOps } from "../common/n8n-ops-notifier.js";
 import { DatabaseService } from "../database/database.service.js";
 
 const PLATFORM_DEFAULT_ERP_ENTITY_TYPE = "PlatformDefaultErpVersion";
@@ -607,7 +608,7 @@ export class SystemAdminService {
       throw new NotFoundException("System Admin record was not found.");
     }
 
-    return this.database
+    const result = await this.database
       .withScope({ tenantId: business.tenantId, businessId: business.id }, async (transaction) => {
         const previousPrimary = await transaction.businessConfigurationAssignment.findFirst({
           where: { tenantId: business.tenantId, businessId: business.id, isPrimary: true },
@@ -698,6 +699,22 @@ export class SystemAdminService {
         };
       })
       .catch(this.translatePrimaryConflict);
+
+    void notifySystemAdminOps({
+      event: "system_admin.assignment.changed",
+      actorId: args.systemAdminId,
+      businessId: result.businessId,
+      tenantId: business.tenant.publicId,
+      reason: args.reason,
+      data: {
+        entityId: result.id,
+        templateCode: result.templateCode,
+        templateVersion: result.templateVersion,
+        configurationTemplateVersionId: result.configurationTemplateVersionId,
+      },
+    }).catch(() => undefined);
+
+    return result;
   }
 
   async setDefaultErpVersion(
@@ -759,6 +776,17 @@ export class SystemAdminService {
         reason: args.reason,
       },
     });
+
+    void notifySystemAdminOps({
+      event: "system_admin.default_erp.changed",
+      actorId: args.systemAdminId,
+      reason: args.reason,
+      data: {
+        entityId: targetVersion.publicId,
+        configurationTemplateVersionId: targetVersion.publicId,
+        version: targetVersion.version,
+      },
+    }).catch(() => undefined);
 
     return {
       configurationTemplateVersionId: targetVersion.publicId,
@@ -848,6 +876,17 @@ export class SystemAdminService {
         reason: args.reason,
       },
     });
+
+    void notifySystemAdminOps({
+      event: "system_admin.template.status_changed",
+      actorId: args.systemAdminId,
+      reason: args.reason,
+      data: {
+        entityId: updated.publicId,
+        status: args.status,
+        versionId: updated.publicId,
+      },
+    }).catch(() => undefined);
 
     return {
       versionId: updated.publicId,

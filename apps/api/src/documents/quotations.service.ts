@@ -15,6 +15,7 @@ import {
 } from "@bizo/contracts/quotations";
 import { DeliveryStatus, DocumentStatus, DocumentType, type Prisma } from "@bizo/database";
 
+import { notifyDocumentDeliveryFailed } from "../common/n8n-ops-notifier.js";
 import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
 import { allocateDocumentNumber } from "../numbering/numbering.js";
@@ -441,12 +442,17 @@ export class QuotationsService {
     } catch (error) {
       // Leave the outbox row unpublished (only its attempt count bumped) so the same request can be
       // retried without the earlier intent being lost, and mark the delivery FAILED for the audit.
-      await this.markDeliveryFailed(
-        access,
-        prepared.delivery.id,
-        prepared.eventId,
-        this.safeFailureReason(error),
-      );
+      const failureReason = this.safeFailureReason(error);
+      await this.markDeliveryFailed(access, prepared.delivery.id, prepared.eventId, failureReason);
+      void notifyDocumentDeliveryFailed({
+        tenantId: access.tenantPublicId,
+        businessId: access.businessPublicId,
+        documentType: "quotation",
+        documentId: prepared.record.publicId,
+        documentNumber: prepared.record.number,
+        deliveryId: prepared.delivery.publicId,
+        failureReason,
+      }).catch(() => undefined);
       throw new ServiceUnavailableException({
         code: "DELIVERY_FAILED",
         detail:

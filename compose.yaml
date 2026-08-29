@@ -52,6 +52,54 @@ services:
       - "127.0.0.1:8025:8025"
     restart: unless-stopped
 
+  n8n:
+    image: n8nio/n8n:1.70.3
+    container_name: bizos-n8n
+    profiles: ["ops"]
+    environment:
+      DB_SQLITE_POOL_SIZE: "2"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+      EXECUTIONS_DATA_PRUNE: "true"
+      GENERIC_TIMEZONE: UTC
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-bizos-local-n8n-password}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-bizos-local-n8n-encryption-key-32b}
+      N8N_HIRING_BANNER_ENABLED: "false"
+      N8N_HOST: 127.0.0.1
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto,http,https
+      WEBHOOK_URL: http://127.0.0.1:5678/
+      BIZOS_API_HEALTH_URL: ${BIZOS_API_HEALTH_URL:-https://api.bizos.qloudihub.com/api/v1/health}
+      BIZOS_OPS_ALERT_EMAIL: ${BIZOS_OPS_ALERT_EMAIL:-ops@bizos.local}
+      BIZOS_OPS_ALERT_FROM: ${SMTP_FROM:-n8n@bizos.local}
+      BIZOS_OPS_ALERT_WEBHOOK_URL: ${BIZOS_OPS_ALERT_WEBHOOK_URL:-}
+      BIZOS_OPS_MAILPIT_URL: http://mailpit:8025
+      BIZOS_WEB_HEALTH_URL: ${BIZOS_WEB_HEALTH_URL:-https://bizos.qloudihub.com/}
+      BIZOS_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-}
+      GITHUB_TOKEN: ${N8N_GITHUB_TOKEN:-}
+    ports:
+      - "127.0.0.1:5678:5678"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+    volumes:
+      - n8n-data:/home/node/.n8n
+    depends_on:
+      - mailpit
+    mem_limit: 1g
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:
+  n8n-data:

@@ -41,14 +41,15 @@ bizOS and remain under qloudihub governance.
 
 n8n may automate **non-authoritative, side-effect-safe** tasks:
 
-| Workload                            | Direction                              | Notes                                                    |
-| ----------------------------------- | -------------------------------------- | -------------------------------------------------------- |
-| Customization-request notifications | bizOS → n8n webhook                    | **Implemented (Phase 11 stub)** — fires after DB persist |
-| Onboarding reminders                | bizOS → n8n or n8n cron → notification | Future; read-only API fetch only                         |
-| Failed-email alerts                 | bizOS/mail provider → n8n              | Route to ops channel; no retry of send authority         |
-| System Admin ops alerts             | bizOS → n8n                            | Assignment changes, template publishes, audit spikes     |
-| Health routing                      | n8n cron → HTTP checks                 | Internal monitoring only; no state mutation              |
-| Non-critical support automations    | n8n → ticket/draft                     | Human-in-the-loop; no auto-close of bizOS records        |
+| Workload                            | Direction                              | Notes                                                          |
+| ----------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
+| Customization-request notifications | bizOS → n8n webhook                    | Implemented — dedicated webhook plus ops-event fallback        |
+| Onboarding applied                  | bizOS → n8n webhook                    | Implemented — fire-and-forget after assignment persist         |
+| Failed-email alerts                 | bizOS → n8n webhook                    | Implemented — quotation, invoice, and statement send failures  |
+| System Admin ops alerts             | bizOS → n8n webhook                    | Implemented — assignment, default ERP, template publish/retire |
+| Health routing                      | n8n cron → HTTP checks                 | Implemented — read-only; alerts only when unhealthy            |
+| CI / deploy failure routing         | GitHub/local → n8n webhook or n8n poll | Implemented — webhook plus GitHub Actions poll                 |
+| Non-critical support automations    | n8n → ticket/draft                     | Not implemented; human-in-the-loop still required              |
 
 ## Prohibited responsibilities
 
@@ -99,33 +100,39 @@ All bizOS ↔ n8n integrations must satisfy:
     after review.
 14. **Test before activation** — Manual POST with test payload and signature verification before
     enabling workflow.
-15. **Kill switch** — Unset `N8N_CUSTOMIZATION_WEBHOOK_URL` (bizOS) or deactivate workflow (n8n);
-    both take effect immediately without redeploy.
+15. **Kill switch** — Unset `N8N_CUSTOMIZATION_WEBHOOK_URL` / `N8N_OPS_WEBHOOK_URL` /
+    `N8N_CI_WEBHOOK_URL` (bizOS) or deactivate the workflow (n8n); both take effect immediately
+    without redeploy.
 
 ## Current activation status
 
-| Integration                  | bizOS code                                   | Env vars                                                         | n8n workflow                                                      | Status                                                       |
-| ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------ |
-| Customization-request notify | `apps/api/src/customization/n8n-notifier.ts` | `N8N_CUSTOMIZATION_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (optional) | `docs/operations/n8n-workflows/customization-request-notify.json` | **Deferred** — stub only; webhook URL unset by default       |
-| CI / deploy failure notify   | `scripts/ops/n8n-notify.mjs`                 | `N8N_CI_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (optional)            | `docs/operations/n8n-workflows/ci-failure-notify.json`            | **Deferred** — GitHub secret optional; job no-ops when unset |
-| GitHub Actions poll          | — (n8n cron only)                            | `GITHUB_TOKEN` in n8n env                                        | `docs/operations/n8n-workflows/github-actions-poll.json`          | **Deferred** — localhost-friendly CI/CD path                 |
-| Production health monitor    | — (n8n cron only)                            | Optional URL overrides in n8n env                                | `docs/operations/n8n-workflows/health-monitor.json`               | **Deferred** — read-only HTTP checks                         |
+| Integration                  | bizOS code                                | Env vars                                                    | n8n workflow                                                      | Status                                                                                    |
+| ---------------------------- | ----------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Customization-request notify | `apps/api/src/common/n8n-ops-notifier.ts` | `N8N_CUSTOMIZATION_WEBHOOK_URL` or `N8N_OPS_WEBHOOK_URL`    | `docs/operations/n8n-workflows/customization-request-notify.json` | Implemented. Verified on compose `bizos-n8n` (`pnpm ops:n8n:verify`).                     |
+| Product ops events           | `apps/api/src/common/n8n-ops-notifier.ts` | `N8N_OPS_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (optional HMAC) | `docs/operations/n8n-workflows/ops-event-notify.json`             | Implemented. Verified Mailpit delivery for `document.delivery.failed`.                    |
+| CI / deploy failure notify   | `scripts/ops/n8n-notify.mjs`              | `N8N_CI_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (optional)       | `docs/operations/n8n-workflows/ci-failure-notify.json`            | Implemented. Verified signed webhook → Mailpit. GitHub jobs still no-op without secrets.  |
+| GitHub Actions poll          | — (n8n cron)                              | Optional `GITHUB_TOKEN` / `N8N_GITHUB_TOKEN`                | `docs/operations/n8n-workflows/github-actions-poll.json`          | Implemented. Live cron on compose n8n delivered `[bizOS] GitHub failure: CI`.             |
+| Production health monitor    | — (n8n cron)                              | Optional URL overrides                                      | `docs/operations/n8n-workflows/health-monitor.json`               | Implemented. Live cron on compose n8n delivered `[bizOS] Health degraded` (web 403).      |
 
 **Setup runbook:** [n8n-setup-runbook.md](./n8n-setup-runbook.md)
 
-**Import command:** `pnpm ops:n8n:import` (imports all templates inactive into local `qh-n8n`).
+**Local n8n in this repository:** `docker compose --profile ops up -d n8n` (container `bizos-n8n`,
+loopback `127.0.0.1:5678`). Ubuntu `qh-n8n` remains a supported import target.
 
-**Production n8n workflow:** Not activated. Template exported for import; `"active": false`.
-Activate only after:
+**Import / activate:**
 
-1. Import workflow into n8n and configure `BIZOS_WEBHOOK_SECRET` credential (must match bizOS
-   `N8N_WEBHOOK_SECRET`).
-2. Set `N8N_CUSTOMIZATION_WEBHOOK_URL` in bizOS API environment to the n8n webhook URL.
-3. Send test POST; confirm signature gate and notification routing.
-4. Explicit ops approval to set `"active": true`.
+```bash
+pnpm ops:n8n:up
+pnpm ops:n8n:import -- --activate
+pnpm ops:n8n:verify
+```
 
-When env vars are unset, `notifyCustomizationRequestCreated` returns immediately — **zero runtime
-dependency**.
+Git templates always ship `"active": false`. Activation is a runtime operation against a running
+n8n, proven by `pnpm ops:n8n:verify` (signed webhook POST + Mailpit receipt). This repository cannot
+flip Ubuntu `qh-n8n` from a cloud agent; import the same templates there with
+`N8N_CONTAINER=qh-n8n pnpm ops:n8n:import -- --activate`.
+
+When bizOS env vars are unset, notifiers return immediately — **zero runtime dependency**.
 
 ## Phase 11 payload contract
 
@@ -149,19 +156,42 @@ Headers:
 | `X-Idempotency-Key` | Yes                    | Same as `id`                |
 | `X-Signature`       | When secret configured | HMAC-SHA256 hex of raw body |
 
+## Ops-event payload contract
+
+```json
+{
+  "event": "document.delivery.failed",
+  "idempotencyKey": "<delivery-or-assignment-public-id>",
+  "occurredAt": "<ISO-8601>",
+  "tenantId": "<tenant-public-id>",
+  "businessId": "<business-public-id>",
+  "severity": "low|medium|high|critical",
+  "title": "[bizOS] …",
+  "message": "human-readable summary",
+  "data": {}
+}
+```
+
+`event` values: `customization.request.created`, `document.delivery.failed`, `onboarding.applied`,
+`system_admin.assignment.changed`, `system_admin.default_erp.changed`,
+`system_admin.template.status_changed`. Recipient addresses are omitted from failed-email payloads.
+
 ## Zero-cost confirmation
 
 - No new npm dependencies.
 - No paid n8n Cloud or external SaaS required.
-- Uses existing self-hosted n8n on localhost (qloudihub stack).
-- bizOS releases and customization-request creation succeed with **no n8n env vars** configured.
+- Local n8n is the compose `ops` profile; Ubuntu `qh-n8n` remains the host ops plane.
+- bizOS releases and product writes succeed with **no n8n env vars** configured.
 - n8n webhook failures are logged and swallowed; they do not propagate to API callers.
 
 ## Related artifacts
 
-- Phase 11 notifier: `apps/api/src/customization/n8n-notifier.ts`
+- Shared notifier: `apps/api/src/common/n8n-ops-notifier.ts`
+- Phase 11 compatibility export: `apps/api/src/customization/n8n-notifier.ts`
 - CI/deploy notifier: `scripts/ops/n8n-notify.mjs`
-- Import script: `scripts/ops/import-n8n-workflows.sh`
+- Import / activate: `scripts/ops/import-n8n-workflows.sh`, `scripts/ops/n8n-activate.mjs`
+- Verify: `scripts/ops/n8n-verify.mjs`
 - Setup runbook: `docs/operations/n8n-setup-runbook.md`
 - Workflow templates: `docs/operations/n8n-workflows/`
+- Compose service: `compose.yaml` profile `ops` (container `bizos-n8n`)
 - qloudihub stack reference: `/home/wasim/Projects/qloudihub/ops/stack/docker-compose.yml`

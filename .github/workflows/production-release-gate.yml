@@ -138,3 +138,25 @@ jobs:
             echo "- Hosting credentials: not accessed"
             echo "- Next step after success: deploy the exact SHA through the documented Ubuntu production mechanism, then run local and public release-readiness probes."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  notify-n8n:
+    name: Notify n8n (optional)
+    runs-on: ubuntu-24.04
+    needs: validate
+    if: failure()
+    timeout-minutes: 2
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Notify n8n of release-gate failure
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
+          N8N_WEBHOOK_SECRET: ${{ secrets.N8N_WEBHOOK_SECRET }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: node scripts/ops/n8n-notify.mjs ci-failure --job "Production release gate"
+        continue-on-error: true

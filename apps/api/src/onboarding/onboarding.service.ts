@@ -18,6 +18,7 @@ import {
   type RecommendOnboardingRequest,
 } from "@bizo/contracts/onboarding";
 
+import { notifyOnboardingApplied } from "../common/n8n-ops-notifier.js";
 import {
   DEFAULT_ERP_TEMPLATE_CODE,
   type AssignmentSummary,
@@ -95,6 +96,13 @@ export class OnboardingService {
       reason: "guided setup",
       isPrimary: true,
     });
+
+    void notifyOnboardingApplied({
+      businessId: assignment.businessId,
+      assignmentId: assignment.id,
+      templateCode: assignment.templateCode,
+      templateVersion: assignment.templateVersion,
+    }).catch(() => undefined);
 
     return {
       assignmentId: assignment.id,

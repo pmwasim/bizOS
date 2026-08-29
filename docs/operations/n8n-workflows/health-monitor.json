@@ -4,7 +4,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## bizOS production health checks\n\nPolls API and web endpoints every 5 minutes. No secrets required for public health URLs.\n\nDefaults:\n- API: https://api.bizos.qloudihub.com/api/v1/health\n- Web: https://bizos.qloudihub.com/\n\nOverride with `BIZOS_API_HEALTH_URL` and `BIZOS_WEB_HEALTH_URL` in n8n env.\n\nReplace **Log Route** with Slack/email/PagerDuty before activation.",
+        "content": "## bizOS production health checks\n\nPolls API and web endpoints every 5 minutes. No secrets required for public health URLs.\n\nDefaults:\n- API: https://api.bizos.qloudihub.com/api/v1/health\n- Web: https://bizos.qloudihub.com/\n\nOverride with `BIZOS_API_HEALTH_URL` and `BIZOS_WEB_HEALTH_URL`.\nUnhealthy results are emailed via Mailpit or `BIZOS_OPS_ALERT_WEBHOOK_URL`.",
         "height": 200,
         "width": 460
       },
@@ -12,7 +12,10 @@
       "name": "Setup Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [80, -120]
+      "position": [
+        80,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -29,20 +32,33 @@
       "name": "Every 5 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
         "url": "={{ $env.BIZOS_API_HEALTH_URL || 'https://api.bizos.qloudihub.com/api/v1/health' }}",
         "options": {
-          "timeout": 30000
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
         }
       },
       "id": "http-api-health",
       "name": "Check API Health",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, -80]
+      "position": [
+        520,
+        -80
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -51,7 +67,8 @@
           "timeout": 30000,
           "response": {
             "response": {
-              "fullResponse": true
+              "fullResponse": true,
+              "neverError": true
             }
           }
         }
@@ -60,17 +77,24 @@
       "name": "Check Web Health",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 80]
+      "position": [
+        520,
+        80
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const api = $('Check API Health').first().json;\nconst web = $('Check Web Health').first().json;\n\nconst apiOk = api?.status === 'ok';\nconst webStatusCode = web?.statusCode ?? web?.status;\nconst webOk = webStatusCode === 200;\n\nconst issues = [];\nif (!apiOk) {\n  issues.push('API health not ok');\n}\nif (!webOk) {\n  issues.push(`Web returned ${webStatusCode ?? 'unknown'}`);\n}\n\nreturn [{\n  json: {\n    event: issues.length ? 'health.degraded' : 'health.ok',\n    workflow: 'bizos-health-monitor',\n    apiStatus: api?.status ?? 'unknown',\n    webStatusCode: webStatusCode ?? 'unknown',\n    healthy: issues.length === 0,\n    issues: issues.join('; ') || 'none',\n    checkedAt: new Date().toISOString(),\n  },\n}];"
+        "jsCode": "const apiItem = $('Check API Health').first();\nconst webItem = $('Check Web Health').first();\nconst api = apiItem?.json ?? {};\nconst web = webItem?.json ?? {};\nconst apiBody = api.body ?? api;\nconst apiOk = apiBody?.status === 'ok';\nconst webStatusCode = web.statusCode ?? web.status ?? web.body?.statusCode;\nconst webOk = Number(webStatusCode) === 200;\nconst issues = [];\nif (api.error || apiItem?.error) {\n  issues.push('API unreachable');\n} else if (!apiOk) {\n  issues.push('API health not ok');\n}\nif (web.error || webItem?.error) {\n  issues.push('Web unreachable');\n} else if (!webOk) {\n  issues.push(`Web returned ${webStatusCode ?? 'unknown'}`);\n}\nreturn [{\n  json: {\n    event: issues.length ? 'health.degraded' : 'health.ok',\n    workflow: 'bizos-health-monitor',\n    apiStatus: apiBody?.status ?? 'unknown',\n    webStatusCode: webStatusCode ?? 'unknown',\n    healthy: issues.length === 0,\n    issues: issues.join('; ') || 'none',\n    checkedAt: new Date().toISOString(),\n    title: issues.length ? '[bizOS] Health degraded' : '[bizOS] Health ok',\n    message: (issues.join('; ') || 'none') + ' · API=' + (apiBody?.status ?? 'unknown') + ' · Web=' + (webStatusCode ?? 'unknown'),\n    severity: issues.length ? 'critical' : 'low',\n  },\n}];"
       },
       "id": "code-evaluate-health",
       "name": "Evaluate Health",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -87,37 +111,23 @@
       "name": "Unhealthy?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "channel",
-              "value": "ops-alerts"
-            },
-            {
-              "name": "title",
-              "value": "=[bizOS] Health degraded"
-            },
-            {
-              "name": "message",
-              "value": "={{ $json.issues }} · API={{ $json.apiStatus }} · Web={{ $json.webStatusCode }}"
-            },
-            {
-              "name": "severity",
-              "value": "critical"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const item = $input.first().json;\nreturn [{\n  json: {\n    ...item,\n    channel: 'ops-alerts',\n    title: '[bizOS] Health degraded',\n    message: item.issues + ' · API=' + item.apiStatus + ' · Web=' + item.webStatusCode,\n    severity: 'critical',\n  },\n}];"
       },
       "id": "set-health-alert",
       "name": "Build Alert",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [1300, -80]
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -135,53 +145,127 @@
       "name": "Healthy (no alert)",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [1300, 80]
+      "position": [
+        1300,
+        80
+      ]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "status",
-              "value": "routed"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const http = require('http');\nconst https = require('https');\n\nfunction parseHttpUrl(targetUrl) {\n  const raw = String(targetUrl);\n  const protocol = raw.startsWith('https:') ? 'https:' : 'http:';\n  const withoutProtocol = raw.replace(/^https?:\\/\\//, '');\n  const slash = withoutProtocol.indexOf('/');\n  const hostPort = slash === -1 ? withoutProtocol : withoutProtocol.slice(0, slash);\n  const path = slash === -1 ? '/' : withoutProtocol.slice(slash);\n  const colon = hostPort.lastIndexOf(':');\n  const hostname = colon === -1 ? hostPort : hostPort.slice(0, colon);\n  const port = colon === -1 ? (protocol === 'https:' ? 443 : 80) : Number(hostPort.slice(colon + 1));\n  return { protocol, hostname, port, path };\n}\n\nfunction postJson(targetUrl, body) {\n  const payload = JSON.stringify(body);\n  return new Promise((resolve, reject) => {\n    const parsed = parseHttpUrl(targetUrl);\n    const lib = parsed.protocol === 'https:' ? https : http;\n    const req = lib.request(\n      {\n        hostname: parsed.hostname,\n        port: parsed.port,\n        path: parsed.path,\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'Content-Length': Buffer.byteLength(payload),\n        },\n      },\n      (res) => {\n        const chunks = [];\n        res.on('data', (chunk) => chunks.push(chunk));\n        res.on('end', () => {\n          resolve({\n            status: res.statusCode,\n            text: Buffer.concat(chunks).toString('utf8'),\n          });\n        });\n      },\n    );\n    req.on('error', reject);\n    req.write(payload);\n    req.end();\n  });\n}\n\nconst item = $input.first().json;\nconst mailpit = $env.BIZOS_OPS_MAILPIT_URL;\nconst webhook = $env.BIZOS_OPS_ALERT_WEBHOOK_URL;\nconst to = $env.BIZOS_OPS_ALERT_EMAIL || 'ops@bizos.local';\nconst from = $env.BIZOS_OPS_ALERT_FROM || 'n8n@bizos.local';\nconst title = item.title || '[bizOS] alert';\nconst message = item.message || JSON.stringify(item);\nconst severity = item.severity || (item.channel === 'ops-urgent' ? 'high' : 'medium');\n\nasync function deliver() {\n  if (mailpit) {\n    const url = String(mailpit).replace(/\\/$/, '') + '/api/v1/send';\n    const response = await postJson(url, {\n      From: { Email: from, Name: 'bizOS n8n' },\n      To: [{ Email: to }],\n      Subject: title,\n      Text: String(severity).toUpperCase() + '\\n\\n' + message,\n    });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Mailpit send failed: ' + response.status + ' ' + response.text);\n    }\n    return { deliveredVia: 'mailpit', status: 'delivered' };\n  }\n  if (webhook) {\n    const response = await postJson(webhook, { ...item, title, message, severity });\n    if (response.status < 200 || response.status >= 300) {\n      throw new Error('Alert webhook failed: ' + response.status);\n    }\n    return { deliveredVia: 'webhook', status: 'delivered' };\n  }\n  return { deliveredVia: 'log', status: 'logged' };\n}\n\nconst result = await deliver();\nreturn [{ json: { ...item, ...result, deliveredAt: new Date().toISOString() } }];"
       },
-      "id": "set-health-log",
-      "name": "Log Route",
-      "type": "n8n-nodes-base.set",
+      "id": "code-deliver-health-alert",
+      "name": "Deliver Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "merge-wait-health-checks",
+      "name": "Wait For Both Checks",
+      "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [1560, -80]
+      "position": [
+        700,
+        0
+      ]
     }
   ],
   "connections": {
     "Every 5 Minutes": {
       "main": [
         [
-          { "node": "Check API Health", "type": "main", "index": 0 },
-          { "node": "Check Web Health", "type": "main", "index": 0 }
+          {
+            "node": "Check API Health",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Web Health",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Check API Health": {
-      "main": [[{ "node": "Evaluate Health", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Wait For Both Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Web Health": {
-      "main": [[{ "node": "Evaluate Health", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Wait For Both Checks",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "Evaluate Health": {
-      "main": [[{ "node": "Unhealthy?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Unhealthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Unhealthy?": {
       "main": [
-        [{ "node": "Build Alert", "type": "main", "index": 0 }],
-        [{ "node": "Healthy (no alert)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Build Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Healthy (no alert)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Build Alert": {
-      "main": [[{ "node": "Log Route", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Deliver Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Both Checks": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -191,6 +275,6 @@
   },
   "meta": {
     "templateCredsSetupCompleted": false,
-    "description": "Monitors bizOS production API and web health endpoints."
+    "description": "Monitors bizOS production API and web health. Alerts only when unhealthy."
   }
 }

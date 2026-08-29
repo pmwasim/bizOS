@@ -81,8 +81,8 @@
         {
           "name": "common",
           "path": "apps/api/src/common",
-          "sourceFiles": 6,
-          "testFiles": 1
+          "sourceFiles": 8,
+          "testFiles": 2
         },
         {
           "name": "configuration",
@@ -943,12 +943,28 @@
       "command": "bash scripts/ops/check-with-n8n-notify.sh"
     },
     {
+      "name": "ops:n8n:activate",
+      "command": "node scripts/ops/n8n-activate.mjs --activate"
+    },
+    {
       "name": "ops:n8n:import",
       "command": "bash scripts/ops/import-n8n-workflows.sh"
     },
     {
       "name": "ops:n8n:notify",
       "command": "node scripts/ops/n8n-notify.mjs"
+    },
+    {
+      "name": "ops:n8n:test",
+      "command": "node --test scripts/ops/n8n-workflows.spec.mjs"
+    },
+    {
+      "name": "ops:n8n:up",
+      "command": "docker compose --env-file .env --profile ops up -d n8n"
+    },
+    {
+      "name": "ops:n8n:verify",
+      "command": "node scripts/ops/n8n-verify.mjs"
     },
     {
       "name": "ops:release-readiness",
@@ -968,7 +984,7 @@
     },
     {
       "name": "security:local-services",
-      "command": "node --test scripts/check-local-services.spec.mjs && node scripts/check-local-services.mjs"
+      "command": "node --test scripts/check-local-services.spec.mjs scripts/ops/n8n-workflows.spec.mjs && node scripts/check-local-services.mjs"
     },
     {
       "name": "test",

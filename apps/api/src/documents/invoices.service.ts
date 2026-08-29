@@ -30,6 +30,7 @@ import {
 } from "@bizo/database";
 import { invoicePdfObjectKey, sha256Hex, type ObjectStore } from "@bizo/storage";
 
+import { notifyDocumentDeliveryFailed } from "../common/n8n-ops-notifier.js";
 import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
 import { allocateDocumentNumber } from "../numbering/numbering.js";
@@ -932,12 +933,13 @@ export class InvoicesService {
         recipient: input.recipientEmail,
       });
     } catch (error) {
+      const failureReason = this.safeFailureReason(error);
       await this.updateDelivery(
         access,
         prepared.delivery.id,
         DeliveryStatus.FAILED,
         undefined,
-        this.safeFailureReason(error),
+        failureReason,
       );
       await this.database.withScope(access, async (transaction) => {
         if (
@@ -950,6 +952,15 @@ export class InvoicesService {
           });
         }
       });
+      void notifyDocumentDeliveryFailed({
+        tenantId: access.tenantPublicId,
+        businessId: access.businessPublicId,
+        documentType: "invoice",
+        documentId: prepared.record.publicId,
+        documentNumber: prepared.record.number,
+        deliveryId: prepared.delivery.publicId,
+        failureReason,
+      }).catch(() => undefined);
       throw new ServiceUnavailableException({
         code: "DELIVERY_FAILED",
         detail:
