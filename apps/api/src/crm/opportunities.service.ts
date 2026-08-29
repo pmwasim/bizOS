@@ -8,7 +8,7 @@ import {
   type UpdateOpportunityRequest,
 } from "@bizo/contracts/crm";
 import { type SaveQuotationRequest } from "@bizo/contracts/quotations";
-import { type Prisma } from "@bizo/database";
+import { DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
 import { QuotationsService } from "../documents/quotations.service";
@@ -49,11 +49,6 @@ interface ConvertRecord extends Omit<OpportunityRecord, "lead"> {
 }
 
 /**
- * Convert a tax rate stored in parts-per-million (the quotation calculator
- * scales percent by 4 decimals, so 1% = 10 000 ppm) into a percentage string
- * the engine's line input accepts, trimming trailing zeros.
- */
-/**
  * Convert an integer minor-unit amount into a major-unit decimal string with
  * exactly `scale` fraction digits (e.g. 50000 minor at scale 2 → "500.00"),
  * using bigint/string math so no floating-point rounding is introduced.
@@ -67,6 +62,11 @@ function minorToMajorString(minor: bigint, scale: number): string {
   return negative ? `-${body}` : body;
 }
 
+/**
+ * Convert a tax rate stored in parts-per-million (the quotation calculator
+ * scales percent by 4 decimals, so 1% = 10 000 ppm) into a percentage string
+ * the engine's line input accepts, trimming trailing zeros.
+ */
 function ppmToPercentString(ppm: number): string {
   if (!Number.isFinite(ppm) || ppm <= 0 || ppm > 1_000_000) return "0";
   const whole = Math.floor(ppm / 10_000);
@@ -248,6 +248,31 @@ export class OpportunitiesService {
         };
       }
 
+      // Recovery: a previous attempt may have committed a quotation (stamped with
+      // this opportunity's back-reference) but failed to link it — e.g. the
+      // engine's post-commit workflow step threw after the quotation committed.
+      // Link the existing draft instead of creating a duplicate on retry.
+      const priorQuotation = (await transaction.document.findFirst({
+        where: {
+          businessId: access.businessId,
+          type: DocumentType.QUOTATION,
+          sourceOpportunityId: record.id,
+        },
+        select: { id: true, publicId: true },
+      })) as { id: bigint; publicId: string } | null;
+      if (priorQuotation) {
+        await transaction.opportunity.updateMany({
+          where: { id: record.id, quotationId: null },
+          data: { quotationId: priorQuotation.id },
+        });
+        const linked = await this.findConvertRecord(transaction, access, opportunityPublicId);
+        return {
+          alreadyLinked: true as const,
+          opportunity: this.mapOpportunity(linked),
+          quotationId: linked.quotation?.publicId ?? priorQuotation.publicId,
+        };
+      }
+
       // The engine always labels the quotation in the business base currency
       // and scales major-unit line prices by the business currency scale, so we
       // load those settings once and pre-validate everything cheap BEFORE
@@ -339,13 +364,32 @@ export class OpportunitiesService {
 
     // Phase 2 — create. The reused engine authorizes `quotations:create`,
     // validates/calculates the lines and allocates the document number in its
-    // own transaction.
-    const quotation = await this.quotations.create(
-      userPublicId,
-      businessPublicId,
-      prepared.request,
-      requestId,
-    );
+    // own transaction. The back-reference makes the create idempotent per
+    // opportunity (a partial unique index rejects a second one).
+    let quotation: Awaited<ReturnType<QuotationsService["create"]>>;
+    try {
+      quotation = await this.quotations.create(
+        userPublicId,
+        businessPublicId,
+        prepared.request,
+        requestId,
+        {
+          sourceOpportunityId: prepared.opportunityId,
+        },
+      );
+    } catch (error) {
+      // A concurrent conversion inserted the quotation first (unique violation
+      // on source_opportunity_id). Recover and link theirs, never duplicate.
+      if ((error as { code?: unknown }).code === "P2002") {
+        const recovered = await this.linkExistingQuotation(
+          access,
+          prepared.opportunityId,
+          opportunityPublicId,
+        );
+        if (recovered) return recovered;
+      }
+      throw error;
+    }
 
     // Phase 3 — link. Atomically stamp `quotationId` only while it is still
     // null. A concurrent winner (or an already-linked opportunity) matches zero
@@ -384,6 +428,38 @@ export class OpportunitiesService {
 
       const record = await this.findConvertRecord(transaction, access, opportunityPublicId);
       return { ...this.mapOpportunity(record), quotationId: quotation.id };
+    });
+  }
+
+  /**
+   * Link the quotation a concurrent (or prior) conversion already created for
+   * this opportunity, found via its back-reference, and return the convert
+   * response. Returns null if none exists yet.
+   */
+  private async linkExistingQuotation(
+    access: BusinessAccessContext,
+    opportunityId: bigint,
+    opportunityPublicId: string,
+  ): Promise<ConvertOpportunityResponse | null> {
+    return this.database.withScope(access, async (transaction) => {
+      const prior = (await transaction.document.findFirst({
+        where: {
+          businessId: access.businessId,
+          type: DocumentType.QUOTATION,
+          sourceOpportunityId: opportunityId,
+        },
+        select: { id: true, publicId: true },
+      })) as { id: bigint; publicId: string } | null;
+      if (!prior) return null;
+      await transaction.opportunity.updateMany({
+        where: { id: opportunityId, quotationId: null },
+        data: { quotationId: prior.id },
+      });
+      const record = await this.findConvertRecord(transaction, access, opportunityPublicId);
+      return {
+        ...this.mapOpportunity(record),
+        quotationId: record.quotation?.publicId ?? prior.publicId,
+      };
     });
   }
 

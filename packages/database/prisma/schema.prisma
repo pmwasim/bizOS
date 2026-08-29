@@ -437,6 +437,11 @@ model Document {
   receivedAt            DateTime?      @map("received_at") @db.Timestamptz(3)
   sourceQuotationId     BigInt?        @map("source_quotation_id")
   sourceDocumentId      BigInt?        @map("source_document_id")
+  // Set when a quotation is created by converting a CRM opportunity. A PARTIAL
+  // UNIQUE index (WHERE source_opportunity_id IS NOT NULL) enforces at most one
+  // quotation per opportunity; it is maintained in SQL (Prisma cannot express a
+  // partial unique index) — see migration 20260829_document_source_opportunity_id.
+  sourceOpportunityId   BigInt?        @map("source_opportunity_id")
   referenceDocumentId   BigInt?        @map("reference_document_id")
   purchaseOrderId       BigInt?        @map("purchase_order_id")
   projectReference      String?        @map("project_reference") @db.VarChar(120)

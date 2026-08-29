@@ -273,6 +273,7 @@ function createConvertDatabaseMock(
     baseCurrency?: string;
     configured?: boolean;
     linkCount?: number;
+    priorQuotation?: { id: bigint; publicId: string } | null;
   } = {},
 ) {
   let row = initial;
@@ -312,6 +313,7 @@ function createConvertDatabaseMock(
     }),
   };
   const document = {
+    findFirst: vi.fn().mockResolvedValue(options.priorQuotation ?? null),
     findFirstOrThrow: vi.fn().mockResolvedValue({ id: 7000n }),
   };
   const auditEvent = {
@@ -385,6 +387,7 @@ describe("OpportunitiesService.convertToQuotation", () => {
         ],
       },
       "req-convert-1",
+      { sourceOpportunityId: 900n },
     );
     // The opportunity is linked atomically (only while quotationId IS NULL).
     expect(mock.opportunity.updateMany).toHaveBeenCalledWith(
@@ -425,6 +428,7 @@ describe("OpportunitiesService.convertToQuotation", () => {
       ACCESS.businessPublicId,
       expect.objectContaining({ customerId: "c0000000-0000-4000-8000-000000000001" }),
       "req-convert-2",
+      { sourceOpportunityId: 900n },
     );
   });
 
@@ -455,6 +459,7 @@ describe("OpportunitiesService.convertToQuotation", () => {
         lines: [{ description: "Bespoke", quantity: "2", unitPrice: "1000", taxRatePercent: "0" }],
       },
       "req-convert-3",
+      { sourceOpportunityId: 900n },
     );
   });
 
@@ -483,6 +488,39 @@ describe("OpportunitiesService.convertToQuotation", () => {
       id: "q0000000-0000-4000-8000-000000000777",
       number: "Q-0777",
     });
+  });
+
+  it("recovers a prior committed-but-unlinked quotation on retry instead of creating a duplicate", async () => {
+    const access = createBusinessAccessMock();
+    // A previous attempt committed the quotation (stamped with the back-ref) but
+    // failed to link it. The retry finds it and links it, calling the engine 0×.
+    const mock = createConvertDatabaseMock(convertRecord(), {
+      priorQuotation: { id: 8100n, publicId: "q0000000-0000-4000-8000-000000000888" },
+    });
+    mock.opportunity.findFirst.mockResolvedValueOnce(convertRecord()).mockResolvedValue(
+      convertRecord({
+        quotation: { publicId: "q0000000-0000-4000-8000-000000000888", number: "Q-0888" },
+      }),
+    );
+    const quotations = createQuotationsMock();
+    const service = new OpportunitiesService(mock.database, access, quotations.service);
+
+    const result = await service.convertToQuotation(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      "o0000000-0000-4000-8000-000000000001",
+      {},
+      "req-convert-recover",
+    );
+
+    expect(quotations.create).not.toHaveBeenCalled();
+    expect(mock.opportunity.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 900n, quotationId: null },
+        data: { quotationId: 8100n },
+      }),
+    );
+    expect(result.quotationId).toBe("q0000000-0000-4000-8000-000000000888");
   });
 
   it("returns the existing link and does not double-link when a concurrent conversion wins the race", async () => {
@@ -590,6 +628,7 @@ describe("OpportunitiesService.convertToQuotation", () => {
         lines: [expect.objectContaining({ taxRatePercent: "0" })],
       }),
       "req-convert-9",
+      { sourceOpportunityId: 900n },
     );
   });
 
