@@ -150,6 +150,25 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
           record.updatedAt = new Date();
           return record;
         }),
+        updateMany: vi.fn().mockImplementation(async ({ where, data }: Record<string, unknown>) => {
+          const excluded = (where as { status?: { not?: string } }).status?.not;
+          const record = mockStore.leads.find(
+            (l) =>
+              l.id === (where as { id?: bigint }).id &&
+              (excluded === undefined || l.status !== excluded),
+          );
+          if (!record) return { count: 0 };
+          Object.assign(record, data);
+          record.updatedAt = new Date();
+          return { count: 1 };
+        }),
+        findUniqueOrThrow: vi
+          .fn()
+          .mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+            const record = mockStore.leads.find((l) => l.id === where.id);
+            if (!record) throw new NotFoundException("Lead not found");
+            return record;
+          }),
       },
       opportunity: {
         create: vi.fn().mockImplementation(async ({ data }: Record<string, unknown>) => {
@@ -410,6 +429,7 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
 
       expect(convertedLead.status).toBe("CONVERTED");
       expect(convertedLead.convertedAt).not.toBeNull();
+      expect(convertedLead.opportunityId).not.toBeNull();
     });
 
     it("FEAT-29: creates Projects with linked Milestones and tracks progress states", async () => {

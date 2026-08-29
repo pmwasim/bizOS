@@ -1,9 +1,13 @@
 import { z } from "zod";
 
+// Lead/opportunity money fields are integer minor units (Decimal(38,0) in the
+// database). Reject a fractional minor value outright: allowing it let the
+// scorer truncate while PostgreSQL rounded, so the same input produced two
+// different stored/scored amounts.
 const decimalSchema = z
   .string()
   .trim()
-  .regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/);
+  .regex(/^(?:0|[1-9]\d*)$/);
 
 export const leadStatusSchema = z.enum(["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"]);
 
@@ -46,12 +50,27 @@ export const leadSchema = z.strictObject({
   phone: z.string().nullable(),
   source: z.string().nullable(),
   status: leadStatusSchema,
+  score: z.number().int().min(0).max(100),
   estimatedValue: z.string().nullable(),
   currencyCode: z.string().nullable(),
   notes: z.string().nullable(),
   convertedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+});
+
+/**
+ * Response for POST /leads/:leadId/convert. Converting a lead flips its status
+ * to CONVERTED and creates a linked opportunity in the same transaction. The
+ * created (or, when the lead was already converted, the existing linked)
+ * opportunity's public id is returned alongside the lead. `opportunityId` is
+ * null only for a lead converted before this progression existed.
+ */
+// Superset of `leadSchema` so the v1 convert endpoint stays backwards
+// compatible — existing callers keep reading the lead's fields at the top
+// level — while new callers also get the linked opportunity id.
+export const convertLeadResponseSchema = leadSchema.extend({
+  opportunityId: z.uuid().nullable(),
 });
 
 export const opportunityStageSchema = z.enum([
@@ -135,6 +154,7 @@ export type LeadStatus = z.infer<typeof leadStatusSchema>;
 export type Lead = z.infer<typeof leadSchema>;
 export type CreateLeadRequest = z.infer<typeof createLeadRequestSchema>;
 export type UpdateLeadRequest = z.infer<typeof updateLeadRequestSchema>;
+export type ConvertLeadResponse = z.infer<typeof convertLeadResponseSchema>;
 export type OpportunityStage = z.infer<typeof opportunityStageSchema>;
 export type Opportunity = z.infer<typeof opportunitySchema>;
 export type CreateOpportunityRequest = z.infer<typeof createOpportunityRequestSchema>;

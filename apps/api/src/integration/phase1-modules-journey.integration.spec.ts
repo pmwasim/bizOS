@@ -207,6 +207,8 @@ describe.runIf(databaseEnabled)("phase 1 modules journey with PostgreSQL boundar
     );
     expect(converted.status).toBe("CONVERTED");
     expect(converted.convertedAt).not.toBeNull();
+    // Converting a lead now progresses it into a linked opportunity.
+    expect(converted.opportunityId).not.toBeNull();
 
     // This is the exact relation this session found misnamed (`quotation` instead of the real
     // `quote` relation on Opportunity) -- creating and reading one back is deliberate here.

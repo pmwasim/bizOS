@@ -72,17 +72,48 @@ export function CrmClientView({
 
     // Previously this marked the lead CONVERTED on success, on failure, and on exception
     // alike, so a rejected conversion still showed the business a customer it did not have.
+    const lead = leads.find((candidate) => candidate.id === leadId);
     const result = await convertLeadAction(businessId, leadId);
     if (result.error) {
       setError(result.error);
     } else {
       setLeads((prev) =>
-        prev.map((lead) =>
-          lead.id === leadId
-            ? { ...lead, status: "CONVERTED" as const, convertedAt: new Date().toISOString() }
-            : lead,
+        prev.map((candidate) =>
+          candidate.id === leadId
+            ? { ...candidate, status: "CONVERTED" as const, convertedAt: new Date().toISOString() }
+            : candidate,
         ),
       );
+      // Surface the newly created opportunity on the Kanban immediately instead
+      // of waiting for a full reload.
+      if (lead && result.opportunityId) {
+        const opportunityId = result.opportunityId;
+        const now = new Date().toISOString();
+        const opportunityName =
+          lead.company && lead.company.trim().length > 0 ? lead.company : lead.name;
+        setOpportunities((prev) =>
+          prev.some((opportunity) => opportunity.id === opportunityId)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: opportunityId,
+                  name: opportunityName,
+                  stage: "PROSPECTING" as const,
+                  probability: null,
+                  amountMinor: lead.estimatedValue,
+                  currencyCode: lead.currencyCode,
+                  expectedCloseDate: null,
+                  actualCloseDate: null,
+                  notes: null,
+                  lead: { id: lead.id, name: lead.name },
+                  quotation: null,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+        );
+      }
     }
     setLoading(false);
   }
