@@ -53,6 +53,20 @@ interface ConvertRecord extends Omit<OpportunityRecord, "lead"> {
  * scales percent by 4 decimals, so 1% = 10 000 ppm) into a percentage string
  * the engine's line input accepts, trimming trailing zeros.
  */
+/**
+ * Convert an integer minor-unit amount into a major-unit decimal string with
+ * exactly `scale` fraction digits (e.g. 50000 minor at scale 2 → "500.00"),
+ * using bigint/string math so no floating-point rounding is introduced.
+ */
+function minorToMajorString(minor: bigint, scale: number): string {
+  const negative = minor < 0n;
+  const digits = (negative ? -minor : minor).toString().padStart(scale + 1, "0");
+  const cut = digits.length - scale;
+  const whole = digits.slice(0, cut);
+  const body = scale > 0 ? `${whole}.${digits.slice(cut)}` : whole;
+  return negative ? `-${body}` : body;
+}
+
 function ppmToPercentString(ppm: number): string {
   if (!Number.isFinite(ppm) || ppm <= 0 || ppm > 1_000_000) return "0";
   const whole = Math.floor(ppm / 10_000);
@@ -234,27 +248,78 @@ export class OpportunitiesService {
         };
       }
 
-      // Lines: use the override when provided, else seed a single line from the
-      // opportunity. Seeding needs a concrete amount — with none and no
-      // override there is nothing to quote.
-      if (!input.lines && record.amountMinor === null) {
+      // The engine always labels the quotation in the business base currency
+      // and scales major-unit line prices by the business currency scale, so we
+      // load those settings once and pre-validate everything cheap BEFORE
+      // committing a customer — a rejected conversion must not leave an orphan.
+      const business = (await transaction.business.findUniqueOrThrow({
+        where: { id: access.businessId },
+        select: {
+          baseCurrency: true,
+          currencyScale: true,
+          settings: { select: { id: true } },
+          taxProfile: { select: { id: true } },
+        },
+      })) as {
+        baseCurrency: string;
+        currencyScale: number;
+        settings: { id: bigint } | null;
+        taxProfile: { id: bigint } | null;
+      };
+      if (!business.settings || !business.taxProfile) {
         throw new BadRequestException({
-          code: "OPPORTUNITY_NOT_QUOTABLE",
-          detail:
-            "This opportunity has no amount to quote. Provide `lines` in the request to convert it.",
+          code: "BUSINESS_NOT_CONFIGURED",
+          detail: "Complete the business settings and tax profile before converting opportunities.",
         });
       }
 
-      const customerId = await this.resolveCustomerId(transaction, access, record, input);
+      // Lines: use the override when provided, else seed a single line from the
+      // opportunity. Seeding needs a concrete amount and a base-currency price.
+      let lines = input.lines;
+      if (!lines) {
+        if (record.amountMinor === null) {
+          throw new BadRequestException({
+            code: "OPPORTUNITY_NOT_QUOTABLE",
+            detail:
+              "This opportunity has no amount to quote. Provide `lines` in the request to convert it.",
+          });
+        }
+        // A quotation cannot represent a non-base currency; the auto-seeded
+        // amount would otherwise be relabelled into the base currency unchanged.
+        if (record.currencyCode && record.currencyCode !== business.baseCurrency) {
+          throw new BadRequestException({
+            code: "OPPORTUNITY_CURRENCY_MISMATCH",
+            detail: `This opportunity is priced in ${record.currencyCode}, but quotations are issued in ${business.baseCurrency}. Provide \`lines\` in the request to convert it.`,
+          });
+        }
+        lines = [
+          {
+            description: record.name,
+            // amountMinor is integer minor units; the engine's unitPrice is a
+            // major-unit decimal it scales by currencyScale, so convert first
+            // (else a scale-2 business is quoted 100x too high).
+            unitPrice: minorToMajorString(
+              BigInt(record.amountMinor.toFixed(0)),
+              business.currencyScale,
+            ),
+            quantity: "1",
+            taxRatePercent: await this.defaultTaxRatePercent(transaction, access),
+          },
+        ];
+      }
 
-      const lines = input.lines ?? [
-        {
-          description: record.name,
-          quantity: "1",
-          unitPrice: record.amountMinor!.toFixed(0),
-          taxRatePercent: await this.defaultTaxRatePercent(transaction, access),
-        },
-      ];
+      // Pre-validate the caller-supplied date ordering up front (the engine also
+      // checks, but only after committing the customer).
+      if (input.issueDate && input.validUntil && input.validUntil < input.issueDate) {
+        throw new BadRequestException({
+          code: "INVALID_VALIDITY_DATE",
+          detail: "The valid-until date must be on or after the issue date.",
+        });
+      }
+
+      // Resolve/seed the customer LAST, once every cheap validation has passed,
+      // so a rejected conversion never commits an orphaned customer.
+      const customerId = await this.resolveCustomerId(transaction, access, record, input);
 
       return {
         alreadyLinked: false as const,
@@ -377,9 +442,12 @@ export class OpportunitiesService {
   ): Promise<string> {
     const profile = (await transaction.taxProfile.findFirst({
       where: { businessId: access.businessId },
-      select: { ratePpm: true },
-    })) as { ratePpm: number } | null;
-    return ppmToPercentString(profile?.ratePpm ?? 0);
+      select: { ratePpm: true, enabled: true },
+    })) as { ratePpm: number; enabled: boolean } | null;
+    // A disabled tax profile may still carry a nonzero configured rate; honour
+    // the switch and add no tax when taxation is turned off.
+    if (!profile || !profile.enabled) return "0";
+    return ppmToPercentString(profile.ratePpm);
   }
 
   private async findConvertRecord(

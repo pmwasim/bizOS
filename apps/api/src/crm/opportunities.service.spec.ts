@@ -269,6 +269,9 @@ function createConvertDatabaseMock(
   options: {
     existingCustomer?: { publicId: string } | null;
     ratePpm?: number | null;
+    enabled?: boolean;
+    baseCurrency?: string;
+    configured?: boolean;
     linkCount?: number;
   } = {},
 ) {
@@ -295,12 +298,18 @@ function createConvertDatabaseMock(
     findFirst: vi
       .fn()
       .mockResolvedValue(
-        options.ratePpm === undefined
-          ? { ratePpm: 150_000 }
-          : options.ratePpm === null
-            ? null
-            : { ratePpm: options.ratePpm },
+        options.ratePpm === null
+          ? null
+          : { ratePpm: options.ratePpm ?? 150_000, enabled: options.enabled ?? true },
       ),
+  };
+  const business = {
+    findUniqueOrThrow: vi.fn().mockResolvedValue({
+      baseCurrency: options.baseCurrency ?? "USD",
+      currencyScale: 2,
+      settings: options.configured === false ? null : { id: 1n },
+      taxProfile: options.configured === false ? null : { id: 1n },
+    }),
   };
   const document = {
     findFirstOrThrow: vi.fn().mockResolvedValue({ id: 7000n }),
@@ -311,7 +320,7 @@ function createConvertDatabaseMock(
       return args.data;
     }),
   };
-  const transaction = { opportunity, customer, taxProfile, document, auditEvent };
+  const transaction = { opportunity, customer, taxProfile, document, auditEvent, business };
   const database = {
     withScope: vi
       .fn()
@@ -324,6 +333,7 @@ function createConvertDatabaseMock(
     opportunity,
     customer,
     taxProfile,
+    business,
     auditEvents,
     setRow: (next: ReturnType<typeof convertRecord>) => {
       row = next;
@@ -366,8 +376,10 @@ describe("OpportunitiesService.convertToQuotation", () => {
         lines: [
           {
             description: "Website Revamp Deal",
+            // 50000 minor units at currency scale 2 = 500.00 major units — NOT
+            // "50000" (that would be quoted 100x too high once the engine scales).
+            unitPrice: "500.00",
             quantity: "1",
-            unitPrice: "50000",
             taxRatePercent: "15",
           },
         ],
@@ -532,6 +544,71 @@ describe("OpportunitiesService.convertToQuotation", () => {
         "req-convert-7",
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(quotations.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects the auto-seed path when the opportunity currency is not the base currency", async () => {
+    const access = createBusinessAccessMock();
+    const mock = createConvertDatabaseMock(convertRecord({ currencyCode: "EUR" }), {
+      baseCurrency: "USD",
+    });
+    const quotations = createQuotationsMock();
+    const service = new OpportunitiesService(mock.database, access, quotations.service);
+
+    await expect(
+      service.convertToQuotation(
+        ACCESS.userPublicId,
+        ACCESS.businessPublicId,
+        "o0000000-0000-4000-8000-000000000001",
+        {},
+        "req-convert-8",
+      ),
+    ).rejects.toMatchObject({ response: { code: "OPPORTUNITY_CURRENCY_MISMATCH" } });
+    expect(quotations.create).not.toHaveBeenCalled();
+    // The customer is resolved LAST, so a rejected conversion leaves no orphan.
+    expect(mock.customer.create).not.toHaveBeenCalled();
+  });
+
+  it("adds no tax when the business tax profile is disabled", async () => {
+    const access = createBusinessAccessMock();
+    const mock = createConvertDatabaseMock(convertRecord(), { ratePpm: 150_000, enabled: false });
+    const quotations = createQuotationsMock();
+    const service = new OpportunitiesService(mock.database, access, quotations.service);
+
+    await service.convertToQuotation(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      "o0000000-0000-4000-8000-000000000001",
+      {},
+      "req-convert-9",
+    );
+
+    expect(quotations.create).toHaveBeenCalledWith(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      expect.objectContaining({
+        lines: [expect.objectContaining({ taxRatePercent: "0" })],
+      }),
+      "req-convert-9",
+    );
+  });
+
+  it("rejects before touching the customer when the business is not configured", async () => {
+    const access = createBusinessAccessMock();
+    const mock = createConvertDatabaseMock(convertRecord(), { configured: false });
+    const quotations = createQuotationsMock();
+    const service = new OpportunitiesService(mock.database, access, quotations.service);
+
+    await expect(
+      service.convertToQuotation(
+        ACCESS.userPublicId,
+        ACCESS.businessPublicId,
+        "o0000000-0000-4000-8000-000000000001",
+        {},
+        "req-convert-10",
+      ),
+    ).rejects.toMatchObject({ response: { code: "BUSINESS_NOT_CONFIGURED" } });
+    expect(mock.customer.create).not.toHaveBeenCalled();
     expect(quotations.create).not.toHaveBeenCalled();
   });
 });
