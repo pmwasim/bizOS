@@ -1,9 +1,13 @@
 import { z } from "zod";
 
+// Lead/opportunity money fields are integer minor units (Decimal(38,0) in the
+// database). Reject a fractional minor value outright: allowing it let the
+// scorer truncate while PostgreSQL rounded, so the same input produced two
+// different stored/scored amounts.
 const decimalSchema = z
   .string()
   .trim()
-  .regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/);
+  .regex(/^(?:0|[1-9]\d*)$/);
 
 export const leadStatusSchema = z.enum(["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"]);
 
@@ -62,8 +66,10 @@ export const leadSchema = z.strictObject({
  * opportunity's public id is returned alongside the lead. `opportunityId` is
  * null only for a lead converted before this progression existed.
  */
-export const convertLeadResponseSchema = z.strictObject({
-  lead: leadSchema,
+// Superset of `leadSchema` so the v1 convert endpoint stays backwards
+// compatible — existing callers keep reading the lead's fields at the top
+// level — while new callers also get the linked opportunity id.
+export const convertLeadResponseSchema = leadSchema.extend({
   opportunityId: z.uuid().nullable(),
 });
 

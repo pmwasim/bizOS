@@ -184,14 +184,14 @@ export class LeadsService {
       // Idempotent-safe: a lead that is already CONVERTED must not spawn a
       // second opportunity. Return the lead as-is alongside the id of the
       // opportunity created by the original conversion (null for a lead
-      // converted before this progression existed).
+      // converted before this progression existed). The convert response is a
+      // superset of the lead (v1-compatible: existing callers still read the
+      // lead's fields at the top level) plus `opportunityId`.
       if (existing.status === "CONVERTED") {
-        const linked = (await transaction.opportunity.findFirst({
-          where: { businessId: access.businessId, leadId: existing.id },
-          orderBy: { id: "asc" },
-          select: { publicId: true },
-        })) as { publicId: string } | null;
-        return { lead: this.mapLead(existing), opportunityId: linked?.publicId ?? null };
+        return {
+          ...this.mapLead(existing),
+          opportunityId: await this.findLinkedOpportunityId(transaction, access, existing.id),
+        };
       }
 
       const status: LeadStatus = "CONVERTED";
@@ -203,18 +203,42 @@ export class LeadsService {
         estimatedValueMinor: toMinorBigInt(existing.estimatedValue),
         status,
       });
-      const record = (await transaction.lead.update({
-        where: { id: existing.id },
+
+      // Atomic transition: only the request that flips a not-yet-CONVERTED lead
+      // proceeds to create the opportunity. Under READ COMMITTED the row lock
+      // serialises concurrent retries — the loser re-reads status=CONVERTED,
+      // matches zero rows, and returns the winner's opportunity instead of
+      // creating a duplicate.
+      const transition = await transaction.lead.updateMany({
+        where: { id: existing.id, status: { not: "CONVERTED" } },
         data: { status, score, convertedAt: new Date() },
+      });
+      if (transition.count === 0) {
+        const current = (await transaction.lead.findUniqueOrThrow({
+          where: { id: existing.id },
+        })) as unknown as LeadRecord;
+        return {
+          ...this.mapLead(current),
+          opportunityId: await this.findLinkedOpportunityId(transaction, access, existing.id),
+        };
+      }
+
+      const record = (await transaction.lead.findUniqueOrThrow({
+        where: { id: existing.id },
       })) as unknown as LeadRecord;
 
       // Progress the lead into a linked opportunity in the same transaction.
+      // Prefer the company for the opportunity name, but a blank/whitespace
+      // company (the contract permits "") must fall back to the lead name so
+      // the opportunity never gets an empty name.
+      const opportunityName =
+        existing.company && existing.company.trim().length > 0 ? existing.company : existing.name;
       const opportunity = (await transaction.opportunity.create({
         data: {
           tenantId: access.tenantId,
           businessId: access.businessId,
           leadId: existing.id,
-          name: existing.company ?? existing.name,
+          name: opportunityName,
           stage: "PROSPECTING",
           amountMinor: existing.estimatedValue,
           currencyCode: existing.currencyCode,
@@ -246,7 +270,7 @@ export class LeadsService {
         },
       });
 
-      return { lead: this.mapLead(record), opportunityId: opportunity.publicId };
+      return { ...this.mapLead(record), opportunityId: opportunity.publicId };
     });
   }
 
@@ -270,6 +294,19 @@ export class LeadsService {
     })) as unknown as LeadRecord | null;
     if (!record) throw new NotFoundException("We could not find that lead.");
     return record;
+  }
+
+  private async findLinkedOpportunityId(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    leadId: bigint,
+  ): Promise<string | null> {
+    const linked = (await transaction.opportunity.findFirst({
+      where: { businessId: access.businessId, leadId },
+      orderBy: { id: "asc" },
+      select: { publicId: true },
+    })) as { publicId: string } | null;
+    return linked?.publicId ?? null;
   }
 
   private mapLead(record: LeadRecord): Lead {

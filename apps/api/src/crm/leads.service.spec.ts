@@ -58,6 +58,25 @@ function createDatabaseMock(initial: ReturnType<typeof leadRecord> | null = null
       row = { ...(row as Record<string, unknown>), ...args.data } as ReturnType<typeof leadRecord>;
       return row;
     }),
+    updateMany: vi
+      .fn()
+      .mockImplementation(
+        async (args: { where?: { status?: { not?: string } }; data: Record<string, unknown> }) => {
+          const excluded = args.where?.status?.not;
+          if (excluded !== undefined && (row as { status?: string } | null)?.status === excluded) {
+            return { count: 0 };
+          }
+          row = {
+            ...(row as Record<string, unknown>),
+            ...args.data,
+          } as ReturnType<typeof leadRecord>;
+          return { count: 1 };
+        },
+      ),
+    findUniqueOrThrow: vi.fn().mockImplementation(async () => {
+      if (!row) throw new Error("lead not found");
+      return row;
+    }),
   };
   const opportunities: Array<Record<string, unknown>> = [];
   const opportunity = {
@@ -253,8 +272,11 @@ describe("LeadsService", () => {
       "req-3",
     );
 
-    expect(lead.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: "CONVERTED" }) }),
+    expect(lead.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: { not: "CONVERTED" } }),
+        data: expect.objectContaining({ status: "CONVERTED" }),
+      }),
     );
     expect(opportunity.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -266,8 +288,8 @@ describe("LeadsService", () => {
         }),
       }),
     );
-    expect(result.lead.status).toBe("CONVERTED");
-    expect(result.lead.convertedAt).not.toBeNull();
+    expect(result.status).toBe("CONVERTED");
+    expect(result.convertedAt).not.toBeNull();
     expect(result.opportunityId).toBe("o0000000-0000-4000-8000-000000000001");
     expect(auditEvents.map((e) => (e as { action: string }).action)).toEqual(
       expect.arrayContaining(["lead.converted", "opportunity.created"]),
@@ -292,7 +314,48 @@ describe("LeadsService", () => {
     );
 
     expect(opportunity.create).not.toHaveBeenCalled();
-    expect(result.lead.status).toBe("CONVERTED");
+    expect(result.status).toBe("CONVERTED");
+    expect(result.opportunityId).toBe("o0000000-0000-4000-8000-000000000001");
+  });
+
+  it("convert() falls back to the lead name when the company is blank", async () => {
+    const access = createBusinessAccessMock();
+    const { database, opportunity } = createDatabaseMock(
+      leadRecord({ name: "Dana Prospect", company: "   " }),
+    );
+    const service = new LeadsService(database, access);
+
+    await service.convert(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      "l0000000-0000-4000-8000-000000000001",
+      "req-blank-company",
+    );
+
+    expect(opportunity.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ name: "Dana Prospect" }) }),
+    );
+  });
+
+  it("convert() creates no second opportunity when a concurrent request won the transition", async () => {
+    const access = createBusinessAccessMock();
+    const { database, lead, opportunity } = createDatabaseMock(leadRecord({ status: "NEW" }));
+    // The lead passes the initial not-yet-converted read, but the atomic
+    // transition matches zero rows because a concurrent request converted it
+    // first; the loser must return the winner's opportunity, not a duplicate.
+    await opportunity.create({ data: { leadId: 900n } });
+    opportunity.create.mockClear();
+    lead.updateMany.mockResolvedValueOnce({ count: 0 });
+    const service = new LeadsService(database, access);
+
+    const result = await service.convert(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      "l0000000-0000-4000-8000-000000000001",
+      "req-concurrent",
+    );
+
+    expect(opportunity.create).not.toHaveBeenCalled();
     expect(result.opportunityId).toBe("o0000000-0000-4000-8000-000000000001");
   });
 });

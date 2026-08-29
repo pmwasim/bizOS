@@ -150,6 +150,25 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
           record.updatedAt = new Date();
           return record;
         }),
+        updateMany: vi.fn().mockImplementation(async ({ where, data }: Record<string, unknown>) => {
+          const excluded = (where as { status?: { not?: string } }).status?.not;
+          const record = mockStore.leads.find(
+            (l) =>
+              l.id === (where as { id?: bigint }).id &&
+              (excluded === undefined || l.status !== excluded),
+          );
+          if (!record) return { count: 0 };
+          Object.assign(record, data);
+          record.updatedAt = new Date();
+          return { count: 1 };
+        }),
+        findUniqueOrThrow: vi
+          .fn()
+          .mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+            const record = mockStore.leads.find((l) => l.id === where.id);
+            if (!record) throw new NotFoundException("Lead not found");
+            return record;
+          }),
       },
       opportunity: {
         create: vi.fn().mockImplementation(async ({ data }: Record<string, unknown>) => {
@@ -408,8 +427,8 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
         "req-feat28-2",
       );
 
-      expect(convertedLead.lead.status).toBe("CONVERTED");
-      expect(convertedLead.lead.convertedAt).not.toBeNull();
+      expect(convertedLead.status).toBe("CONVERTED");
+      expect(convertedLead.convertedAt).not.toBeNull();
       expect(convertedLead.opportunityId).not.toBeNull();
     });
 
@@ -754,7 +773,7 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
         lead.id,
         "int1-req-2",
       );
-      expect(converted.lead.status).toBe("CONVERTED");
+      expect(converted.status).toBe("CONVERTED");
 
       // 3. Create Project & Milestones
       const project = await projectsService.create(
@@ -933,7 +952,7 @@ describe("Group 4 E2E Spec — CRM, Projects, Workflows & Audit (FEAT-26 to FEAT
         lead.id,
         "wl2-phase2",
       );
-      expect(convertedLead.lead.status).toBe("CONVERTED");
+      expect(convertedLead.status).toBe("CONVERTED");
 
       const opp = await opportunitiesService.create(
         USER_A_PUBLIC,

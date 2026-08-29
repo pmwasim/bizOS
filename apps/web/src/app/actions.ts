@@ -19,6 +19,7 @@ import {
   opportunityStageSchema,
   type Lead,
   type Opportunity,
+  type ConvertLeadResponse,
 } from "@bizo/contracts/crm";
 import { createSalesOrderRequestSchema, type SalesOrder } from "@bizo/contracts/sales-orders";
 import { createSupplierRequestSchema, type Supplier } from "@bizo/contracts/suppliers";
@@ -1227,13 +1228,19 @@ function readLinesFromFormData(formData: FormData): Array<Record<string, string>
   }));
 }
 
-export async function convertLeadAction(businessId: string, leadId: string): Promise<ActionState> {
+export async function convertLeadAction(
+  businessId: string,
+  leadId: string,
+): Promise<ActionState & { opportunityId?: string | null }> {
   try {
-    await apiJson<Lead>(`/businesses/${businessId}/leads/${leadId}/convert`, {
-      method: "POST",
-      body: "{}",
-    });
-    return {};
+    const result = await apiJson<ConvertLeadResponse>(
+      `/businesses/${businessId}/leads/${leadId}/convert`,
+      {
+        method: "POST",
+        body: "{}",
+      },
+    );
+    return { opportunityId: result.opportunityId };
   } catch (error) {
     return actionError(error);
   }

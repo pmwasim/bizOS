@@ -205,8 +205,8 @@ describe.runIf(databaseEnabled)("phase 1 modules journey with PostgreSQL boundar
       lead.id,
       "integration-lead-convert",
     );
-    expect(converted.lead.status).toBe("CONVERTED");
-    expect(converted.lead.convertedAt).not.toBeNull();
+    expect(converted.status).toBe("CONVERTED");
+    expect(converted.convertedAt).not.toBeNull();
     // Converting a lead now progresses it into a linked opportunity.
     expect(converted.opportunityId).not.toBeNull();
 
