@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Users, Target, Plus, X, ArrowRight, MessageSquare, Sparkles } from "lucide-react";
 
 import {
+  type CrmActivity,
   type Lead,
   type Opportunity,
   type OpportunityStage,
+  crmActivityTypeLabel,
   opportunityStageLabel,
   leadStatusLabel,
 } from "@bizo/contracts/crm";
@@ -43,6 +45,7 @@ export function CrmClientView({
   businessId,
   initialLeads,
   initialOpportunities,
+  initialActivities,
   customers: _customers,
   currency,
   currencyScale,
@@ -50,6 +53,7 @@ export function CrmClientView({
   businessId: string;
   initialLeads: Lead[];
   initialOpportunities: Opportunity[];
+  initialActivities: CrmActivity[];
   customers: Customer[];
   currency: string;
   currencyScale: number;
@@ -61,10 +65,6 @@ export function CrmClientView({
   const [isOppModalOpen, setIsOppModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
-
-  // The customer activity feed is not derivable yet: bizOS has no activity or audit-event
-  // table to read from. It previously rendered three hard-coded entries naming staff and
-  // customers that do not exist in this business.
 
   async function handleConvertLead(leadId: string) {
     setLoading(true);
@@ -389,16 +389,64 @@ export function CrmClientView({
       {/* TAB 3: CUSTOMER ACTIVITY FEED */}
       {activeTab === "feed" && (
         <div className="narrow-page" style={{ margin: "0 auto" }}>
-          <div className="empty-state">
-            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>
-              The activity feed is not available yet
-            </h2>
-            <p style={{ margin: "0.4rem 0 0" }}>
-              bizOS does not yet record customer interactions as events, so there is no history to
-              show here. Quotation and invoice sends are recorded against those documents in the
-              meantime.
-            </p>
-          </div>
+          {initialActivities.length === 0 ? (
+            <div className="empty-state">
+              <h2 style={{ margin: 0, fontSize: "1.05rem" }}>No activity yet</h2>
+              <p style={{ margin: "0.4rem 0 0" }}>
+                Logged calls, emails, notes and meetings — plus automatic opportunity stage changes
+                — appear here as a chronological interaction journal.
+              </p>
+            </div>
+          ) : (
+            <ol
+              style={{
+                listStyle: "none",
+                margin: 0,
+                padding: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+              }}
+            >
+              {initialActivities.map((activity) => (
+                <li
+                  key={activity.id}
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    padding: "0.85rem 1rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "1rem",
+                      alignItems: "baseline",
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>{activity.subject}</span>
+                    <span className="badge">{crmActivityTypeLabel(activity.type)}</span>
+                  </div>
+                  {activity.body ? (
+                    <p style={{ margin: "0.4rem 0 0", color: "var(--muted)" }}>{activity.body}</p>
+                  ) : null}
+                  <time
+                    style={{
+                      display: "block",
+                      marginTop: "0.4rem",
+                      fontSize: "0.8rem",
+                      color: "var(--muted)",
+                    }}
+                    dateTime={activity.occurredAt}
+                  >
+                    {new Date(activity.occurredAt).toLocaleString()}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       )}
 

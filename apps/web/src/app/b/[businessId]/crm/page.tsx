@@ -1,4 +1,4 @@
-import { type Lead, type Opportunity } from "@bizo/contracts/crm";
+import { type CrmActivity, type Lead, type Opportunity } from "@bizo/contracts/crm";
 import { type Customer } from "@bizo/contracts/customers";
 import { type BusinessSettings } from "@bizo/contracts/platform";
 
@@ -8,10 +8,11 @@ import { CrmClientView } from "@/components/crm-client-view";
 export default async function CrmPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = await params;
 
-  const [leads, opportunities, customers, settings] = await Promise.all([
+  const [leads, opportunities, customers, activities, settings] = await Promise.all([
     apiJson<Lead[]>(`/businesses/${businessId}/leads`),
     apiJson<Opportunity[]>(`/businesses/${businessId}/opportunities`),
     apiJson<Customer[]>(`/businesses/${businessId}/customers`),
+    apiJson<CrmActivity[]>(`/businesses/${businessId}/crm/activities`),
     apiJson<BusinessSettings>(`/businesses/${businessId}/settings`),
   ]);
 
@@ -21,6 +22,7 @@ export default async function CrmPage({ params }: { params: Promise<{ businessId
         businessId={businessId}
         initialLeads={leads}
         initialOpportunities={opportunities}
+        initialActivities={activities}
         customers={customers}
         currency={settings.baseCurrency}
         currencyScale={settings.currencyScale}

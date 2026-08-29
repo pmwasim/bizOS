@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Inject, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Put, Query } from "@nestjs/common";
 
 import {
   convertOpportunityRequestSchema,
   type ConvertOpportunityRequest,
+  createCrmActivityRequestSchema,
+  type CreateCrmActivityRequest,
   createLeadRequestSchema,
   type CreateLeadRequest,
   createOpportunityRequestSchema,
@@ -17,6 +19,7 @@ import { ContractPipe } from "../common/contract.pipe.js";
 import { RequestId } from "../common/request-id.decorator.js";
 import { type AuthenticatedPrincipal } from "../security/principal.js";
 import { Principal } from "../security/principal.decorator.js";
+import { CrmActivitiesService } from "./activities.service.js";
 import { LeadsService } from "./leads.service.js";
 import { OpportunitiesService } from "./opportunities.service.js";
 
@@ -124,5 +127,32 @@ export class OpportunitiesController {
       input,
       requestId,
     );
+  }
+}
+
+@Controller("businesses/:businessId/crm/activities")
+export class CrmActivitiesController {
+  constructor(@Inject(CrmActivitiesService) private readonly activities: CrmActivitiesService) {}
+
+  @Post()
+  create(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Body(new ContractPipe(createCrmActivityRequestSchema)) input: CreateCrmActivityRequest,
+  ) {
+    return this.activities.create(principal.userId, businessId, input);
+  }
+
+  @Get()
+  list(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Query("customerId") customerId?: string,
+    @Query("opportunityId") opportunityId?: string,
+  ) {
+    return this.activities.list(principal.userId, businessId, {
+      ...(customerId ? { customerPublicId: customerId } : {}),
+      ...(opportunityId ? { opportunityPublicId: opportunityId } : {}),
+    });
   }
 }
