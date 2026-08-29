@@ -1,92 +1,214 @@
-import { describe, expect, it } from "vitest";
 import { BadRequestException } from "@nestjs/common";
+import { describe, expect, it, vi } from "vitest";
+
+import { type DatabaseService } from "../database/database.service.js";
+import { type BusinessAccessService } from "../security/business-access.service.js";
 import { InventoryService } from "./inventory.service.js";
 
-describe("InventoryService: FIFO & AVCO Stock Valuation Engine", () => {
-  const mockDb = {} as never;
-  const mockAccess = {} as never;
+const ACCESS = {
+  businessId: 44n,
+  businessPublicId: "b0000000-0000-4000-8000-000000000001",
+  membershipId: 300n,
+  role: "OWNER" as const,
+  tenantId: 100n,
+  tenantPublicId: "t0000000-0000-4000-8000-000000000001",
+  userId: 1n,
+  userPublicId: "u0000000-0000-4000-8000-000000000001",
+};
 
-  it("calculates FIFO stock valuation accurately across multi-batch receipts and dispatches", async () => {
-    const service = new InventoryService(mockDb, mockAccess);
-    const bizId = "b1";
-    const itemId = "item-1";
+const ITEM = "i0000000-0000-4000-8000-000000000001";
+const LOC_A = "l0000000-0000-4000-8000-00000000000a";
+const LOC_B = "l0000000-0000-4000-8000-00000000000b";
 
-    // Batch 1: 10 units @ 100 SAR (10000 minor)
-    await service.recordStockMovement(bizId, {
-      itemId,
-      movementType: "RECEIPT",
-      quantity: 10,
-      unitCostMinor: 10000,
-    });
+function createAccessMock(): BusinessAccessService {
+  return {
+    resolve: vi.fn().mockResolvedValue(ACCESS),
+    assertAllowed: vi.fn(),
+  } as unknown as BusinessAccessService;
+}
 
-    // Batch 2: 5 units @ 150 SAR (15000 minor)
-    await service.recordStockMovement(bizId, {
-      itemId,
-      movementType: "RECEIPT",
-      quantity: 5,
-      unitCostMinor: 15000,
-    });
+function movementRow(overrides: Record<string, unknown> = {}) {
+  return {
+    publicId: "m0000000-0000-4000-8000-000000000001",
+    movementType: "RECEIPT",
+    quantity: 10,
+    unitCostMinor: { toFixed: () => "1500" },
+    referenceType: null,
+    referenceId: null,
+    occurredAt: new Date("2026-08-29T00:00:00.000Z"),
+    createdAt: new Date("2026-08-29T00:00:00.000Z"),
+    item: { publicId: ITEM },
+    location: { publicId: LOC_A },
+    ...overrides,
+  };
+}
 
-    // Dispatch 8 units (FIFO consumes 8 units from Batch 1 @ 10000 minor)
-    await service.recordStockMovement(bizId, {
-      itemId,
-      movementType: "DISPATCH",
-      quantity: 8,
-      unitCostMinor: 0,
-    });
+function createDatabaseMock(
+  options: { onHandRows?: Array<{ movementType: string; quantity: number }> } = {},
+) {
+  const inventoryItem = { findFirst: vi.fn().mockResolvedValue({ id: 10n }) };
+  const stockLocation = {
+    findFirst: vi.fn().mockImplementation(async ({ where }: { where: { publicId: string } }) => ({
+      id: where.publicId === LOC_B ? 21n : 20n,
+    })),
+    findMany: vi.fn().mockResolvedValue([]),
+    create: vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+      publicId: "loc-1",
+      code: data.code,
+      name: data.name,
+      isDefault: data.isDefault ?? false,
+      isActive: true,
+      createdAt: new Date("2026-08-29T00:00:00.000Z"),
+      updatedAt: new Date("2026-08-29T00:00:00.000Z"),
+    })),
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+  };
+  const stockMovement = {
+    findMany: vi.fn().mockResolvedValue(options.onHandRows ?? []),
+    create: vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) =>
+      movementRow({
+        movementType: data.movementType,
+        quantity: data.quantity,
+        location: { publicId: data.locationId === 21n ? LOC_B : LOC_A },
+      }),
+    ),
+  };
+  const auditEvent = { create: vi.fn().mockResolvedValue({}) };
+  const transaction = { inventoryItem, stockLocation, stockMovement, auditEvent };
+  const database = {
+    withScope: vi
+      .fn()
+      .mockImplementation(async (_a: unknown, work: (s: typeof transaction) => unknown) =>
+        work(transaction),
+      ),
+  };
+  return {
+    database: database as unknown as DatabaseService,
+    inventoryItem,
+    stockLocation,
+    stockMovement,
+  };
+}
 
-    // Remaining: 2 units @ 10000 + 5 units @ 15000 = 20000 + 75000 = 95000 total asset value
-    const fifoValuation = await service.calculateValuation(bizId, itemId, "FIFO");
-    expect(fifoValuation.totalQuantity).toBe(7);
-    expect(fifoValuation.totalAssetValueMinor).toBe(95000);
-    expect(fifoValuation.averageUnitCostMinor).toBe(Math.round(95000 / 7));
+describe("InventoryService: multi-location stock", () => {
+  it("creates a default location and clears any prior default", async () => {
+    const mock = createDatabaseMock();
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    const location = await service.createLocation(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      { code: "MAIN", name: "Main Warehouse", isDefault: true },
+      "req-loc",
+    );
+
+    expect(mock.stockLocation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { businessId: 44n, isDefault: true },
+        data: { isDefault: false },
+      }),
+    );
+    expect(location.code).toBe("MAIN");
+    expect(location.isDefault).toBe(true);
   });
 
-  it("calculates AVCO (Moving Average Costing) stock valuation accurately", async () => {
-    const service = new InventoryService(mockDb, mockAccess);
-    const bizId = "b1";
-    const itemId = "item-2";
+  it("records a receipt movement against a location", async () => {
+    const mock = createDatabaseMock();
+    const service = new InventoryService(mock.database, createAccessMock());
 
-    // Batch 1: 10 units @ 100 SAR
-    await service.recordStockMovement(bizId, {
-      itemId,
-      movementType: "RECEIPT",
-      quantity: 10,
-      unitCostMinor: 10000,
-    });
+    const movement = await service.recordMovement(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      {
+        itemId: ITEM,
+        locationId: LOC_A,
+        movementType: "RECEIPT",
+        quantity: 10,
+        unitCostMinor: "1500",
+      },
+      "req-mov",
+    );
 
-    // Batch 2: 10 units @ 200 SAR
-    await service.recordStockMovement(bizId, {
-      itemId,
-      movementType: "RECEIPT",
-      quantity: 10,
-      unitCostMinor: 20000,
-    });
-
-    // Total: 20 units @ 300000 minor -> avg 15000 minor per unit
-    const avcoValuation = await service.calculateValuation(bizId, itemId, "AVCO");
-    expect(avcoValuation.totalQuantity).toBe(20);
-    expect(avcoValuation.totalAssetValueMinor).toBe(300000);
-    expect(avcoValuation.averageUnitCostMinor).toBe(15000);
+    expect(mock.stockMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          itemId: 10n,
+          locationId: 20n,
+          movementType: "RECEIPT",
+          quantity: 10,
+          unitCostMinor: "1500",
+        }),
+      }),
+    );
+    expect(movement.movementType).toBe("RECEIPT");
+    expect(movement.unitCostMinor).toBe("1500");
   });
 
-  it("reserves stock and enforces available stock limits", async () => {
-    const service = new InventoryService(mockDb, mockAccess);
-    const bizId = "b1";
-    const itemId = "item-3";
-
-    await service.recordStockMovement(bizId, {
-      itemId,
-      movementType: "RECEIPT",
-      quantity: 10,
-      unitCostMinor: 5000,
+  it("computes on-hand from the movement ledger (receipts − dispatches + signed adjustments)", async () => {
+    const mock = createDatabaseMock({
+      onHandRows: [
+        { movementType: "RECEIPT", quantity: 20 },
+        { movementType: "DISPATCH", quantity: 5 },
+        { movementType: "ADJUSTMENT", quantity: -2 },
+        { movementType: "TRANSFER", quantity: 3 },
+      ],
     });
+    const service = new InventoryService(mock.database, createAccessMock());
 
-    const res1 = await service.reserveStock(bizId, itemId, 6);
-    expect(res1.reservedQuantity).toBe(6);
-    expect(res1.availableStock).toBe(4);
+    const onHand = await service.onHand(ACCESS.userPublicId, ACCESS.businessPublicId, ITEM, LOC_A);
+    expect(onHand.quantityOnHand).toBe(16); // 20 - 5 - 2 + 3
+    expect(onHand.locationId).toBe(LOC_A);
+  });
 
-    // Attempting to reserve 5 when only 4 available throws BadRequestException
-    await expect(service.reserveStock(bizId, itemId, 5)).rejects.toThrow(BadRequestException);
+  it("rejects a dispatch that exceeds on-hand at the location", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 3 }] });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await expect(
+      service.recordMovement(
+        ACCESS.userPublicId,
+        ACCESS.businessPublicId,
+        { itemId: ITEM, locationId: LOC_A, movementType: "DISPATCH", quantity: 5 },
+        "req-dispatch",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(mock.stockMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("transfers stock as a source dispatch and destination receipt, guarding source on-hand", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    const result = await service.transferStock(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      { itemId: ITEM, fromLocationId: LOC_A, toLocationId: LOC_B, quantity: 4 },
+      "req-transfer",
+    );
+
+    expect(mock.stockMovement.create).toHaveBeenCalledTimes(2);
+    // Source row leaves stock (−q), destination row receives it (+q).
+    expect(mock.stockMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ locationId: 20n, quantity: -4 }) }),
+    );
+    expect(mock.stockMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ locationId: 21n, quantity: 4 }) }),
+    );
+    expect(result.from.quantity).toBe(-4);
+    expect(result.to.quantity).toBe(4);
+  });
+
+  it("rejects a transfer between the same location", async () => {
+    const mock = createDatabaseMock();
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await expect(
+      service.transferStock(
+        ACCESS.userPublicId,
+        ACCESS.businessPublicId,
+        { itemId: ITEM, fromLocationId: LOC_A, toLocationId: LOC_A, quantity: 1 },
+        "req-transfer-same",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
