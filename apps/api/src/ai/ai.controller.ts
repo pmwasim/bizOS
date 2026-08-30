@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 
 import { AnomalyDetectorService } from "./anomaly-detector.service.js";
 import {
@@ -8,8 +8,15 @@ import {
 } from "./draft-email.service.js";
 import { OcrExtractorService } from "./ocr-extractor.service.js";
 import { RagSearchEngine, type RagSearchQuery } from "./rag-search.service.js";
+import { SystemAdminGuard } from "../security/system-admin.guard.js";
 import { ZeroBudgetAiProvider } from "./zero-budget-ai.provider.js";
 
+// These routes trigger host-local inference (Ollama) and the operator's shared Hugging Face
+// free-tier token/quota (see ops/ai/README.md) — a shared, per-host resource, not a per-business
+// one. SystemAdminGuard restricts them to platform System Admins so any authenticated tenant user
+// cannot drive host GPU load or exhaust the operator's HF quota. Revisit when this becomes a real
+// per-business, budgeted product capability per ADR-0012.
+@UseGuards(SystemAdminGuard)
 @Controller("ai")
 export class AiController {
   constructor(
