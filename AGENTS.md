@@ -200,3 +200,22 @@ documents governing each workspace.
 - **`lefthook install` (root `prepare`) fails under the cloud agent's custom `core.hooksPath`.** It
   is a benign local git-hook convenience; the startup update script installs deps without triggering
   it, so ignore that failure.
+
+## Learned User Preferences
+
+- Wants agents to work fully autonomously and authoritatively on bizOS (review, commit, push, merge,
+  and continue without pausing for confirmation between safe local work packages).
+- Treats public sales readiness for the live site as a standing goal (marketing, subscribe/billing,
+  and production polish).
+- Strictly zero-budget for AI on this host: local/free paths only; no paid Hugging Face or cloud AI
+  spend unless explicitly escalated.
+
+## Learned Workspace Facts
+
+- Production public URL is `https://bizos.qloudihub.com`.
+- Self-serve paid path is Qloudi Pro via RevenueCat Web Billing on `/subscribe`, with server-side
+  entitlement checks in the API billing module.
+- Zero-budget AI default in `apps/api`: local Ollama first, Hugging Face free Inference Router
+  second; paid routes are ignored by design (see `ops/ai`).
+- Cursor Hugging Face MCP OAuth is separate from NestJS/`hf` CLI auth; product runtime needs its own
+  classic `HF_TOKEN` in local `.env` when the free HF path should be active.

@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
+
+import { ZeroBudgetAiProvider } from "./zero-budget-ai.provider.js";
 
 export interface OcrExtractionResult {
   merchantName: string | null;
@@ -25,6 +27,22 @@ export interface OcrLineItem {
 
 /** Longest OCR line we attempt to parse; anything beyond this is noise, not a line item. */
 const MAX_LINE_LENGTH = 512;
+
+/**
+ * Coerce an AI-returned amount to a number without letting `null`/`undefined`/non-numeric values
+ * silently become 0 — `Number(null)` is `0`, and `Number.isFinite(0)` is `true`, so a naive
+ * `Number.isFinite(Number(x)) ? Number(x) : fallback` treats "the model doesn't know" the same as
+ * "the model said zero" and overwrites a correctly extracted heuristic amount with 0.
+ */
+function numericOrFallback(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+  return fallback;
+}
 const DESCRIPTION_TOKEN = /^[A-Za-z0-9]+$/;
 const INTEGER_TOKEN = /^\d{1,12}$/;
 const DECIMAL_TOKEN = /^\d{1,15}(?:\.\d{1,6})?$/;
@@ -91,6 +109,12 @@ export function parseLineItem(line: string): OcrLineItem | null {
 
 @Injectable()
 export class OcrExtractorService {
+  constructor(
+    @Optional()
+    @Inject(ZeroBudgetAiProvider)
+    private readonly aiProvider?: ZeroBudgetAiProvider,
+  ) {}
+
   public extractFromBuffer(buffer: Buffer, mimeType: string): OcrExtractionResult {
     if (mimeType !== "application/pdf" && !mimeType.startsWith("image/")) {
       throw new Error("400 Bad Request: Unsupported MIME type");
@@ -285,5 +309,142 @@ export class OcrExtractorService {
       ...(trn ? { trn } : {}),
       ...(currency ? { currency } : {}),
     };
+  }
+
+  /**
+   * Heuristic extraction first (deterministic, $0), then optional local/HF LLM
+   * refinement when the buffer looks like plain text rather than binary PDF/image bytes.
+   */
+  public async extractFromBufferWithAi(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<OcrExtractionResult & { aiBackend?: "ollama" | "huggingface-free" | "heuristic" }> {
+    const heuristic = this.extractFromBuffer(buffer, mimeType);
+    if (!this.aiProvider) {
+      return { ...heuristic, aiBackend: "heuristic" };
+    }
+
+    const content = buffer.toString("utf-8");
+    const looksBinary = [...content.slice(0, 200)].some((ch) => ch.charCodeAt(0) <= 8);
+    if (looksBinary || content.trim().length < 40) {
+      return { ...heuristic, aiBackend: "heuristic" };
+    }
+
+    const completion = await this.aiProvider.completeChat({
+      system:
+        "Extract invoice fields as JSON only with keys: merchantName, invoiceNumber, invoiceDate (YYYY-MM-DD or null), currency, trn, subtotal, taxAmount, totalAmount, lineItems (array of {description, quantity, unitPrice, total}). Use null for unknown strings and [] for empty lineItems.",
+      prompt: content.slice(0, 6_000),
+      maxTokens: 700,
+    });
+
+    if (!completion) {
+      return { ...heuristic, aiBackend: "heuristic" };
+    }
+
+    const refined = this.mergeLlmExtraction(heuristic, completion.text);
+    return { ...refined, aiBackend: completion.backend };
+  }
+
+  private mergeLlmExtraction(fallback: OcrExtractionResult, raw: string): OcrExtractionResult {
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}");
+    if (jsonStart === -1 || jsonEnd <= jsonStart) {
+      return fallback;
+    }
+
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as Record<string, unknown>;
+      const lineItems = Array.isArray(parsed.lineItems)
+        ? parsed.lineItems
+            .map((item) => {
+              if (!item || typeof item !== "object") {
+                return null;
+              }
+              const row = item as Record<string, unknown>;
+              if (typeof row.description !== "string") {
+                return null;
+              }
+              return {
+                description: row.description,
+                quantity: numericOrFallback(row.quantity, 0),
+                unitPrice: numericOrFallback(row.unitPrice, 0),
+                total: numericOrFallback(row.total, 0),
+              };
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null)
+        : fallback.lineItems;
+
+      const merchantName =
+        typeof parsed.merchantName === "string" && parsed.merchantName.trim()
+          ? parsed.merchantName.trim()
+          : fallback.merchantName;
+      const invoiceNumber =
+        typeof parsed.invoiceNumber === "string" && parsed.invoiceNumber.trim()
+          ? parsed.invoiceNumber.trim()
+          : fallback.invoiceNumber;
+      const invoiceDate =
+        typeof parsed.invoiceDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.invoiceDate)
+          ? parsed.invoiceDate
+          : fallback.invoiceDate;
+      const currency =
+        typeof parsed.currency === "string" && parsed.currency.trim()
+          ? parsed.currency.trim().toUpperCase()
+          : fallback.currency;
+      const trn =
+        typeof parsed.trn === "string" && parsed.trn.trim() ? parsed.trn.trim() : fallback.trn;
+      const subtotal = numericOrFallback(parsed.subtotal, fallback.subtotal);
+      const taxAmount = numericOrFallback(parsed.taxAmount, fallback.taxAmount);
+      const totalAmount = numericOrFallback(parsed.totalAmount, fallback.totalAmount);
+
+      // Recompute from the merged (post-AI) amounts, not the pre-AI heuristic ones: the model can
+      // return internally consistent-looking JSON whose numbers don't actually add up, and a
+      // discrepancy introduced by the merge must not be hidden behind the heuristic pass's clean
+      // result.
+      const expectedTotal = Number((subtotal + taxAmount).toFixed(2));
+      const discrepancyWarning =
+        Math.abs(totalAmount - expectedTotal) > 0.01
+          ? `Line item sum (${expectedTotal.toFixed(2)}) does not match total amount (${totalAmount.toFixed(2)})`
+          : undefined;
+
+      const missingFields: string[] = [];
+      if (!merchantName) missingFields.push("merchantName");
+      if (!invoiceNumber) missingFields.push("invoiceNumber");
+      if (!invoiceDate) missingFields.push("invoiceDate");
+      if (lineItems.length === 0) missingFields.push("lineItems");
+
+      let confidenceScore = fallback.confidenceScore;
+      if (missingFields.length === 0) {
+        confidenceScore = Math.min(0.99, Math.max(confidenceScore, 0.9));
+      }
+
+      const status =
+        confidenceScore >= 0.85 && missingFields.length === 0 && !discrepancyWarning
+          ? ("READY_FOR_REVIEW" as const)
+          : ("NEEDS_HUMAN_VERIFICATION" as const);
+
+      // Drop the fallback's own discrepancyWarning key rather than spreading it: with
+      // exactOptionalPropertyTypes, the only way to clear an optional string key is to omit it,
+      // and a stale heuristic-pass warning must not survive a merge that resolved it.
+      const { discrepancyWarning: _staleDiscrepancyWarning, ...fallbackRest } = fallback;
+
+      return {
+        ...fallbackRest,
+        merchantName,
+        invoiceNumber,
+        invoiceDate,
+        lineItems,
+        subtotal,
+        taxAmount,
+        totalAmount,
+        confidenceScore,
+        status,
+        missingFields,
+        ...(discrepancyWarning ? { discrepancyWarning } : {}),
+        ...(trn ? { trn } : {}),
+        ...(currency ? { currency } : {}),
+      };
+    } catch {
+      return fallback;
+    }
   }
 }

@@ -35,3 +35,7 @@ apps/web/.dev.vars
 
 *.log
 tmp/
+
+# Cursor local agent/session state — machine-specific, not source.
+.cursor/mcp.json
+.cursor/hooks/
