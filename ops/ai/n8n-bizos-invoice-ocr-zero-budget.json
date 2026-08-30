@@ -6,6 +6,7 @@
         "httpMethod": "POST",
         "path": "bizos/invoice-ocr-zero-budget",
         "responseMode": "responseNode",
+        "authentication": "headerAuth",
         "options": {}
       },
       "id": "webhook-ocr",
@@ -13,7 +14,12 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [0, 0],
-      "webhookId": "bizos-invoice-ocr-zero-budget"
+      "webhookId": "bizos-invoice-ocr-zero-budget",
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "bizOS n8n webhook shared secret"
+        }
+      }
     },
     {
       "parameters": {
@@ -21,7 +27,7 @@
         "url": "http://127.0.0.1:11434/api/generate",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"qwen2.5-coder:7b\",\n  \"stream\": false,\n  \"prompt\": \"Extract invoice fields as JSON with keys merchantName, invoiceNumber, invoiceDate, currency, totalAmount, lineItems from:\\n{{ $json.body.text || $json.text || '' }}\",\n  \"options\": { \"temperature\": 0.1, \"num_predict\": 500 }\n}",
+        "jsonBody": "={{ JSON.stringify({ model: 'qwen2.5-coder:7b', stream: false, prompt: 'Extract invoice fields as JSON with keys merchantName, invoiceNumber, invoiceDate, currency, totalAmount, lineItems from:\\n' + ($json.body.text || $json.text || ''), options: { temperature: 0.1, num_predict: 500 } }) }}",
         "options": {}
       },
       "id": "ollama-generate",

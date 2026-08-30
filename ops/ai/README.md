@@ -57,7 +57,11 @@ hf auth whoami
 ## n8n
 
 Import `ops/ai/n8n-bizos-invoice-ocr-zero-budget.json` into the local Community instance. It calls
-Ollama only (no cloud spend).
+Ollama only (no cloud spend). The webhook trigger requires header auth — before activating the
+workflow, create an n8n Header Auth credential named **"bizOS n8n webhook shared secret"** (Header
+Name `Authorization`, value a locally generated bearer token; never commit it) and send the same
+header from any caller. An unauthenticated webhook on this path would let anyone who can reach the
+n8n instance trigger local Ollama inference for free.
 
 ## Hard no
 
