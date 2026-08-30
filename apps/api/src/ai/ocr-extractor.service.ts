@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
+
+import { ZeroBudgetAiProvider } from "./zero-budget-ai.provider.js";
 
 export interface OcrExtractionResult {
   merchantName: string | null;
@@ -91,6 +93,12 @@ export function parseLineItem(line: string): OcrLineItem | null {
 
 @Injectable()
 export class OcrExtractorService {
+  constructor(
+    @Optional()
+    @Inject(ZeroBudgetAiProvider)
+    private readonly aiProvider?: ZeroBudgetAiProvider,
+  ) {}
+
   public extractFromBuffer(buffer: Buffer, mimeType: string): OcrExtractionResult {
     if (mimeType !== "application/pdf" && !mimeType.startsWith("image/")) {
       throw new Error("400 Bad Request: Unsupported MIME type");
@@ -285,5 +293,132 @@ export class OcrExtractorService {
       ...(trn ? { trn } : {}),
       ...(currency ? { currency } : {}),
     };
+  }
+
+  /**
+   * Heuristic extraction first (deterministic, $0), then optional local/HF LLM
+   * refinement when the buffer looks like plain text rather than binary PDF/image bytes.
+   */
+  public async extractFromBufferWithAi(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<OcrExtractionResult & { aiBackend?: "ollama" | "huggingface-free" | "heuristic" }> {
+    const heuristic = this.extractFromBuffer(buffer, mimeType);
+    if (!this.aiProvider) {
+      return { ...heuristic, aiBackend: "heuristic" };
+    }
+
+    const content = buffer.toString("utf-8");
+    const looksBinary = [...content.slice(0, 200)].some((ch) => ch.charCodeAt(0) <= 8);
+    if (looksBinary || content.trim().length < 40) {
+      return { ...heuristic, aiBackend: "heuristic" };
+    }
+
+    const completion = await this.aiProvider.completeChat({
+      system:
+        "Extract invoice fields as JSON only with keys: merchantName, invoiceNumber, invoiceDate (YYYY-MM-DD or null), currency, trn, subtotal, taxAmount, totalAmount, lineItems (array of {description, quantity, unitPrice, total}). Use null for unknown strings and [] for empty lineItems.",
+      prompt: content.slice(0, 6_000),
+      maxTokens: 700,
+    });
+
+    if (!completion) {
+      return { ...heuristic, aiBackend: "heuristic" };
+    }
+
+    const refined = this.mergeLlmExtraction(heuristic, completion.text);
+    return { ...refined, aiBackend: completion.backend };
+  }
+
+  private mergeLlmExtraction(fallback: OcrExtractionResult, raw: string): OcrExtractionResult {
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}");
+    if (jsonStart === -1 || jsonEnd <= jsonStart) {
+      return fallback;
+    }
+
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as Record<string, unknown>;
+      const lineItems = Array.isArray(parsed.lineItems)
+        ? parsed.lineItems
+            .map((item) => {
+              if (!item || typeof item !== "object") {
+                return null;
+              }
+              const row = item as Record<string, unknown>;
+              if (typeof row.description !== "string") {
+                return null;
+              }
+              return {
+                description: row.description,
+                quantity: Number(row.quantity) || 0,
+                unitPrice: Number(row.unitPrice) || 0,
+                total: Number(row.total) || 0,
+              };
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null)
+        : fallback.lineItems;
+
+      const merchantName =
+        typeof parsed.merchantName === "string" && parsed.merchantName.trim()
+          ? parsed.merchantName.trim()
+          : fallback.merchantName;
+      const invoiceNumber =
+        typeof parsed.invoiceNumber === "string" && parsed.invoiceNumber.trim()
+          ? parsed.invoiceNumber.trim()
+          : fallback.invoiceNumber;
+      const invoiceDate =
+        typeof parsed.invoiceDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.invoiceDate)
+          ? parsed.invoiceDate
+          : fallback.invoiceDate;
+      const currency =
+        typeof parsed.currency === "string" && parsed.currency.trim()
+          ? parsed.currency.trim().toUpperCase()
+          : fallback.currency;
+      const trn =
+        typeof parsed.trn === "string" && parsed.trn.trim() ? parsed.trn.trim() : fallback.trn;
+      const subtotal = Number.isFinite(Number(parsed.subtotal))
+        ? Number(parsed.subtotal)
+        : fallback.subtotal;
+      const taxAmount = Number.isFinite(Number(parsed.taxAmount))
+        ? Number(parsed.taxAmount)
+        : fallback.taxAmount;
+      const totalAmount = Number.isFinite(Number(parsed.totalAmount))
+        ? Number(parsed.totalAmount)
+        : fallback.totalAmount;
+
+      const missingFields: string[] = [];
+      if (!merchantName) missingFields.push("merchantName");
+      if (!invoiceNumber) missingFields.push("invoiceNumber");
+      if (!invoiceDate) missingFields.push("invoiceDate");
+      if (lineItems.length === 0) missingFields.push("lineItems");
+
+      let confidenceScore = fallback.confidenceScore;
+      if (missingFields.length === 0) {
+        confidenceScore = Math.min(0.99, Math.max(confidenceScore, 0.9));
+      }
+
+      const status =
+        confidenceScore >= 0.85 && missingFields.length === 0 && !fallback.discrepancyWarning
+          ? ("READY_FOR_REVIEW" as const)
+          : ("NEEDS_HUMAN_VERIFICATION" as const);
+
+      return {
+        ...fallback,
+        merchantName,
+        invoiceNumber,
+        invoiceDate,
+        lineItems,
+        subtotal,
+        taxAmount,
+        totalAmount,
+        confidenceScore,
+        status,
+        missingFields,
+        ...(trn ? { trn } : {}),
+        ...(currency ? { currency } : {}),
+      };
+    } catch {
+      return fallback;
+    }
   }
 }

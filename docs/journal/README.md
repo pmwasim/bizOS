@@ -15,10 +15,14 @@ Rules:
 
 ## Entries
 
+- [2026-08-30 — Resolve outstanding open items: branch triage, main sync, hosting/module doc audit](2026-08-30-resolve-outstanding-open-items-branch-triage-main-sync-hosti.md)
+  - Agent: claude-resolve-open-items · Status: Complete
 - [2026-08-23 — Repair recurring production health false failures](2026-08-23-repair-recurring-production-health-false-failures.md)
   - Agent: codex-prod-health-20260823 · Status: Complete
 - [2026-08-23 — Complete bizOS production release and clear E2E gate](2026-08-23-complete-bizos-production-release-and-clear-e2e-gate.md)
   - Agent: codex-production-20260823 · Status: Complete
+- [2026-08-21 — Zero-budget Hugging Face for bizOS AI](2026-08-21-zero-budget-hugging-face-for-bizos-ai.md)
+  - Agent: cursor-hf-zero · Status: Done
 - [2026-08-21 — Sprint 6 TASK-25 webhook security penetration gate](2026-08-21-sprint-6-task-25-webhook-security-penetration-gate.md)
   - Agent: cursor-autonomy · Status: Ready for review
 - [2026-08-21 — Public sales readiness for bizos.qloudihub.com](2026-08-21-public-sales-readiness-for-bizos-qloudihub-com.md)

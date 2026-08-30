@@ -3,31 +3,19 @@
   "note": "Advisory work claims held by agents. Managed by `pnpm agent:*` commands.",
   "claims": [
     {
-      "id": "clm_696ecd8e",
-      "agent": "cursor-autonomy",
-      "task": "Sprint 6 TASK-25 webhook security penetration gate",
+      "id": "clm_27b225fc",
+      "agent": "claude-resolve-open-items",
+      "task": "Resolve outstanding open items: stray branch state, main sync, junk file, hosting/module decisions, PRD status",
       "scopes": [
-        "apps/api/src/webhooks",
+        ".agent",
+        ".gitignore",
+        "AGENTS.md",
+        "apps/api/src/ai",
         "docs"
       ],
       "branch": null,
-      "claimedAt": "2026-08-21T21:26:20.812Z",
-      "expiresAt": "2026-08-22T01:26:20.812Z"
-    },
-    {
-      "id": "clm_48e3bda9",
-      "agent": "cursor-landing",
-      "task": "Deploy marketing landing to production",
-      "scopes": [
-        "apps/web",
-        "docs/journal"
-      ],
-      "branch": null,
-      "claimedAt": "2026-08-21T21:55:38.734Z",
-      "expiresAt": "2026-08-22T01:55:38.734Z",
-      "forcedOverlap": [
-        "clm_696ecd8e"
-      ]
+      "claimedAt": "2026-08-30T04:19:11.067Z",
+      "expiresAt": "2026-08-30T08:19:11.067Z"
     }
   ]
 }

@@ -5,6 +5,7 @@ import { AnomalyDetectorService } from "./anomaly-detector.service.js";
 import { DraftEmailService } from "./draft-email.service.js";
 import { OcrExtractorService } from "./ocr-extractor.service.js";
 import { RagSearchEngine } from "./rag-search.service.js";
+import { ZeroBudgetAiProvider } from "./zero-budget-ai.provider.js";
 
 describe("AiController", () => {
   let controller: AiController;
@@ -12,11 +13,13 @@ describe("AiController", () => {
   let ocrExtractorService: OcrExtractorService;
   let draftEmailService: DraftEmailService;
   let anomalyDetectorService: AnomalyDetectorService;
+  let zeroBudgetAiProvider: ZeroBudgetAiProvider;
 
   beforeEach(() => {
+    zeroBudgetAiProvider = new ZeroBudgetAiProvider();
     ragSearchEngine = new RagSearchEngine();
-    ocrExtractorService = new OcrExtractorService();
-    draftEmailService = new DraftEmailService();
+    ocrExtractorService = new OcrExtractorService(zeroBudgetAiProvider);
+    draftEmailService = new DraftEmailService(zeroBudgetAiProvider);
     anomalyDetectorService = new AnomalyDetectorService();
 
     controller = new AiController(
@@ -24,6 +27,7 @@ describe("AiController", () => {
       ocrExtractorService,
       draftEmailService,
       anomalyDetectorService,
+      zeroBudgetAiProvider,
     );
   });
 
@@ -37,9 +41,9 @@ describe("AiController", () => {
     expect(results[0]?.documentId).toBe("doc-101");
   });
 
-  it("handles OCR parse endpoint requests", () => {
+  it("handles OCR parse endpoint requests", async () => {
     const base64 = Buffer.from("%PDF-1.4 Standard Invoice").toString("base64");
-    const result = controller.ocrParse({
+    const result = await controller.ocrParse({
       bufferBase64: base64,
       mimeType: "application/pdf",
     });
@@ -47,8 +51,8 @@ describe("AiController", () => {
     expect(result.merchantName).toBe("Global Stationery KSA");
   });
 
-  it("handles draft email generation and sending endpoints", () => {
-    const draft = controller.generateDraftEmail({
+  it("handles draft email generation and sending endpoints", async () => {
+    const draft = await controller.generateDraftEmail({
       tenantId: "tenant-a",
       documentId: "INV-500",
       documentType: "INVOICE",
@@ -57,6 +61,7 @@ describe("AiController", () => {
       locale: "en",
     });
     expect(draft.status).toBe("DRAFT");
+    expect(draft.aiBackend).toBe("template");
 
     const sendRes = controller.sendDraftEmail({
       draft,

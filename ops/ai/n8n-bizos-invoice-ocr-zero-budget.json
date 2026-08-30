@@ -1,0 +1,60 @@
+{
+  "name": "bizOS Invoice OCR (zero-budget Ollama)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bizos/invoice-ocr-zero-budget",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-ocr",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "bizos-invoice-ocr-zero-budget"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"qwen2.5-coder:7b\",\n  \"stream\": false,\n  \"prompt\": \"Extract invoice fields as JSON with keys merchantName, invoiceNumber, invoiceDate, currency, totalAmount, lineItems from:\\n{{ $json.body.text || $json.text || '' }}\",\n  \"options\": { \"temperature\": 0.1, \"num_predict\": 500 }\n}",
+        "options": {}
+      },
+      "id": "ollama-generate",
+      "name": "Ollama Extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { budgetMode: 'zero', backend: 'ollama', model: 'qwen2.5-coder:7b', raw: $json.response } }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Ollama Extract", "type": "main", "index": 0 }]]
+    },
+    "Ollama Extract": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

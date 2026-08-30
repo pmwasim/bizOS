@@ -5,10 +5,12 @@ import { AnomalyDetectionScanner, AnomalyDetectorService } from "./anomaly-detec
 import { DraftEmailService } from "./draft-email.service.js";
 import { OcrExtractorService } from "./ocr-extractor.service.js";
 import { RagSearchEngine, RagSearchService } from "./rag-search.service.js";
+import { ZeroBudgetAiProvider } from "./zero-budget-ai.provider.js";
 
 @Module({
   controllers: [AiController],
   providers: [
+    ZeroBudgetAiProvider,
     RagSearchEngine,
     RagSearchService,
     OcrExtractorService,
@@ -17,6 +19,7 @@ import { RagSearchEngine, RagSearchService } from "./rag-search.service.js";
     AnomalyDetectionScanner,
   ],
   exports: [
+    ZeroBudgetAiProvider,
     RagSearchEngine,
     RagSearchService,
     OcrExtractorService,

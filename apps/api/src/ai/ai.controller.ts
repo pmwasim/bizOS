@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Query } from "@nestjs/common";
 
 import { AnomalyDetectorService } from "./anomaly-detector.service.js";
 import {
@@ -8,6 +8,7 @@ import {
 } from "./draft-email.service.js";
 import { OcrExtractorService } from "./ocr-extractor.service.js";
 import { RagSearchEngine, type RagSearchQuery } from "./rag-search.service.js";
+import { ZeroBudgetAiProvider } from "./zero-budget-ai.provider.js";
 
 @Controller("ai")
 export class AiController {
@@ -16,7 +17,13 @@ export class AiController {
     @Inject(OcrExtractorService) private readonly ocrExtractorService: OcrExtractorService,
     @Inject(DraftEmailService) private readonly draftEmailService: DraftEmailService,
     @Inject(AnomalyDetectorService) private readonly anomalyDetectorService: AnomalyDetectorService,
+    @Inject(ZeroBudgetAiProvider) private readonly zeroBudgetAiProvider: ZeroBudgetAiProvider,
   ) {}
+
+  @Get("provider-status")
+  providerStatus() {
+    return this.zeroBudgetAiProvider.probe();
+  }
 
   @Post("rag-search")
   ragSearch(@Body() query: RagSearchQuery) {
@@ -24,13 +31,27 @@ export class AiController {
   }
 
   @Post("ocr-parse")
-  ocrParse(@Body() body: { bufferBase64: string; mimeType: string }) {
+  async ocrParse(
+    @Body() body: { bufferBase64: string; mimeType: string; useAi?: boolean },
+    @Query("useAi") useAiQuery?: string,
+  ) {
     const buffer = Buffer.from(body.bufferBase64 || "", "base64");
+    const useAi = body.useAi === true || useAiQuery === "1" || useAiQuery === "true";
+    if (useAi) {
+      return this.ocrExtractorService.extractFromBufferWithAi(buffer, body.mimeType);
+    }
     return this.ocrExtractorService.extractFromBuffer(buffer, body.mimeType);
   }
 
   @Post("draft-email")
-  generateDraftEmail(@Body() payload: DraftEmailPayload) {
+  async generateDraftEmail(
+    @Body() payload: DraftEmailPayload & { useAi?: boolean },
+    @Query("useAi") useAiQuery?: string,
+  ) {
+    const useAi = payload.useAi === true || useAiQuery === "1" || useAiQuery === "true";
+    if (useAi) {
+      return this.draftEmailService.generateDraftWithAi(payload);
+    }
     return this.draftEmailService.generateDraft(payload);
   }
 

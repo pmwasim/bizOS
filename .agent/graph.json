@@ -63,14 +63,14 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 231,
-      "testFiles": 84,
+      "sourceFiles": 233,
+      "testFiles": 85,
       "areas": [
         {
           "name": "ai",
           "path": "apps/api/src/ai",
-          "sourceFiles": 9,
-          "testFiles": 3
+          "sourceFiles": 11,
+          "testFiles": 4
         },
         {
           "name": "billing",
