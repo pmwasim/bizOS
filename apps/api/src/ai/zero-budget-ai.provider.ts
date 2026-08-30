@@ -209,9 +209,16 @@ export class ZeroBudgetAiProvider {
       return null;
     }
 
-    // Hard budget guard: never opt into billed provider routes.
-    if (envFlagEnabled("HF_ALLOW_PAID", false)) {
-      this.logger.warn("HF_ALLOW_PAID is set; ignoring because bizOS enforces zero-budget AI.");
+    // Hard budget guard: a 402 after the fact only catches accounts with no payment method on
+    // file. If the account has billing/credits enabled, the router can fulfil the call and
+    // charge it, and there is no client-side signal that distinguishes that from a free
+    // response — so bizOS never sends this request unless the operator has explicitly attested
+    // the token is billing-free. Default is off even when HF_TOKEN is present.
+    if (!envFlagEnabled("HF_FREE_TIER_CONFIRMED", false)) {
+      this.logger.debug(
+        "HF_TOKEN is set but HF_FREE_TIER_CONFIRMED is not; skipping Hugging Face to avoid risking paid usage.",
+      );
+      return null;
     }
 
     const routerUrl = readEnv("HF_ROUTER_URL", DEFAULT_HF_ROUTER_URL);

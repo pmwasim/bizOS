@@ -56,10 +56,29 @@ describe("ZeroBudgetAiProvider", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("uses huggingface free router when ollama is down and token is set", async () => {
+  it("skips huggingface by default even when a token is set (no billing-free confirmation)", async () => {
+    process.env.HF_TOKEN = "hf_test_token";
+    process.env.AI_LLM_ENABLED = "true";
+
+    const fetchMock = vi.fn(async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input);
+      if (url.includes("11434")) {
+        throw new Error("ollama offline");
+      }
+      // Any call reaching the HF router would risk paid usage without confirmation.
+      throw new Error("must not call Hugging Face without HF_FREE_TIER_CONFIRMED=true");
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const provider = new ZeroBudgetAiProvider();
+    await expect(provider.completeChat({ prompt: "Ping" })).resolves.toBeNull();
+  });
+
+  it("uses huggingface free router when ollama is down, token is set, and free tier is confirmed", async () => {
     process.env.HF_TOKEN = "hf_test_token";
     process.env.AI_LLM_ENABLED = "true";
     process.env.HF_CHAT_MODEL = "HuggingFaceH4/zephyr-7b-beta";
+    process.env.HF_FREE_TIER_CONFIRMED = "true";
 
     globalThis.fetch = vi.fn(async (input: Parameters<typeof fetch>[0]) => {
       const url = String(input);
@@ -89,6 +108,7 @@ describe("ZeroBudgetAiProvider", () => {
   it("refuses paid huggingface responses and returns null", async () => {
     process.env.HF_TOKEN = "hf_test_token";
     process.env.AI_LLM_ENABLED = "true";
+    process.env.HF_FREE_TIER_CONFIRMED = "true";
 
     globalThis.fetch = vi.fn(async (input: Parameters<typeof fetch>[0]) => {
       const url = String(input);

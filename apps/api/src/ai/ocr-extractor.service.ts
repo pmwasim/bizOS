@@ -27,6 +27,22 @@ export interface OcrLineItem {
 
 /** Longest OCR line we attempt to parse; anything beyond this is noise, not a line item. */
 const MAX_LINE_LENGTH = 512;
+
+/**
+ * Coerce an AI-returned amount to a number without letting `null`/`undefined`/non-numeric values
+ * silently become 0 — `Number(null)` is `0`, and `Number.isFinite(0)` is `true`, so a naive
+ * `Number.isFinite(Number(x)) ? Number(x) : fallback` treats "the model doesn't know" the same as
+ * "the model said zero" and overwrites a correctly extracted heuristic amount with 0.
+ */
+function numericOrFallback(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+  return fallback;
+}
 const DESCRIPTION_TOKEN = /^[A-Za-z0-9]+$/;
 const INTEGER_TOKEN = /^\d{1,12}$/;
 const DECIMAL_TOKEN = /^\d{1,15}(?:\.\d{1,6})?$/;
@@ -350,9 +366,9 @@ export class OcrExtractorService {
               }
               return {
                 description: row.description,
-                quantity: Number(row.quantity) || 0,
-                unitPrice: Number(row.unitPrice) || 0,
-                total: Number(row.total) || 0,
+                quantity: numericOrFallback(row.quantity, 0),
+                unitPrice: numericOrFallback(row.unitPrice, 0),
+                total: numericOrFallback(row.total, 0),
               };
             })
             .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -376,15 +392,19 @@ export class OcrExtractorService {
           : fallback.currency;
       const trn =
         typeof parsed.trn === "string" && parsed.trn.trim() ? parsed.trn.trim() : fallback.trn;
-      const subtotal = Number.isFinite(Number(parsed.subtotal))
-        ? Number(parsed.subtotal)
-        : fallback.subtotal;
-      const taxAmount = Number.isFinite(Number(parsed.taxAmount))
-        ? Number(parsed.taxAmount)
-        : fallback.taxAmount;
-      const totalAmount = Number.isFinite(Number(parsed.totalAmount))
-        ? Number(parsed.totalAmount)
-        : fallback.totalAmount;
+      const subtotal = numericOrFallback(parsed.subtotal, fallback.subtotal);
+      const taxAmount = numericOrFallback(parsed.taxAmount, fallback.taxAmount);
+      const totalAmount = numericOrFallback(parsed.totalAmount, fallback.totalAmount);
+
+      // Recompute from the merged (post-AI) amounts, not the pre-AI heuristic ones: the model can
+      // return internally consistent-looking JSON whose numbers don't actually add up, and a
+      // discrepancy introduced by the merge must not be hidden behind the heuristic pass's clean
+      // result.
+      const expectedTotal = Number((subtotal + taxAmount).toFixed(2));
+      const discrepancyWarning =
+        Math.abs(totalAmount - expectedTotal) > 0.01
+          ? `Line item sum (${expectedTotal.toFixed(2)}) does not match total amount (${totalAmount.toFixed(2)})`
+          : undefined;
 
       const missingFields: string[] = [];
       if (!merchantName) missingFields.push("merchantName");
@@ -398,12 +418,17 @@ export class OcrExtractorService {
       }
 
       const status =
-        confidenceScore >= 0.85 && missingFields.length === 0 && !fallback.discrepancyWarning
+        confidenceScore >= 0.85 && missingFields.length === 0 && !discrepancyWarning
           ? ("READY_FOR_REVIEW" as const)
           : ("NEEDS_HUMAN_VERIFICATION" as const);
 
+      // Drop the fallback's own discrepancyWarning key rather than spreading it: with
+      // exactOptionalPropertyTypes, the only way to clear an optional string key is to omit it,
+      // and a stale heuristic-pass warning must not survive a merge that resolved it.
+      const { discrepancyWarning: _staleDiscrepancyWarning, ...fallbackRest } = fallback;
+
       return {
-        ...fallback,
+        ...fallbackRest,
         merchantName,
         invoiceNumber,
         invoiceDate,
@@ -414,6 +439,7 @@ export class OcrExtractorService {
         confidenceScore,
         status,
         missingFields,
+        ...(discrepancyWarning ? { discrepancyWarning } : {}),
         ...(trn ? { trn } : {}),
         ...(currency ? { currency } : {}),
       };

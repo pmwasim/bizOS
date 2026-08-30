@@ -44,7 +44,11 @@ AI_EMBED_MODEL=nomic-embed-text
 # Create a classic token with read + inference at https://huggingface.co/settings/tokens
 HF_TOKEN=
 # HF_CHAT_MODEL=HuggingFaceH4/zephyr-7b-beta
-# HF_ALLOW_PAID must stay unset/false — paid routes are ignored
+# HF_FREE_TIER_CONFIRMED must be explicitly "true" before this token is ever called. A 402 after
+# the request is not proof the request would have been free if the account has billing enabled —
+# so the router is skipped entirely (Ollama-only) until you've confirmed there is no payment
+# method / credits on this HF account.
+HF_FREE_TIER_CONFIRMED=false
 ```
 
 CLI (installed via `uv tool install huggingface_hub`):
