@@ -1,21 +1,5 @@
 {
   "version": 1,
   "note": "Advisory work claims held by agents. Managed by `pnpm agent:*` commands.",
-  "claims": [
-    {
-      "id": "clm_27b225fc",
-      "agent": "claude-resolve-open-items",
-      "task": "Resolve outstanding open items: stray branch state, main sync, junk file, hosting/module decisions, PRD status",
-      "scopes": [
-        ".agent",
-        ".gitignore",
-        "AGENTS.md",
-        "apps/api/src/ai",
-        "docs"
-      ],
-      "branch": null,
-      "claimedAt": "2026-08-30T04:19:11.067Z",
-      "expiresAt": "2026-08-30T08:19:11.067Z"
-    }
-  ]
+  "claims": []
 }
