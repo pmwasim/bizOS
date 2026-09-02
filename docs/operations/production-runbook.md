@@ -2,6 +2,23 @@
 
 Status: Active for private beta
 
+## 🛑 KILL SWITCH — stop all automated deployment right now
+
+```bash
+scripts/ops/deploy-kill-switch.sh on
+```
+
+(or, if that script is ever unreachable for some reason:
+`touch /home/wasim/bizos-backups/DEPLOY_HALT`)
+
+This works **immediately**, including while a deploy is already running — it's checked at the start
+of every deploy script and again at the last safe point before the database or a live service is
+touched, so a deploy in flight stops at the next checkpoint instead of finishing. Production is left
+exactly as it is; nothing is torn down by hitting this. Turn automation back on with
+`scripts/ops/deploy-kill-switch.sh off`. `scripts/ops/deploy-kill-switch.sh status` shows the
+current state in plain language — kill switch, circuit breaker, and the last few deploys — at any
+time.
+
 ## Architecture
 
 - Host: a single Ubuntu desktop box (`/home/wasim`) is the authoritative production host — see
@@ -21,9 +38,11 @@ Status: Active for private beta
 - Inactive seams: Redis, BullMQ, application R2 PDF persistence.
 - Watchdog: `~/machine-monitor` (systemd `--user` timer, every 30 min) restarts
   `bizos-api`/`bizos-web` if they're enabled but down, scans their journald output for `error`
-  lines, and runs a daily `pnpm audit --audit-level=high` against `bizos-production`'s locked
-  dependencies. Zero-cost, rule-based, no AI API calls — see `~/machine-monitor/README.md` on the
-  host.
+  lines, runs a daily `pnpm audit --audit-level=high` against `bizos-production`'s locked
+  dependencies, and reports the autodeploy kill switch/circuit breaker state read-only. Zero-cost,
+  rule-based, no AI API calls — see `~/machine-monitor/README.md` on the host.
+- Deploy: `bizos-autodeploy.timer` (systemd `--user`, every 15 min) — see Deployment procedure
+  below. Fully autonomous once activated; the kill switch above stops it at any time.
 
 See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md),
 [ADR-0022](../decisions/0022-ubuntu-production-hosting.md),
@@ -32,43 +51,74 @@ See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md),
 
 ## Deployment procedure
 
-There is no CI-to-Ubuntu automatic pipeline — GitHub Actions cannot reach this host, and per
-[ADR-0022](../decisions/0022-ubuntu-production-hosting.md) and AGENTS.md, a human decides what
-ships. `scripts/ops/deploy-production.sh` (run **on the Ubuntu host**, from the dev checkout)
-automates everything downstream of that decision:
+**Deploys are autonomous.** No CI-to-Ubuntu pipeline exists (GitHub Actions cannot reach this host),
+but no human approves each deploy either — see
+[ADR-0027](../decisions/0027-autonomous-gated-production-deploy.md) for why.
+`bizos-autodeploy.timer` (systemd `--user`, every 15 min) polls `origin/main`; when it's moved, it
+runs `scripts/ops/deploy-production.sh` for you. Safety comes from the gates below, not from someone
+watching:
 
-1. Confirm `main` CI is green for the target SHA (the GitHub `Production release gate` workflow —
-   `workflow_dispatch`, reuses the same `pnpm check` + e2e suite — is one way to validate a
-   candidate without touching the host at all).
-2. Run, from `/home/wasim/bizOS`:
+- **Quality gate**: `pnpm check` (lint/typecheck/test/build) must pass before anything
+  production-facing is touched. Never deploys on red.
+- **Blast-radius cap**: won't auto-deploy more than 5 commits past what's currently live in one jump
+  (`MAX_AUTO_COMMITS` in `scripts/ops/autodeploy.sh`). A bigger gap is skipped, logged, and waits
+  for a deliberate manual deploy.
+- **Health + smoke verification**: `pnpm ops:release-readiness` against the public web origin and
+  the internal API after every deploy.
+- **Automatic rollback**: any verification failure rebuilds and restarts the previous commit, then
+  re-verifies that. A "success" always means the new code is actually live and healthy.
+- **Circuit breaker**: two consecutive automatic failures trip
+  `/home/wasim/bizos-backups/DEPLOY_CIRCUIT_TRIPPED` and stop the timer from retrying until a human
+  clears it (`scripts/ops/deploy-kill-switch.sh reset-circuit`) or a manual deploy succeeds — a
+  broken pipeline gets two tries against production, not an unlimited loop.
+- **Kill switch**: see the top of this document. Stops everything, immediately, including
+  mid-deploy.
 
-   ```bash
-   scripts/ops/deploy-production.sh --sha <40-hex-sha> --confirm
-   ```
+### One-time activation
 
-   `--confirm` is required — this is a human-triggered command, never scheduled. The script:
-   - refuses a SHA that isn't an ancestor of `origin/main` (only ships reviewed, merged commits);
-   - checks available memory/swap before every build step and aborts rather than risk an OOM on a
-     shared box;
-   - `pg_dump`s the production database before touching it;
-   - checks out the SHA in `/home/wasim/bizos-production`, installs, and runs `pnpm check` as a hard
-     gate — **never deploys on red**;
-   - builds web and api (sequentially, `NODE_ENV=production`), runs `prisma migrate deploy`,
-     restarts `bizos-api` then `bizos-web` in order, waits for each to answer its health check;
-   - verifies with `pnpm ops:release-readiness` against the public web origin and the internal API;
-   - **automatically rolls back** to the previous commit (rebuild + restart + reverify) if
-     verification fails, and exits non-zero either way so a "success" always means it's actually
-     live;
-   - appends a record to `/home/wasim/bizos-backups/deploy-history.log`.
+The timer does nothing (`scripts/ops/deploy-kill-switch.sh status` will say "NOT YET ACTIVATED")
+until:
 
-3. Record the deployed SHA (the script's own output, plus a journal entry per AGENTS.md).
+```bash
+scripts/ops/deploy-kill-switch.sh activate
+```
 
-Never run two deploys at once on this box — there is no lock beyond "don't do that"; this is a
-single operator, single-host system, not a fleet.
+which itself refuses if production is more than the blast-radius cap behind `origin/main` — this is
+what stops the very first tick of this system from silently shipping a backlog nobody chose to
+release. **As of 2026-09-02, `bizos-production` is 11 commits behind `main`** (Sprint 7–8 work — CRM
+lifecycle, multi-warehouse stock, zero-budget AI, etc. — see the linked journal entries), which is
+over the 5-commit cap. Closing that gap is a deliberate, one-time manual step:
+
+```bash
+scripts/ops/deploy-production.sh --sha $(git -C /home/wasim/bizos-production rev-parse origin/main) --confirm
+scripts/ops/deploy-kill-switch.sh activate
+```
+
+Do this only after actually looking at what's in that gap — the cap and the activation gate keep the
+_pipeline_ from deciding to ship it for you, they don't substitute for someone deciding it's fine.
+
+### Manual / emergency deploy
+
+The engine works standalone too, for a deliberate one-off (e.g. during an incident, or before
+activating the timer):
+
+```bash
+scripts/ops/deploy-production.sh --sha <40-hex-sha> --confirm
+```
+
+`--confirm` here is an accident guard (no bare invocation fires this by tab-completion + enter), not
+a permission step — same script, same gates, same rollback, whether it's the timer or a person
+calling it. `--override-halt` pushes a manual deploy through an active kill switch, for the rare
+case where a human deliberately needs to act while automation is stopped.
+
+Never run two deploys at once — `autodeploy.sh` takes a lock (`flock`) so overlapping timer ticks
+skip rather than collide, but a manual invocation while the timer is mid-deploy is still a race;
+check `scripts/ops/deploy-kill-switch.sh status` first.
 
 ## Rollback procedure
 
-Rollback is automatic on a failed verification (see above). To roll back manually to a specific SHA:
+Rollback is automatic on a failed verification (see above) — nothing to do. To roll back manually to
+a specific SHA:
 
 ```bash
 scripts/ops/deploy-production.sh --rollback <40-hex-sha> --confirm
@@ -77,7 +127,9 @@ scripts/ops/deploy-production.sh --rollback <40-hex-sha> --confirm
 Rollback never runs a database migration — migrations are additive-only by project convention, so
 the previous code stays compatible with the current schema (**prefer forward repair**, never an
 automatic migration reversal). Confirm API and web health after rollback; preserve failed email
-delivery records and retry only after SMTP health returns.
+delivery records and retry only after SMTP health returns. If a rollback itself fails,
+`deploy-production.sh` writes the kill-switch halt file directly (production may be down — this
+needs a human, not another automatic retry).
 
 ### Current rollback target
 
@@ -156,6 +208,9 @@ transaction.
 
 ## Application outage response
 
+0. If the outage might be deploy-related (a deploy just ran, or one might be running),
+   `scripts/ops/deploy-kill-switch.sh on` first — stops any deploy in flight and prevents the
+   autodeploy timer from making things worse while you investigate.
 1. Check `/home/wasim/bizos-backups/deploy-history.log` for the current SHA and last deploy result.
 2. Check API `http://127.0.0.1:3001/api/v1/health` and web `https://bizos.qloudihub.com/` (or wait
    for the scheduled `Production health` GitHub workflow / `~/machine-monitor` tick).
@@ -175,6 +230,8 @@ See [monitoring.md](monitoring.md).
   liveness, production error-log scan, memory/disk/CPU; daily: dependency audit)
 - SMTP failure visibility via delivery status in the app
 - Deployed commit SHA recorded in `/home/wasim/bizos-backups/deploy-history.log`
+- Autodeploy kill switch / circuit breaker state — `scripts/ops/deploy-kill-switch.sh status`, also
+  surfaced read-only in `~/machine-monitor`'s status
 
 ## Cutover QA data
 

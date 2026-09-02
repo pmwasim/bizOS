@@ -1,8 +1,15 @@
 # ADR-0026: Local, human-triggered production deploy script
 
-Status: Proposed  
+Status: Superseded by ADR-0027  
 Date: 2026-09-02  
 Deciders: Product owner (acceptance pending — see Note on authority below)
+
+**Superseded same-day**: the product owner explicitly asked for the human-approval-per-deploy
+framing below to be reversed — a solo operator without deep ops expertise gets more safety from
+strong, objective gates than from a person who can't meaningfully evaluate a deploy rubber-stamping
+one anyway. See [ADR-0027](0027-autonomous-gated-production-deploy.md). The `--confirm` mechanism
+and the deploy engine itself (`scripts/ops/deploy-production.sh`) introduced here are still in use —
+only the "a human decides what ships" framing is superseded, not the gate/rollback design.
 
 ## Context
 

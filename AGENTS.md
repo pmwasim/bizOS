@@ -209,6 +209,14 @@ documents governing each workspace.
   and production polish).
 - Strictly zero-budget for AI on this host: local/free paths only; no paid Hugging Face or cloud AI
   spend unless explicitly escalated.
+- Wants routine production deploys **fully autonomous, not human-approval-gated** (2026-09-02,
+  explicit): a solo operator without deep ops expertise rubber-stamps a green gate rather than
+  adding judgement, so the judgement belongs in the gates (quality checks, health/smoke
+  verification, automatic rollback, a blast-radius cap, a circuit breaker) — not in a person
+  clicking approve. See [ADR-0027](docs/decisions/0027-autonomous-gated-production-deploy.md) and
+  `scripts/ops/deploy-kill-switch.sh`. This does not extend to destructive/irreversible actions
+  (data deletion, credential rotation, migration reversal) — those stay out of automation entirely,
+  by design, not behind a gate.
 
 ## Learned Workspace Facts
 
