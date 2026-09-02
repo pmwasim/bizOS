@@ -553,7 +553,7 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 154,
+      "sourceFiles": 155,
       "testFiles": 8,
       "areas": [
         {
@@ -565,7 +565,7 @@
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 49,
+          "sourceFiles": 50,
           "testFiles": 0
         },
         {
