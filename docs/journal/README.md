@@ -17,6 +17,8 @@ Rules:
 
 - [2026-09-02 — Resume bizOS from maintenance and add homepage maintenance banner](2026-09-02-resume-bizos-from-maintenance-and-add-homepage-maintenance-b.md)
   - Agent: claude-cli · Status: Complete
+- [2026-09-02 — Production automation and dark mode](2026-09-02-production-automation-and-dark-mode.md)
+  - Agent: claude-cli · Status: Complete
 - [2026-08-30 — Resolve outstanding open items: branch triage, main sync, hosting/module doc audit](2026-08-30-resolve-outstanding-open-items-branch-triage-main-sync-hosti.md)
   - Agent: claude-resolve-open-items · Status: Complete
 - [2026-08-23 — Repair recurring production health false failures](2026-08-23-repair-recurring-production-health-false-failures.md)

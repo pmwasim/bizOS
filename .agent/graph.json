@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 27,
-    "handbookDocumentCount": 91
+    "adrCount": 28,
+    "handbookDocumentCount": 92
   },
   "buildOrder": [
     {
@@ -434,7 +434,6 @@
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
-        "docs/operations/production-runbook.md",
         "docs/operations/ubuntu-production-cutover.md"
       ]
     },
@@ -553,7 +552,7 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 155,
+      "sourceFiles": 156,
       "testFiles": 8,
       "areas": [
         {
@@ -565,7 +564,7 @@
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 50,
+          "sourceFiles": 51,
           "testFiles": 0
         },
         {
@@ -831,6 +830,13 @@
       "status": "Accepted",
       "date": "2026-08-18",
       "path": "docs/decisions/0025-payment-void-reversal-refund.md"
+    },
+    {
+      "id": "0026",
+      "title": "ADR-0026: Local, human-triggered production deploy script",
+      "status": "Proposed",
+      "date": "2026-09-02",
+      "path": "docs/decisions/0026-local-gated-production-deploy-script.md"
     }
   ],
   "rootCommands": [
