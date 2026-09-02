@@ -29,12 +29,13 @@ an impossible merge gate for a single-maintainer repository.
 
 While only one maintainer exists:
 
-- Pull requests into `main` remain required by process and tooling.
+- Pull requests into `main` remain required (direct pushes blocked).
 - Required status checks remain enforced and must pass before merge.
 - Conversation resolution remains required.
 - Force pushes and branch deletions remain blocked.
 - Linear history and squash-only merges remain required.
-- Separate approving reviews and code-owner approval are not required.
+- Separate approving reviews and code-owner approval are not required
+  (`required_approving_review_count: 0`).
 
 Restore `required_approving_review_count: 1`, `require_code_owner_reviews: true`, and
 `require_last_push_approval: true` when a trusted second maintainer is added.
