@@ -44,8 +44,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const lang = isArabic ? "ar" : "en";
   const dir = isArabic ? "rtl" : "ltr";
 
+  // No cookie -> no attribute -> CSS `prefers-color-scheme` decides (see globals.css). Reading it
+  // here, like locale above, means the server renders the right theme on the first response: no
+  // flash of the wrong theme while a client script decides.
+  const themeCookie = cookieStore.get("theme")?.value;
+  const theme = themeCookie === "dark" || themeCookie === "light" ? themeCookie : undefined;
+
   return (
-    <html lang={lang} dir={dir}>
+    <html lang={lang} dir={dir} data-theme={theme}>
       <body>{children}</body>
     </html>
   );

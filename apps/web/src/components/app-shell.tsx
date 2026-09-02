@@ -25,6 +25,7 @@ import { usePathname } from "next/navigation";
 import { type EnabledModuleSummary } from "@bizo/contracts/configuration";
 
 import { signOutAction } from "@/app/actions";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { type BusinessOption, WorkspaceSwitcher } from "@/components/workspace-switcher";
 
 export interface NavItem {
@@ -133,11 +134,14 @@ export function AppShell({
             System Admin
           </Link>
         ) : null}
-        <form action={signOutAction} className="signout">
-          <button type="submit">
-            <LogOut aria-hidden="true" size={18} /> Sign out
-          </button>
-        </form>
+        <div className="sidebar-footer">
+          <ThemeToggle />
+          <form action={signOutAction} className="signout">
+            <button type="submit">
+              <LogOut aria-hidden="true" size={18} /> Sign out
+            </button>
+          </form>
+        </div>
       </aside>
       <main className="workspace">{children}</main>
       <nav className="mobile-nav" aria-label="Workspace">

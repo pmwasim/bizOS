@@ -2,7 +2,7 @@
 @source "../../../../packages/ui/src";
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --background: #ffffff;
   --foreground: #172033;
   --surface: #ffffff;
@@ -20,6 +20,94 @@
   --danger: #b42318;
   --danger-bg: #fff2f0;
   --radius: 0.75rem;
+}
+
+/* Dark mode: system preference by default (`prefers-color-scheme`), overridden by an explicit
+   choice from <ThemeToggle> (`data-theme` on <html>, read server-side from the `theme` cookie in
+   layout.tsx — same mechanism already used there for locale, so there is no flash of the wrong
+   theme on load). `:not([data-theme="light"])` under the media query is how an explicit light
+   choice wins even when the OS prefers dark; `[data-theme="dark"]` is how an explicit dark choice
+   wins even when the OS prefers light. Same two selectors used for both the token repaint and the
+   handful of app-shell rules that hardcode a light-only color instead of a token (pre-existing,
+   not introduced here) — patched as one block rather than scattered per-selector overrides, for
+   the ones that would actually break (light bg behind now-light text, or a token that flips dark
+   paired with a fixed light-mode-only text color). Purely decorative pairs that hardcode both
+   background and text together (status pills, the System Admin sidebar's fixed indigo identity)
+   are left as-is; they stay self-consistent in either theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #0f1420;
+    --foreground: #e7ebf3;
+    --surface: #171d2b;
+    --surface-subtle: #1c2334;
+    --primary: #6f9bff;
+    --primary-hover: #8fb1ff;
+    --primary-foreground: #0b1220;
+    --muted: #232a3d;
+    --muted-foreground: #9aa4bb;
+    --border: #2b3348;
+    --border-strong: #3a445c;
+    --focus: #6f9bff;
+    --success: #35c987;
+    --success-bg: #103322;
+    --danger: #ff6b5e;
+    --danger-bg: #3a1512;
+
+    .sidebar,
+    .data-row:hover {
+      background: var(--surface-subtle);
+    }
+    .avatar {
+      background: color-mix(in srgb, var(--primary) 22%, var(--surface));
+    }
+    .status-draft,
+    .readiness-approval_pending,
+    .readiness-po_recorded,
+    .readiness-missing_customer_po,
+    .side-nav a,
+    .signout button {
+      color: var(--muted-foreground);
+    }
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0f1420;
+  --foreground: #e7ebf3;
+  --surface: #171d2b;
+  --surface-subtle: #1c2334;
+  --primary: #6f9bff;
+  --primary-hover: #8fb1ff;
+  --primary-foreground: #0b1220;
+  --muted: #232a3d;
+  --muted-foreground: #9aa4bb;
+  --border: #2b3348;
+  --border-strong: #3a445c;
+  --focus: #6f9bff;
+  --success: #35c987;
+  --success-bg: #103322;
+  --danger: #ff6b5e;
+  --danger-bg: #3a1512;
+
+  .sidebar,
+  .data-row:hover {
+    background: var(--surface-subtle);
+  }
+  .avatar {
+    background: color-mix(in srgb, var(--primary) 22%, var(--surface));
+  }
+  .status-draft,
+  .readiness-approval_pending,
+  .readiness-po_recorded,
+  .readiness-missing_customer_po,
+  .side-nav a,
+  .signout button {
+    color: var(--muted-foreground);
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 * {
@@ -564,8 +652,52 @@ textarea:focus {
 }
 
 .signout {
-  border-top: 1px solid var(--border);
   padding-top: 0.75rem;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+}
+
+.sidebar-footer .signout {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.theme-toggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.theme-toggle:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* Marketing header places the same button on the --mkt-* palette instead of the app-shell one. */
+.marketing-site .theme-toggle {
+  border-color: var(--mkt-line);
+  color: var(--mkt-muted);
+  width: auto;
+}
+
+.marketing-site .theme-toggle:hover {
+  background: var(--mkt-line);
+  color: var(--mkt-ink);
 }
 
 .workspace {
@@ -3265,6 +3397,40 @@ fieldset.field small {
   color: var(--mkt-ink);
   font-family: var(--font-mkt-body), "Figtree", ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
+}
+
+/* Dark mode for the marketing site: same `data-theme`/`prefers-color-scheme` pair as the app
+   shell above. Ink and paper swap roles (ink becomes the light text color, paper the dark
+   background); the signal lime and its ink stay put — they're a fixed-contrast pair (dark text
+   on a lime chip) that reads fine on either background. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .marketing-site {
+    --mkt-ink: #eef3f4;
+    --mkt-mist: #2a3638;
+    --mkt-paper: #0d1416;
+    --mkt-teal: #2bb3b8;
+    --mkt-teal-deep: #8fe0e3;
+    --mkt-muted: #8fa3a6;
+
+    /* This banner uses --mkt-ink as a fixed dark bar background (not as text), with hardcoded
+       near-white text — it doesn't follow ink's foreground-text convention, so it needs to stay
+       pinned to the old dark value rather than inherit the swap above. */
+    .mkt-maintenance-banner {
+      background: #0c1a1d;
+    }
+  }
+}
+:root[data-theme="dark"] .marketing-site {
+  --mkt-ink: #eef3f4;
+  --mkt-mist: #2a3638;
+  --mkt-paper: #0d1416;
+  --mkt-teal: #2bb3b8;
+  --mkt-teal-deep: #8fe0e3;
+  --mkt-muted: #8fa3a6;
+
+  .mkt-maintenance-banner {
+    background: #0c1a1d;
+  }
 }
 
 .marketing-site h1,

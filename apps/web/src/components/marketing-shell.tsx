@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { marketingFontClassName } from "@/lib/marketing-fonts";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/marketing";
 
@@ -51,6 +52,7 @@ export function MarketingShell({
           <Link className="mkt-nav-session" href={sessionHref}>
             {sessionLabel}
           </Link>
+          <ThemeToggle />
         </div>
       </nav>
       {children}
