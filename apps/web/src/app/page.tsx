@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { auth } from "@/auth";
 import { LandingPage } from "@/components/landing-page";
+import { MaintenanceBanner } from "@/components/maintenance-banner";
 import { MarketingShell } from "@/components/marketing-shell";
 import { SITE_URL } from "@/lib/marketing";
 
@@ -32,6 +33,7 @@ export default async function Home() {
         sessionHref={session ? "/start" : "/signin"}
         sessionLabel={session ? "Open workspace" : "Sign in"}
       >
+        <MaintenanceBanner />
         <LandingPage ctaHref={ctaHref} ctaLabel={ctaLabel} />
       </MarketingShell>
     </main>
