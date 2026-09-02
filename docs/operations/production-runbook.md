@@ -4,62 +4,85 @@ Status: Active for private beta
 
 ## Architecture
 
-- Edge: Cloudflare DNS/TLS for `bizos.qloudihub.com` and `api.bizos.qloudihub.com` (**DNS-only**
-  CNAMEs to Render; do not orange-cloud onrender targets)
-- Apps: Render free Docker services `bizos-web` / `bizos-api` (auto-deploy off)
-- Data: Prisma Postgres Primary `db_cms34xzjv4gsfzmf97wvbucqv` project `bizOS` (`eu-central-1`), TLS
-  required, FORCE RLS on business-scoped tables
-- Email: Resend HTTPS when `SMTP_URL` host is `smtp.resend.com` (Render free blocks SMTP ports)
-- Object storage: R2 Standard bucket `bizos-production` (private; application seam inactive)
-- Inactive seams: Redis, BullMQ, application R2 PDF persistence
+- Host: a single Ubuntu desktop box (`/home/wasim`) is the authoritative production host — see
+  [ADR-0022](../decisions/0022-ubuntu-production-hosting.md). **Render is retired**; ignore any
+  `RENDER_*` instructions found in older history.
+- Edge: `cloudflared` (Cloudflare Tunnel) routes `bizos.qloudihub.com` → `http://localhost:3000`. No
+  public `api.bizos.qloudihub.com` — the API is internal-only (`http://127.0.0.1:3001`), reached by
+  the web app's BFF layer (`API_INTERNAL_URL`), never exposed directly.
+- Apps: `bizos-api.service` / `bizos-web.service` (systemd, `Restart=always`), running the
+  production build out of `/home/wasim/bizos-production` — a separate git checkout of this repo, not
+  the dev checkout. See [ubuntu-production-cutover.md](ubuntu-production-cutover.md) for how that
+  checkout is laid out.
+- Data: PostgreSQL in Docker (`bizo-postgres-1`), `postgresql://bizo@localhost:5432/bizo`, FORCE RLS
+  on business-scoped tables.
+- Email: Resend HTTPS when `SMTP_URL` host is `smtp.resend.com`.
+- Object storage: R2 Standard bucket `bizos-production` (private; application seam inactive).
+- Inactive seams: Redis, BullMQ, application R2 PDF persistence.
+- Watchdog: `~/machine-monitor` (systemd `--user` timer, every 30 min) restarts
+  `bizos-api`/`bizos-web` if they're enabled but down, scans their journald output for `error`
+  lines, and runs a daily `pnpm audit --audit-level=high` against `bizos-production`'s locked
+  dependencies. Zero-cost, rule-based, no AI API calls — see `~/machine-monitor/README.md` on the
+  host.
 
 See [ADR-0015](../decisions/0015-managed-hosting-behind-cloudflare.md),
+[ADR-0022](../decisions/0022-ubuntu-production-hosting.md),
 [r2-object-storage.md](r2-object-storage.md), [monitoring.md](monitoring.md), and
 [cloudflare-token-rotation.md](cloudflare-token-rotation.md).
 
 ## Deployment procedure
 
-1. Confirm `main` CI is green for the target SHA.
-2. Confirm tag `v0.1.0-beta.1` (or later) points at that SHA when releasing.
-3. Ensure production secrets/variables are present.
-4. Run `Production deploy` (`workflow_dispatch` or intentional ops trigger).
-5. The workflow:
-   - runs a **preflight** job that fails before any mutation if the target SHA is malformed,
-     required hosting secrets (`RENDER_API_KEY`, `RENDER_API_SERVICE_ID`, `RENDER_WEB_SERVICE_ID`)
-     are missing, or `DATABASE_URL` is missing while a migration would run
-   - runs the release gate
-   - publishes `ghcr.io/<owner>/bizo-api:<sha>` and `bizo-web:<sha>`
-   - runs exactly one migration job: `pnpm --filter @bizo/database prisma:migrate:deploy`
-   - validates R2 with a put/get/delete probe when credentials are present
-   - deploys API/web from GitHub Docker (`commitId`), waits for health URLs
-   - **fails the run** if hosting credentials are absent at deploy time, so a green workflow always
-     means the hosting rollout actually completed
-6. Independently, run `Infrastructure validation` after rotating Cloudflare or R2 credentials.
-7. Record the deployed SHA in the workflow summary.
-8. Verify the rollout with the release-readiness check (read-only; asserts web/API liveness, the
-   health contract, the deployed SHA when reported, and that unauthenticated access is rejected):
+There is no CI-to-Ubuntu automatic pipeline — GitHub Actions cannot reach this host, and per
+[ADR-0022](../decisions/0022-ubuntu-production-hosting.md) and AGENTS.md, a human decides what
+ships. `scripts/ops/deploy-production.sh` (run **on the Ubuntu host**, from the dev checkout)
+automates everything downstream of that decision:
+
+1. Confirm `main` CI is green for the target SHA (the GitHub `Production release gate` workflow —
+   `workflow_dispatch`, reuses the same `pnpm check` + e2e suite — is one way to validate a
+   candidate without touching the host at all).
+2. Run, from `/home/wasim/bizOS`:
 
    ```bash
-   RELEASE_EXPECT_SHA=<deployed-40-hex-sha> pnpm ops:release-readiness
+   scripts/ops/deploy-production.sh --sha <40-hex-sha> --confirm
    ```
 
-Never run concurrent production migration jobs. The workflow concurrency group
-`production-migration` enforces this.
+   `--confirm` is required — this is a human-triggered command, never scheduled. The script:
+   - refuses a SHA that isn't an ancestor of `origin/main` (only ships reviewed, merged commits);
+   - checks available memory/swap before every build step and aborts rather than risk an OOM on a
+     shared box;
+   - `pg_dump`s the production database before touching it;
+   - checks out the SHA in `/home/wasim/bizos-production`, installs, and runs `pnpm check` as a hard
+     gate — **never deploys on red**;
+   - builds web and api (sequentially, `NODE_ENV=production`), runs `prisma migrate deploy`,
+     restarts `bizos-api` then `bizos-web` in order, waits for each to answer its health check;
+   - verifies with `pnpm ops:release-readiness` against the public web origin and the internal API;
+   - **automatically rolls back** to the previous commit (rebuild + restart + reverify) if
+     verification fails, and exits non-zero either way so a "success" always means it's actually
+     live;
+   - appends a record to `/home/wasim/bizos-backups/deploy-history.log`.
+
+3. Record the deployed SHA (the script's own output, plus a journal entry per AGENTS.md).
+
+Never run two deploys at once on this box — there is no lock beyond "don't do that"; this is a
+single operator, single-host system, not a fleet.
 
 ## Rollback procedure
 
-1. Identify the prior successful deploy SHA from GitHub Actions summaries.
-2. Re-run `Production deploy` with `rollback_to_sha` set to that SHA.
-3. Rollback republishes and redeploys the prior web and API images together.
-4. Do **not** automatically reverse database migrations. Prefer forward repair.
-5. Confirm API and web health after rollback.
-6. Preserve failed delivery records; retry email only after SMTP health returns.
-7. Record the rollback event in the workflow summary and an operations note.
+Rollback is automatic on a failed verification (see above). To roll back manually to a specific SHA:
+
+```bash
+scripts/ops/deploy-production.sh --rollback <40-hex-sha> --confirm
+```
+
+Rollback never runs a database migration — migrations are additive-only by project convention, so
+the previous code stays compatible with the current schema (**prefer forward repair**, never an
+automatic migration reversal). Confirm API and web health after rollback; preserve failed email
+delivery records and retry only after SMTP health returns.
 
 ### Current rollback target
 
-- Last known-good before PDF-proxy fix: `cbac407c70f581009aecb218594d32096b3bb636`
-- Preferred current production target: tip of `main` after ops-closure merge (includes `#21`)
+Read `/home/wasim/bizos-backups/deploy-history.log` on the host, or
+`git -C /home/wasim/bizos-production log -1` for the SHA currently live.
 
 ## Database restoration (verified 2026-07-27)
 
@@ -107,9 +130,10 @@ transaction.
 1. Generate new `AUTH_SECRET` and `INTERNAL_AUTH_SECRET` independently (min 32 bytes each).
 2. Update production environment secrets.
 3. Redeploy web and API together so internal assertions stay compatible.
-4. Rotate `DATABASE_URL` by creating a new Prisma connection string, updating GitHub + Render,
-   redeploying, then deleting the old connection string.
-5. Rotate SMTP and hosting credentials in the provider first, then GitHub secrets, then redeploy.
+4. Rotate `DATABASE_URL` by updating `/home/wasim/bizos-production/.env` and restarting
+   `bizos-api`/`bizos-web`, then deleting the old credential.
+5. Rotate SMTP credentials in the provider first, then `/home/wasim/bizos-production/.env`, then
+   restart.
 6. Cloudflare API token: follow [cloudflare-token-rotation.md](cloudflare-token-rotation.md).
 
 ## SMTP outage response
@@ -121,8 +145,10 @@ transaction.
 
 ## Cloudflare / DNS incident response
 
-1. Verify only `bizos.qloudihub.com` and `api.bizos.qloudihub.com` were changed.
-2. Confirm records remain **DNS-only** (`proxied=false`) to Render origins.
+1. Verify only `bizos.qloudihub.com` was changed (no public `api.bizos.qloudihub.com` record exists
+   — the API is internal-only).
+2. Confirm the tunnel (`cloudflared.service`) is active and its ingress still points at
+   `http://localhost:3000`.
 3. Confirm SSL mode Full (strict) and Always Use HTTPS when Zone Settings Edit is available.
 4. Re-run `Cloudflare edge bootstrap` if header or DNS records drifted.
 5. After any token exposure, rotate per
@@ -130,23 +156,25 @@ transaction.
 
 ## Application outage response
 
-1. Check GitHub Actions deployment summary for the current SHA.
-2. Check API `/api/v1/health` and web `/` (or wait for `Production health` workflow).
-3. Inspect managed host logs for 5xx without dumping secrets.
-4. Roll back to the previous SHA if the new release is at fault and schema remains compatible.
-5. If the database is unavailable, keep apps stopped or in maintenance until Postgres is restored.
+1. Check `/home/wasim/bizos-backups/deploy-history.log` for the current SHA and last deploy result.
+2. Check API `http://127.0.0.1:3001/api/v1/health` and web `https://bizos.qloudihub.com/` (or wait
+   for the scheduled `Production health` GitHub workflow / `~/machine-monitor` tick).
+3. `journalctl -u bizos-api -u bizos-web` for 5xx/errors, without dumping secrets.
+4. Roll back with `scripts/ops/deploy-production.sh --rollback <sha> --confirm` if the new release
+   is at fault and the schema remains compatible.
+5. If the database is unavailable, `sudo systemctl stop bizos-api bizos-web` until Postgres is
+   restored — do not leave the app serving against a dead database.
 
 ## Monitoring checklist
 
 See [monitoring.md](monitoring.md).
 
 - Web uptime on `https://bizos.qloudihub.com/`
-- API uptime on `https://api.bizos.qloudihub.com/api/v1/health`
-- GitHub Actions deployment conclusions + scheduled `Production health`
+- API liveness at `http://127.0.0.1:3001/api/v1/health` (internal only — no public API hostname)
+- Scheduled `Production health` GitHub workflow + `~/machine-monitor` (30-min tick: service
+  liveness, production error-log scan, memory/disk/CPU; daily: dependency audit)
 - SMTP failure visibility via delivery status in the app
-- Prisma backup list (do not claim ready while empty)
-- Deployed commit SHA recorded per release
-- Monthly free-tier review (Render, Prisma Postgres, R2, Resend)
+- Deployed commit SHA recorded in `/home/wasim/bizos-backups/deploy-history.log`
 
 ## Cutover QA data
 

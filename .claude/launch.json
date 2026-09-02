@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bizos-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "set -a && . ./.env && set +a && WEB_PORT=3050 TURBO_ENV_MODE=loose pnpm --filter @bizo/web dev"
+      ],
+      "port": 3050
+    }
+  ]
+}
