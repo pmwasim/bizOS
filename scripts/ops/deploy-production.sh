@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Promote a reviewed commit to bizOS production on this Ubuntu host.
 #
-# Human-triggered only: requires --confirm, mirrors the convention already
-# used by ~/bizos-maintenance/resume.sh, so this can never fire by accident
-# (tab-completion + enter, a stray cron entry, sourcing it). There is no
-# systemd timer for this script and none should be added -- see AGENTS.md /
-# the production runbook for why a human decides what ships.
+# This is the engine, called both by a human (scripts/ops/autodeploy.sh runs
+# it unattended on a timer, on origin/main movement) and directly for a
+# manual/emergency deploy. --confirm is an accident guard (no bare invocation
+# fires this by tab-completion + enter, a stray shell history repeat, etc.),
+# not a permission step -- the decision to ship is made by the gates below,
+# not by a person watching. See ADR-0027 for why, and
+# scripts/ops/deploy-kill-switch.sh for how to stop all of this immediately.
 #
 # Usage:
 #   deploy-production.sh --sha <40-hex-sha> --confirm
 #   deploy-production.sh --rollback <40-hex-sha> --confirm
+#   deploy-production.sh --sha <40-hex-sha> --confirm --override-halt   # break glass, see below
 #
 # Gate: pnpm check (lint/typecheck/test/build) must be green before anything
 # production-facing is touched. Reversible: the previous commit is recorded
@@ -17,28 +20,40 @@
 # fails. Database migrations are additive-only by project convention (see
 # docs/operations/production-runbook.md) and are never auto-reversed --
 # rollback redeploys old code against the (compatible) new schema.
+#
+# KILL SWITCH: if /home/wasim/bizos-backups/DEPLOY_HALT exists, this script
+# refuses to run at all -- checked here at the top, and again at each
+# checkpoint below in case the switch is flipped while a deploy is already
+# running, so a mid-flight deploy stops at the next safe boundary rather than
+# barrelling through. A human can still push a deliberate manual deploy
+# through a halt with --override-halt (the automated timer never passes this
+# flag, so the halt is absolute for anything unattended).
 set -euo pipefail
 
 PROD_DIR="/home/wasim/bizos-production"
 BACKUP_DIR="/home/wasim/bizos-backups/databases"
-DEPLOY_LOG="/home/wasim/bizos-backups/deploy-history.log"
+STATE_DIR="/home/wasim/bizos-backups"
+DEPLOY_LOG="$STATE_DIR/deploy-history.log"
+HALT_FILE="$STATE_DIR/DEPLOY_HALT"
 DEV_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 MODE=""
 TARGET_SHA=""
 CONFIRM=""
+OVERRIDE_HALT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --sha) MODE="deploy"; TARGET_SHA="${2:-}"; shift 2 ;;
     --rollback) MODE="rollback"; TARGET_SHA="${2:-}"; shift 2 ;;
     --confirm) CONFIRM="1"; shift ;;
+    --override-halt) OVERRIDE_HALT="1"; shift ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
 if [[ -z "$MODE" || ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "Usage: $0 (--sha <40-hex-sha> | --rollback <40-hex-sha>) --confirm" >&2
+  echo "Usage: $0 (--sha <40-hex-sha> | --rollback <40-hex-sha>) --confirm [--override-halt]" >&2
   exit 1
 fi
 if [[ -z "$CONFIRM" ]]; then
@@ -47,6 +62,16 @@ if [[ -z "$CONFIRM" ]]; then
 fi
 
 log() { echo "==> $*"; }
+
+check_halt() {
+  if [[ -f "$HALT_FILE" && -z "$OVERRIDE_HALT" ]]; then
+    echo "HALTED: $HALT_FILE exists -- refusing to deploy." >&2
+    cat "$HALT_FILE" >&2 2>/dev/null || true
+    echo "Clear it with: scripts/ops/deploy-kill-switch.sh off   (or pass --override-halt for a deliberate one-off manual deploy)" >&2
+    exit 3
+  fi
+}
+check_halt
 
 # ---- memory guard: abort rather than risk an OOM on a shared box ----------
 mem_guard() {
@@ -110,11 +135,16 @@ build_and_restart() {
   pnpm --filter @bizo/api build
 
   if [[ "$MODE" == "deploy" ]]; then
+    check_halt  # last safe exit before touching the database or live services
     log "applying database migrations"
     pnpm --filter @bizo/database exec prisma migrate deploy
     pnpm --filter @bizo/database exec prisma migrate status
   fi
 
+  # Past this point the migration (if any) may already be applied, so finishing the restart and
+  # verifying (with rollback on failure, as normal) leaves a known-consistent state; aborting here
+  # would leave old code running against a schema it wasn't necessarily tested against. A halt
+  # flipped from this point on is honoured on the *next* invocation, not this one.
   log "restarting bizos-api"
   sudo systemctl restart bizos-api
   wait_for "http://127.0.0.1:3001/api/v1/health" "api"
@@ -175,6 +205,11 @@ if build_and_restart && verify "$PREV_SHA"; then
 else
   echo "!! ROLLBACK ALSO FAILED. Production may be down. Needs a human immediately." >&2
   echo "!! Manual recovery: cd $PROD_DIR && git checkout $PREV_SHA && rerun this script, or see docs/operations/production-runbook.md" >&2
+  {
+    echo "Auto-halted by deploy-production.sh at $(date -u +%FT%TZ): rollback failed."
+    echo "Attempted deploy: $TARGET_SHA_FAILED -> rollback target: $PREV_SHA (rollback itself failed)."
+    echo "Production may be down. Diagnose by hand, then: scripts/ops/deploy-kill-switch.sh off"
+  } > "$HALT_FILE"
   record "ROLLBACK-FAILED"
   exit 2
 fi
