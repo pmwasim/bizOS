@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 28,
-    "handbookDocumentCount": 92
+    "adrCount": 29,
+    "handbookDocumentCount": 93
   },
   "buildOrder": [
     {
@@ -834,9 +834,16 @@
     {
       "id": "0026",
       "title": "ADR-0026: Local, human-triggered production deploy script",
-      "status": "Proposed",
+      "status": "Superseded by ADR-0027",
       "date": "2026-09-02",
       "path": "docs/decisions/0026-local-gated-production-deploy-script.md"
+    },
+    {
+      "id": "0027",
+      "title": "ADR-0027: Autonomous, gated production deploy with a kill switch",
+      "status": "Proposed",
+      "date": "2026-09-02",
+      "path": "docs/decisions/0027-autonomous-gated-production-deploy.md"
     }
   ],
   "rootCommands": [
