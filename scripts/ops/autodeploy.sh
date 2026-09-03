@@ -34,6 +34,7 @@ CIRCUIT_FILE="$STATE_DIR/DEPLOY_CIRCUIT_TRIPPED"
 ACTIVATED_FILE="$STATE_DIR/.autodeploy-activated"
 FAIL_COUNT_FILE="$STATE_DIR/.autodeploy-fail-count"
 LOCK_FILE="$STATE_DIR/autodeploy.lock"
+DEPLOY_LOG="$STATE_DIR/deploy-history.log" # written by deploy-production.sh's record()
 
 # ponytail: both numbers are starting heuristics for a solo operator's normal pace, not derived
 # from anything. Raise MAX_AUTO_COMMITS once a real usage pattern justifies it; the failure count
@@ -71,9 +72,25 @@ if [[ ! -d "$PROD_DIR/.git" ]]; then
 fi
 cd "$PROD_DIR"
 git fetch origin --quiet
-CURRENT_SHA="$(git rev-parse HEAD)"
+CHECKOUT_SHA="$(git rev-parse HEAD)"
 TARGET_SHA="$(git rev-parse origin/main)"
 
+# Trust the last *completed* deploy (success or a clean rollback -- both leave deploy-history.log's
+# "to=" sha actually running), not raw checkout HEAD. A deploy that dies mid-flight before touching
+# the log can otherwise leave the checkout ahead of what's actually built and running; comparing
+# HEAD to origin/main in that state reads "nothing to do" forever and the drift never self-corrects.
+# Falls back to HEAD when there's no history yet (first run on this host).
+RUNNING_SHA="$(grep -E ' result=(success|rolled-back-from-)' "$DEPLOY_LOG" 2>/dev/null \
+  | tail -1 | sed -n 's/.* to=\([0-9a-f]\{40\}\) .*/\1/p')"
+RUNNING_SHA="${RUNNING_SHA:-$CHECKOUT_SHA}"
+
+if [[ "$CHECKOUT_SHA" != "$RUNNING_SHA" ]]; then
+  log "DRIFT: checkout ($CHECKOUT_SHA) doesn't match the last completed deploy ($RUNNING_SHA) -- a previous attempt likely died mid-flight. Repairing the checkout."
+  git checkout --quiet "$RUNNING_SHA"
+  CHECKOUT_SHA="$RUNNING_SHA"
+fi
+
+CURRENT_SHA="$CHECKOUT_SHA"
 if [[ "$CURRENT_SHA" == "$TARGET_SHA" ]]; then
   exit 0 # nothing new -- this is what most ticks look like, deliberately quiet
 fi

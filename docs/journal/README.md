@@ -17,6 +17,8 @@ Rules:
 
 - [2026-09-03 — Implement core apps-api backend logic and endpoints](2026-09-03-implement-core-apps-api-backend-logic-and-endpoints.md)
   - Agent: jim · Status: Complete
+- [2026-09-03 — Fix autodeploy rollback bug: mem_guard exit skips rollback, checkout can drift silently](2026-09-03-fix-autodeploy-rollback-bug-mem-guard-exit-skips-rollback-ch.md)
+  - Agent: claude-code-autodeploy-fix · Status: Done
 - [2026-09-02 — Resume bizOS from maintenance and add homepage maintenance banner](2026-09-02-resume-bizos-from-maintenance-and-add-homepage-maintenance-b.md)
   - Agent: claude-cli · Status: Complete
 - [2026-09-02 — Production automation and dark mode](2026-09-02-production-automation-and-dark-mode.md)
