@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from "@nestjs/common";
 
@@ -32,6 +33,7 @@ import { invoicePdfObjectKey, sha256Hex, type ObjectStore } from "@bizo/storage"
 
 import { ConfigurationService } from "../configuration/configuration.service.js";
 import { DatabaseService } from "../database/database.service.js";
+import { InventoryService } from "../inventory/inventory.service.js";
 import { allocateDocumentNumber } from "../numbering/numbering.js";
 import { MailService } from "../mail/mail.service.js";
 import {
@@ -57,6 +59,7 @@ interface DecimalLike {
 
 interface InvoiceLineRecord {
   description: string;
+  inventoryItem?: { publicId: string } | null;
   position: number;
   quantity: DecimalLike;
   subtotalMinor: DecimalLike;
@@ -124,6 +127,7 @@ interface InvoiceRecord {
   sentAt: Date | null;
   sourceQuotation: { number: string; publicId: string } | null;
   sourceQuotationId: bigint | null;
+  sourceDocumentId: bigint | null;
   status: DocumentStatus;
   subtotalMinor: DecimalLike;
   taxMinor: DecimalLike;
@@ -182,6 +186,7 @@ export class InvoicesService {
     @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
     @Inject(ERPNEXT_CLIENT) private readonly erpnext: ErpnextClient,
     @Inject(ConfigurationService) private readonly configuration: ConfigurationService,
+    @Optional() @Inject(InventoryService) private readonly inventory?: InventoryService,
   ) {}
 
   async createFromQuotation(
@@ -203,7 +208,13 @@ export class InvoicesService {
           publicId: input.quotationId,
           type: DocumentType.QUOTATION,
         },
-        include: { customer: true, lines: { orderBy: { position: "asc" } } },
+        include: {
+          customer: true,
+          lines: {
+            orderBy: { position: "asc" },
+            include: { inventoryItem: { select: { publicId: true } } },
+          },
+        },
       });
       if (!quotation) {
         throw new NotFoundException("We could not find that quotation.");
@@ -364,7 +375,13 @@ export class InvoicesService {
           publicId: quotationPublicId,
           type: DocumentType.QUOTATION,
         },
-        include: { customer: true, lines: { orderBy: { position: "asc" } } },
+        include: {
+          customer: true,
+          lines: {
+            orderBy: { position: "asc" },
+            include: { inventoryItem: { select: { publicId: true } } },
+          },
+        },
       })) as unknown as QuotationForInvoice | null;
       if (!quotation) {
         throw new NotFoundException("We could not find that quotation.");
@@ -502,20 +519,33 @@ export class InvoicesService {
         totalMinor: calculated.totalMinor.toString(),
         createdByMembershipId: access.membershipId,
         lines: {
-          create: calculated.lines.map((line): Prisma.DocumentLineCreateWithoutDocumentInput => ({
-            position: line.position,
-            description: line.description,
-            quantity: line.quantity,
-            unitPriceMinor: line.unitPriceMinor.toString(),
-            taxRatePpm: line.taxRatePpm,
-            subtotalMinor: line.subtotalMinor.toString(),
-            taxMinor: line.taxMinor.toString(),
-            totalMinor: line.totalMinor.toString(),
-          })),
+          create: calculated.lines.map(
+            (line, index): Prisma.DocumentLineCreateWithoutDocumentInput => ({
+              position: line.position,
+              ...(quotation.lines[index]?.inventoryItem?.publicId
+                ? {
+                    inventoryItem: {
+                      connect: { publicId: quotation.lines[index].inventoryItem!.publicId },
+                    },
+                  }
+                : {}),
+              description: line.description,
+              quantity: line.quantity,
+              unitPriceMinor: line.unitPriceMinor.toString(),
+              taxRatePpm: line.taxRatePpm,
+              subtotalMinor: line.subtotalMinor.toString(),
+              taxMinor: line.taxMinor.toString(),
+              totalMinor: line.totalMinor.toString(),
+            }),
+          ),
         },
       },
       include: this.detailInclude(),
     })) as unknown as InvoiceRecord;
+
+    if (options.status === DocumentStatus.READY_TO_SEND) {
+      await this.inventory?.reserveDocumentStock(transaction, access, document.id, quotation.lines);
+    }
 
     await transaction.auditEvent.create({
       data: {
@@ -617,6 +647,9 @@ export class InvoicesService {
           detail: "Only draft or ready-to-send invoices can be edited.",
         });
       }
+      if (existing.status === DocumentStatus.READY_TO_SEND) {
+        await this.inventory?.releaseDocumentStock(transaction, access, existing.id);
+      }
 
       let calculated: ReturnType<typeof calculateInvoice>;
       try {
@@ -653,16 +686,21 @@ export class InvoicesService {
           taxMinor: calculated.taxMinor.toString(),
           totalMinor: calculated.totalMinor.toString(),
           lines: {
-            create: calculated.lines.map((line): Prisma.DocumentLineCreateWithoutDocumentInput => ({
-              position: line.position,
-              description: line.description,
-              quantity: line.quantity,
-              unitPriceMinor: line.unitPriceMinor.toString(),
-              taxRatePpm: line.taxRatePpm,
-              subtotalMinor: line.subtotalMinor.toString(),
-              taxMinor: line.taxMinor.toString(),
-              totalMinor: line.totalMinor.toString(),
-            })),
+            create: calculated.lines.map(
+              (line, index): Prisma.DocumentLineCreateWithoutDocumentInput => ({
+                position: line.position,
+                ...(input.lines[index]?.inventoryItemId
+                  ? { inventoryItem: { connect: { publicId: input.lines[index].inventoryItemId } } }
+                  : {}),
+                description: line.description,
+                quantity: line.quantity,
+                unitPriceMinor: line.unitPriceMinor.toString(),
+                taxRatePpm: line.taxRatePpm,
+                subtotalMinor: line.subtotalMinor.toString(),
+                taxMinor: line.taxMinor.toString(),
+                totalMinor: line.totalMinor.toString(),
+              }),
+            ),
           },
         },
         include: this.detailInclude(),
@@ -709,6 +747,16 @@ export class InvoicesService {
           detail: "Add at least one line and a due date before marking ready.",
         });
       }
+      await this.inventory?.reserveDocumentStock(
+        transaction,
+        access,
+        existing.id,
+        existing.lines.map((line) => ({
+          inventoryItemId: line.inventoryItem?.publicId,
+          quantity: line.quantity,
+        })),
+        existing.sourceDocumentId ?? undefined,
+      );
 
       const updated = (await transaction.document.update({
         where: { id: existing.id },
@@ -751,6 +799,7 @@ export class InvoicesService {
           detail: "This invoice cannot be archived.",
         });
       }
+      await this.inventory?.releaseDocumentStock(transaction, access, existing.id);
       const archived = (await transaction.document.update({
         where: { id: existing.id },
         data: {
@@ -807,6 +856,18 @@ export class InvoicesService {
     const access = await this.authorize(userPublicId, businessPublicId, "send");
     const prepared = await this.database.withScope(access, async (transaction) => {
       const record = await this.findRecordInTransaction(transaction, access, invoicePublicId);
+      if (record.status === DocumentStatus.READY_TO_SEND) {
+        await this.inventory?.reserveDocumentStock(
+          transaction,
+          access,
+          record.id,
+          record.lines.map((line) => ({
+            inventoryItemId: line.inventoryItem?.publicId,
+            quantity: line.quantity,
+          })),
+          record.sourceDocumentId ?? undefined,
+        );
+      }
       const context = await this.loadSnapshotContext(transaction, access);
       let snapshot: InvoiceSnapshot;
       let versionPublicId: string;
@@ -968,6 +1029,18 @@ export class InvoicesService {
     );
 
     const updated = await this.database.withScope(access, async (transaction) => {
+      await this.inventory?.fulfillDocumentStock(
+        transaction,
+        access,
+        prepared.record.id,
+        prepared.record.publicId,
+        requestId,
+        prepared.record.lines.map((line) => ({
+          inventoryItemId: line.inventoryItem?.publicId,
+          quantity: line.quantity,
+        })),
+        prepared.record.sourceDocumentId ?? undefined,
+      );
       return (await transaction.document.update({
         where: { id: prepared.record.id },
         data: { status: DocumentStatus.SENT, sentAt },
@@ -1124,7 +1197,10 @@ export class InvoicesService {
   private detailInclude() {
     return {
       customer: true,
-      lines: { orderBy: { position: "asc" as const } },
+      lines: {
+        orderBy: { position: "asc" as const },
+        include: { inventoryItem: { select: { publicId: true } } },
+      },
       sourceQuotation: { select: { publicId: true, number: true } },
       linkedPurchaseOrder: { select: { publicId: true, poNumber: true } },
     };
@@ -1310,6 +1386,7 @@ export class InvoicesService {
           }
         : null,
       lines: record.lines.map((line) => ({
+        ...(line.inventoryItem ? { inventoryItemId: line.inventoryItem.publicId } : {}),
         position: line.position,
         description: line.description,
         quantity: line.quantity.toString(),

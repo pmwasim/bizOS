@@ -25,6 +25,7 @@ const CUSTOMER = {
 };
 
 const BUSINESS = { id: 44n, baseCurrency: "SAR", currencyScale: 2, settings: { id: 44n } };
+const ITEM = "i0000000-0000-4000-8000-000000000001";
 
 function createBusinessAccessMock(): BusinessAccessService {
   return {
@@ -155,5 +156,44 @@ describe("DeliveryNotesService", () => {
       expect.objectContaining({ data: expect.objectContaining({ receivedAt: expect.any(Date) }) }),
     );
     expect(result.status).toBe("DELIVERED");
+  });
+
+  it("passes delivered quantities to stock fulfillment for partial delivery", async () => {
+    const access = createBusinessAccessMock();
+    const record = documentRecord({
+      sourceDocument: {
+        id: 901n,
+        publicId: "so0000000-0000-4000-8000-000000000001",
+        number: "SO-0001",
+        lines: [
+          {
+            position: 1,
+            description: "Widget",
+            quantity: "10",
+            inventoryItem: { publicId: ITEM },
+          },
+        ],
+      },
+      lines: [{ position: 1, description: "Widget", quantity: "3" }],
+    });
+    const { database } = createDatabaseMock(record);
+    const inventory = { fulfillDocumentStock: vi.fn().mockResolvedValue(undefined) };
+    const service = new DeliveryNotesService(database, access, inventory as never);
+
+    await service.markDelivered(
+      ACCESS.userPublicId,
+      ACCESS.businessPublicId,
+      record.publicId,
+      "req-partial-delivery",
+    );
+
+    expect(inventory.fulfillDocumentStock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      901n,
+      "so0000000-0000-4000-8000-000000000001",
+      "req-partial-delivery",
+      [{ inventoryItemId: ITEM, quantity: "3" }],
+    );
   });
 });

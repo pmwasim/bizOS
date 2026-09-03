@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 
 import {
   type CreateSalesOrderRequest,
@@ -8,6 +14,7 @@ import {
 import { DocumentStatus, DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
+import { InventoryService } from "../inventory/inventory.service.js";
 import { allocateDocumentNumber } from "../numbering/numbering";
 import {
   type AuthorizationAction,
@@ -22,6 +29,7 @@ interface DecimalLike {
 
 interface SalesOrderLineRecord {
   description: string;
+  inventoryItem?: { publicId: string } | null;
   position: number;
   quantity: DecimalLike;
   subtotalMinor: DecimalLike;
@@ -65,6 +73,7 @@ export class SalesOrdersService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
+    @Optional() @Inject(InventoryService) private readonly inventory?: InventoryService,
   ) {}
 
   async create(
@@ -132,8 +141,11 @@ export class SalesOrdersService {
           notes: input.notes ?? null,
           createdByMembershipId: access.membershipId,
           lines: {
-            create: calculatedLines.map((line) => ({
+            create: calculatedLines.map((line, index) => ({
               position: line.position,
+              ...(input.lines[index]?.inventoryItemId
+                ? { inventoryItem: { connect: { publicId: input.lines[index].inventoryItemId } } }
+                : {}),
               description: line.description,
               quantity: line.quantity,
               unitPriceMinor: line.unitPriceMinor.toString(),
@@ -229,8 +241,11 @@ export class SalesOrdersService {
           taxMinor: taxMinor.toString(),
           totalMinor: totalMinor.toString(),
           lines: {
-            create: calculatedLines.map((line) => ({
+            create: calculatedLines.map((line, index) => ({
               position: line.position,
+              ...(input.lines[index]?.inventoryItemId
+                ? { inventoryItem: { connect: { publicId: input.lines[index].inventoryItemId } } }
+                : {}),
               description: line.description,
               quantity: line.quantity,
               unitPriceMinor: line.unitPriceMinor.toString(),
@@ -273,6 +288,16 @@ export class SalesOrdersService {
         throw new BadRequestException("Only draft sales orders can be confirmed.");
       }
 
+      await this.inventory?.reserveDocumentStock(
+        transaction,
+        access,
+        existing.id,
+        existing.lines.map((line) => ({
+          inventoryItemId: line.inventoryItem?.publicId,
+          quantity: line.quantity,
+        })),
+      );
+
       const updated = (await transaction.document.update({
         where: { id: existing.id },
         data: { status: DocumentStatus.SENT },
@@ -307,6 +332,8 @@ export class SalesOrdersService {
       if (existing.status === DocumentStatus.ARCHIVED) {
         throw new BadRequestException("This sales order is already cancelled.");
       }
+
+      await this.inventory?.releaseDocumentStock(transaction, access, existing.id);
 
       const updated = (await transaction.document.update({
         where: { id: existing.id },
@@ -346,7 +373,10 @@ export class SalesOrdersService {
   private detailInclude() {
     return {
       customer: true,
-      lines: { orderBy: { position: "asc" as const } },
+      lines: {
+        orderBy: { position: "asc" as const },
+        include: { inventoryItem: { select: { publicId: true } } },
+      },
     } satisfies Prisma.DocumentInclude;
   }
 
@@ -394,6 +424,7 @@ export class SalesOrdersService {
         countryCode: record.customer.countryCode,
       },
       lines: record.lines.map((line) => ({
+        ...(line.inventoryItem ? { inventoryItemId: line.inventoryItem.publicId } : {}),
         position: line.position,
         description: line.description,
         quantity: line.quantity.toString(),

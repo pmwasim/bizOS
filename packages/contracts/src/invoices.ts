@@ -30,6 +30,7 @@ export function invoiceStatusLabel(status: z.infer<typeof invoiceStatusSchema>):
 }
 
 export const invoiceLineInputSchema = z.strictObject({
+  inventoryItemId: z.uuid().optional(),
   description: z.string().trim().min(1).max(500),
   quantity: decimalSchema
     .refine((value) => !/^0(?:\.0+)?$/.test(value), "Quantity must be greater than zero.")
@@ -65,6 +66,7 @@ export const sendInvoiceRequestSchema = z.strictObject({
 });
 
 export const invoiceLineSchema = z.strictObject({
+  inventoryItemId: z.uuid().optional(),
   position: z.number().int().positive(),
   description: z.string(),
   quantity: z.string(),

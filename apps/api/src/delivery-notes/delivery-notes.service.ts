@@ -1,9 +1,10 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 
 import { type CreateDeliveryNoteRequest, type DeliveryNote } from "@bizo/contracts/delivery-notes";
 import { DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
+import { InventoryService } from "../inventory/inventory.service.js";
 import { allocateDocumentNumber } from "../numbering/numbering";
 import {
   type AuthorizationAction,
@@ -36,7 +37,17 @@ interface DeliveryNoteRecord {
   publicId: string;
   lines: DeliveryNoteLineRecord[];
   receivedAt: Date | null;
-  sourceDocument: { number: string; publicId: string } | null;
+  sourceDocument: {
+    id: bigint;
+    number: string;
+    publicId: string;
+    lines: Array<{
+      description: string;
+      inventoryItem: { publicId: string } | null;
+      position: number;
+      quantity: DecimalLike;
+    }>;
+  } | null;
   status: DocumentType;
   updatedAt: Date;
 }
@@ -46,6 +57,7 @@ export class DeliveryNotesService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
+    @Optional() @Inject(InventoryService) private readonly inventory?: InventoryService,
   ) {}
 
   async create(
@@ -126,8 +138,8 @@ export class DeliveryNotesService {
           notes: input.notes ?? null,
           createdByMembershipId: access.membershipId,
           lines: {
-            create: input.lines.map((line) => ({
-              position: 1,
+            create: input.lines.map((line, index) => ({
+              position: index + 1,
               description: line.description,
               quantity: line.quantity,
               unitPriceMinor: "0",
@@ -192,6 +204,23 @@ export class DeliveryNotesService {
     return this.database.withScope(access, async (transaction) => {
       const existing = await this.findRecord(transaction, access, deliveryNotePublicId);
 
+      if (existing.sourceDocument) {
+        const sourceLines = existing.sourceDocument.lines;
+        await this.inventory?.fulfillDocumentStock(
+          transaction,
+          access,
+          existing.sourceDocument.id,
+          existing.sourceDocument.publicId,
+          requestId,
+          existing.lines.map((line, index) => ({
+            inventoryItemId:
+              sourceLines[line.position - 1]?.inventoryItem?.publicId ??
+              sourceLines[index]?.inventoryItem?.publicId,
+            quantity: line.quantity,
+          })),
+        );
+      }
+
       const updated = (await transaction.document.update({
         where: { id: existing.id },
         data: { receivedAt: new Date() },
@@ -228,7 +257,22 @@ export class DeliveryNotesService {
     return {
       customer: true,
       lines: { orderBy: { position: "asc" as const } },
-      sourceDocument: { select: { publicId: true, number: true } },
+      sourceDocument: {
+        select: {
+          id: true,
+          publicId: true,
+          number: true,
+          lines: {
+            orderBy: { position: "asc" as const },
+            select: {
+              description: true,
+              inventoryItem: { select: { publicId: true } },
+              position: true,
+              quantity: true,
+            },
+          },
+        },
+      },
     } satisfies Prisma.DocumentInclude;
   }
 

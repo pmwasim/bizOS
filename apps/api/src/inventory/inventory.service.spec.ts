@@ -44,7 +44,10 @@ function movementRow(overrides: Record<string, unknown> = {}) {
 }
 
 function createDatabaseMock(
-  options: { onHandRows?: Array<{ movementType: string; quantity: number }> } = {},
+  options: {
+    onHandRows?: Array<{ movementType: string; quantity: number }>;
+    reservationRows?: Array<Record<string, unknown>>;
+  } = {},
 ) {
   const inventoryItem = { findFirst: vi.fn().mockResolvedValue({ id: 10n }) };
   const stockLocation = {
@@ -75,11 +78,19 @@ function createDatabaseMock(
       }),
     ),
   };
+  const stockReservation = {
+    findFirst: vi.fn().mockResolvedValue(null),
+    findMany: vi.fn().mockResolvedValue(options.reservationRows ?? []),
+    create: vi.fn().mockResolvedValue({}),
+    update: vi.fn().mockResolvedValue({}),
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+  };
   const auditEvent = { create: vi.fn().mockResolvedValue({}) };
   const transaction = {
     inventoryItem,
     stockLocation,
     stockMovement,
+    stockReservation,
     auditEvent,
     // Advisory-lock calls (pg_advisory_xact_lock) are no-ops against the mock.
     $executeRaw: vi.fn().mockResolvedValue(1),
@@ -93,9 +104,11 @@ function createDatabaseMock(
   };
   return {
     database: database as unknown as DatabaseService,
+    transaction,
     inventoryItem,
     stockLocation,
     stockMovement,
+    stockReservation,
   };
 }
 
@@ -202,6 +215,42 @@ describe("InventoryService: multi-location stock", () => {
     expect(mock.stockMovement.create).not.toHaveBeenCalled();
   });
 
+  it("rejects a manual dispatch that would consume reserved stock", async () => {
+    const mock = createDatabaseMock({
+      onHandRows: [{ movementType: "RECEIPT", quantity: 10 }],
+      reservationRows: [{ quantity: 8 }],
+    });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await expect(
+      service.recordMovement(
+        ACCESS.userPublicId,
+        ACCESS.businessPublicId,
+        { itemId: ITEM, locationId: LOC_A, movementType: "DISPATCH", quantity: 3 },
+        "req-reserved-dispatch",
+      ),
+    ).rejects.toMatchObject({ response: { code: "INSUFFICIENT_AVAILABLE_STOCK" } });
+    expect(mock.stockMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a transfer that would consume reserved stock at the source", async () => {
+    const mock = createDatabaseMock({
+      onHandRows: [{ movementType: "RECEIPT", quantity: 10 }],
+      reservationRows: [{ quantity: 8 }],
+    });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await expect(
+      service.transferStock(
+        ACCESS.userPublicId,
+        ACCESS.businessPublicId,
+        { itemId: ITEM, fromLocationId: LOC_A, toLocationId: LOC_B, quantity: 3 },
+        "req-reserved-transfer",
+      ),
+    ).rejects.toMatchObject({ response: { code: "INSUFFICIENT_AVAILABLE_STOCK" } });
+    expect(mock.stockMovement.create).not.toHaveBeenCalled();
+  });
+
   it("transfers stock as a source dispatch and destination receipt, guarding source on-hand", async () => {
     const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
     const service = new InventoryService(mock.database, createAccessMock());
@@ -237,5 +286,126 @@ describe("InventoryService: multi-location stock", () => {
         "req-transfer-same",
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("reserves available inventory at the default location", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    mock.inventoryItem.findFirst.mockResolvedValue({ id: 10n, itemType: "INVENTORY" });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await service.reserveDocumentStock(mock.transaction as never, ACCESS as never, 77n, [
+      { inventoryItemId: ITEM, quantity: 4 },
+    ]);
+
+    expect(mock.stockReservation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          documentId: 77n,
+          itemId: 10n,
+          locationId: 20n,
+          quantity: 4,
+        }),
+      }),
+    );
+  });
+
+  it("does not create a second hold when the source document already holds the item", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    mock.inventoryItem.findFirst.mockResolvedValue({ id: 10n, itemType: "INVENTORY" });
+    mock.stockReservation.findFirst.mockResolvedValue({ id: 99n });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await service.reserveDocumentStock(
+      mock.transaction as never,
+      ACCESS as never,
+      88n,
+      [{ inventoryItemId: ITEM, quantity: 4 }],
+      77n,
+    );
+
+    expect(mock.stockReservation.create).not.toHaveBeenCalled();
+  });
+
+  it("calculates available-to-promise stock after active reservations", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    mock.stockReservation.findMany.mockResolvedValue([{ quantity: 3 }]);
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await expect(service.atp(ACCESS.userPublicId, ACCESS.businessPublicId, ITEM)).resolves.toEqual({
+      itemId: ITEM,
+      locationId: null,
+      quantityOnHand: 10,
+      reservedQuantity: 3,
+      availableQuantity: 7,
+    });
+  });
+
+  it("serializes concurrent fulfillment and dispatches a reservation only once", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    let status = "RESERVED";
+    let lockHeld = false;
+    let releaseLock: (() => void) | undefined;
+    mock.transaction.$executeRaw = vi.fn(async () => {
+      if (lockHeld) await new Promise<void>((resolve) => (releaseLock = resolve));
+      lockHeld = true;
+      return 1;
+    });
+    mock.stockReservation.findMany.mockImplementation(async ({ select }: { select?: object }) => {
+      if (select && "itemId" in select) return status === "RESERVED" ? [{ itemId: 10n }] : [];
+      if (select && "quantity" in select) return [];
+      return status === "RESERVED" ? [{ id: 1n, itemId: 10n, locationId: 20n, quantity: 4 }] : [];
+    });
+    mock.stockReservation.update.mockImplementation(async () => {
+      status = "FULFILLED";
+      lockHeld = false;
+      releaseLock?.();
+      releaseLock = undefined;
+      return {};
+    });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await Promise.all([
+      service.fulfillDocumentStock(
+        mock.transaction as never,
+        ACCESS as never,
+        77n,
+        "so-1",
+        "req-1",
+      ),
+      service.fulfillDocumentStock(
+        mock.transaction as never,
+        ACCESS as never,
+        77n,
+        "so-1",
+        "req-2",
+      ),
+    ]);
+
+    expect(mock.stockMovement.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("fulfills only delivered quantity and leaves the remainder reserved", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    mock.stockReservation.findMany
+      .mockResolvedValueOnce([{ id: 1n, itemId: 10n, locationId: 20n, quantity: 10 }])
+      .mockResolvedValueOnce([]);
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await service.fulfillDocumentStock(
+      mock.transaction as never,
+      ACCESS as never,
+      77n,
+      "so-1",
+      "req-partial",
+      [{ inventoryItemId: ITEM, quantity: 3 }],
+    );
+
+    expect(mock.stockMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ quantity: 3 }) }),
+    );
+    expect(mock.stockReservation.update).toHaveBeenCalledWith({
+      where: { id: 1n },
+      data: { quantity: 7 },
+    });
   });
 });
