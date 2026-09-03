@@ -25,8 +25,8 @@
   },
   "dependencies": {
     "@bizo/contracts": "workspace:*",
-    "@prisma/adapter-pg": "7.9.1",
-    "@prisma/client": "7.9.1",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "pg": "8.23.0"
   },
   "devDependencies": {
@@ -34,7 +34,7 @@
     "@types/pg": "8.21.0",
     "dotenv": "17.4.2",
     "esbuild": "0.28.2",
-    "prisma": "7.9.1",
+    "prisma": "7.10.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
