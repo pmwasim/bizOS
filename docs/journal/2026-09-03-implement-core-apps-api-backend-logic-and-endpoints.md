@@ -26,6 +26,9 @@ reservations were not persisted and commercial lifecycle changes did not reserve
   sales-order contracts and persisted them on lines.
 - Added available-to-promise calculation and `GET .../inventory/stock/atp`, with reservation and ATP
   unit checks in `inventory.service.spec.ts`.
+- Fixed fulfillment locking and partial delivered-quantity accounting, enforced ATP on manual
+  dispatch/transfer, and fulfilled invoice stock on send without duplicating a source sales-order
+  hold. ADR-0028 is accepted.
 
 ## Decisions and trade-offs
 
@@ -46,23 +49,23 @@ pnpm typecheck     # result
 pnpm test          # result
 ```
 
-Passed: database Prisma validation, contracts tests (180 passed), targeted API tests (30 passed),
-full API tests (978 passed, 74 skipped), database tests (63 passed, 7 skipped), API/database/web/
+Passed: database Prisma validation, contracts tests (180 passed), targeted API tests (32 passed),
+full API tests (986 passed, 74 skipped), database tests (63 passed, 7 skipped), API/database/web/
 contracts typechecks, root lint, API build, format check, and `pnpm agent:verify`. The additive
 migration applied successfully to the local `bizo` PostgreSQL database. A real-PostgreSQL phase1
 integration run passed all 10 tests, including reservation, ATP, fulfillment DISPATCH, and on-hand.
+The security audit passed with no known vulnerabilities after the transitive dependency overrides.
 
 ## Follow-ups
 
-No release blockers. God should update TASK-31 in the shared ledger and integrate the uncommitted
-files. The migration rollback is to drop `stock_reservations`, its RLS/indexes and enum, then drop
-the `document_lines.inventory_item_id` foreign key/index/column after disposing of local test data;
-it was not run.
+No release blockers. The migration rollback is to drop `stock_reservations`, its RLS/indexes and
+enum, then drop the `document_lines.inventory_item_id` foreign key/index/column after disposing of
+local test data; it was not run.
 
 ## Handoff notes
 
 Stock lines now carry optional `inventoryItemId` UUIDs; legacy lines without one remain non-stock.
-Reservations use the active default location. Delivery fulfillment posts a positive DISPATCH row and
-marks the hold FULFILLED; cancellation/archive marks it RELEASED. Local migration
-`20260903000000_stock_reservations` is already applied. Claims `clm_0160db55`, `clm_4b324e08`, and
-`clm_cd0ee283` were released at handoff.
+Reservations use the active default location. Delivery fulfillment posts only delivered quantity,
+leaving a remainder RESERVED; invoice send fulfills an invoice hold or its source SO hold. Local
+migration `20260903000000_stock_reservations` is already applied; the fresh replay database was
+dropped after verification.
