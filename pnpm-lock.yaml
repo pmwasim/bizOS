@@ -215,8 +215,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@revenuecat/purchases-js':
-        specifier: 1.53.1
-        version: 1.53.1
+        specifier: 1.55.0
+        version: 1.55.0
       jose:
         specifier: 6.2.8
         version: 6.2.8
@@ -1720,8 +1720,8 @@ packages:
       '@types/react':
         optional: true
 
-  '@revenuecat/purchases-js@1.53.1':
-    resolution: {integrity: sha512-7RMz5AE6rVtGORALYmTyauQ7fJh+/HPGAmDSrqsb2UcQS8pf/JvPbKP0iITCKeXnksTeN3D8+SKVyYMOio6mJQ==}
+  '@revenuecat/purchases-js@1.55.0':
+    resolution: {integrity: sha512-xAF/ouwTC5KXJXKZGExSQc4VnBiILNKGk7vkov6VXn/GGwusymXLTsi7rdvvX56wDKIVtnZMY2ISsMaPaiV8Yg==}
 
   '@rolldown/binding-android-arm64@1.1.5':
     resolution: {integrity: sha512-lZg8fqIv2v7FF237bwMgzGZEJvGL79/s5knJ/i6FmsGF4XXlzccZ4jb+TrFIxtSSxFtIpdsgrPZeMk1I9AFcyQ==}
@@ -6307,7 +6307,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.18
 
-  '@revenuecat/purchases-js@1.53.1': {}
+  '@revenuecat/purchases-js@1.55.0': {}
 
   '@rolldown/binding-android-arm64@1.1.5':
     optional: true
