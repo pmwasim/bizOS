@@ -8,10 +8,11 @@ import {
   type StockLocation,
   type StockMovement,
   type StockOnHand,
+  type StockReservation,
   type TransferStockRequest,
   type UpdateInventoryItemRequest,
 } from "@bizo/contracts/inventory";
-import { type Prisma } from "@bizo/database";
+import { StockReservationStatus, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
 import {
@@ -58,6 +59,24 @@ interface InventoryItemRecord {
   sku: string;
   unit: string | null;
   updatedAt: Date;
+}
+
+interface ReservationLine {
+  inventoryItemId?: string | undefined;
+  quantity: { toString(): string } | number | string;
+}
+
+interface StockReservationRecord {
+  createdAt: Date;
+  document: { publicId: string };
+  fulfilledAt: Date | null;
+  id: bigint;
+  item: { publicId: string; name: string; sku: string };
+  location: { publicId: string; code: string; name: string };
+  publicId: string;
+  quantity: number;
+  releasedAt: Date | null;
+  status: StockReservationStatus;
 }
 
 @Injectable()
@@ -454,6 +473,245 @@ export class InventoryService {
         : undefined;
       const quantityOnHand = await this.onHandQuantity(transaction, access, itemId, locationId);
       return { itemId: itemPublicId, locationId: locationPublicId ?? null, quantityOnHand };
+    });
+  }
+
+  async atp(
+    userPublicId: string,
+    businessPublicId: string,
+    itemPublicId: string,
+    locationPublicId?: string,
+  ) {
+    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    return this.database.withScope(access, async (transaction) => {
+      const itemId = await this.resolveItemId(transaction, access, itemPublicId);
+      const locationId = locationPublicId
+        ? await this.resolveLocationId(transaction, access, locationPublicId)
+        : undefined;
+      const quantityOnHand = await this.onHandQuantity(transaction, access, itemId, locationId);
+      const reservations = await transaction.stockReservation.findMany({
+        where: {
+          businessId: access.businessId,
+          itemId,
+          status: StockReservationStatus.RESERVED,
+          ...(locationId !== undefined ? { locationId } : {}),
+        },
+        select: { quantity: true },
+      });
+      const reservedQuantity = reservations.reduce(
+        (sum: number, row: { quantity: number }) => sum + row.quantity,
+        0,
+      );
+      return {
+        itemId: itemPublicId,
+        locationId: locationPublicId ?? null,
+        quantityOnHand,
+        reservedQuantity,
+        availableQuantity: quantityOnHand - reservedQuantity,
+      };
+    });
+  }
+
+  /** Hold stock for a document. This method is transaction-scoped so status changes and holds
+   * commit together. Lines without an explicit inventory item are non-stock lines. */
+  async reserveDocumentStock(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    documentId: bigint,
+    lines: ReservationLine[],
+  ): Promise<void> {
+    const quantities = new Map<string, number>();
+    for (const line of lines) {
+      if (!line.inventoryItemId) continue;
+      const quantity = Number(line.quantity.toString());
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+        throw new BadRequestException({
+          code: "INVALID_STOCK_QUANTITY",
+          detail: "Stock item quantities must be positive whole units.",
+        });
+      }
+      quantities.set(line.inventoryItemId, (quantities.get(line.inventoryItemId) ?? 0) + quantity);
+    }
+    if (!quantities.size) return;
+    for (const quantity of quantities.values()) {
+      if (!Number.isSafeInteger(quantity)) {
+        throw new BadRequestException({
+          code: "INVALID_STOCK_QUANTITY",
+          detail: "The total stock quantity must be a safe whole number.",
+        });
+      }
+    }
+
+    const location = await transaction.stockLocation.findFirst({
+      where: { businessId: access.businessId, isDefault: true, isActive: true },
+      select: { id: true },
+    });
+    if (!location) {
+      throw new BadRequestException({
+        code: "DEFAULT_STOCK_LOCATION_REQUIRED",
+        detail: "Create an active default stock location before reserving inventory.",
+      });
+    }
+
+    for (const [itemPublicId, quantity] of quantities) {
+      const item = await transaction.inventoryItem.findFirst({
+        where: { businessId: access.businessId, publicId: itemPublicId },
+        select: { id: true, itemType: true },
+      });
+      if (!item) throw new NotFoundException("We could not find that inventory item.");
+      if (item.itemType !== "INVENTORY") continue;
+
+      await this.lockItem(transaction, access.businessId, item.id);
+      const existing = await transaction.stockReservation.findFirst({
+        where: {
+          businessId: access.businessId,
+          documentId,
+          itemId: item.id,
+          locationId: location.id,
+          status: StockReservationStatus.RESERVED,
+        },
+      });
+      if (existing) continue;
+
+      const held = await transaction.stockReservation.findMany({
+        where: {
+          businessId: access.businessId,
+          itemId: item.id,
+          locationId: location.id,
+          status: StockReservationStatus.RESERVED,
+          documentId: { not: documentId },
+        },
+        select: { quantity: true },
+      });
+      const reserved = held.reduce(
+        (sum: number, row: { quantity: number }) => sum + row.quantity,
+        0,
+      );
+      const available =
+        (await this.onHandQuantity(transaction, access, item.id, location.id)) - reserved;
+      if (available < quantity) {
+        throw new BadRequestException({
+          code: "INSUFFICIENT_AVAILABLE_STOCK",
+          detail: `Only ${available} unit(s) are available to reserve at the default location.`,
+        });
+      }
+      await transaction.stockReservation.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          documentId,
+          itemId: item.id,
+          locationId: location.id,
+          quantity,
+          status: StockReservationStatus.RESERVED,
+        },
+      });
+    }
+  }
+
+  async releaseDocumentStock(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    documentId: bigint,
+  ): Promise<void> {
+    await transaction.stockReservation.updateMany({
+      where: {
+        businessId: access.businessId,
+        documentId,
+        status: StockReservationStatus.RESERVED,
+      },
+      data: { status: StockReservationStatus.RELEASED, releasedAt: new Date() },
+    });
+  }
+
+  async fulfillDocumentStock(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    documentId: bigint,
+    referenceId: string,
+    requestId: string,
+  ): Promise<void> {
+    const reservations = await transaction.stockReservation.findMany({
+      where: {
+        businessId: access.businessId,
+        documentId,
+        status: StockReservationStatus.RESERVED,
+      },
+    });
+    for (const reservation of reservations) {
+      await this.lockItem(transaction, access.businessId, reservation.itemId);
+      const onHand = await this.onHandQuantity(
+        transaction,
+        access,
+        reservation.itemId,
+        reservation.locationId,
+      );
+      if (onHand < reservation.quantity) {
+        throw new BadRequestException({
+          code: "INSUFFICIENT_STOCK",
+          detail: "Stock changed after reservation; fulfillment cannot be completed.",
+        });
+      }
+      await transaction.stockMovement.create({
+        data: {
+          tenantId: access.tenantId,
+          businessId: access.businessId,
+          itemId: reservation.itemId,
+          locationId: reservation.locationId,
+          movementType: "DISPATCH",
+          quantity: reservation.quantity,
+          referenceType: "SALE",
+          referenceId,
+          requestId,
+          occurredAt: new Date(),
+        },
+      });
+      await transaction.stockReservation.update({
+        where: { id: reservation.id },
+        data: { status: StockReservationStatus.FULFILLED, fulfilledAt: new Date() },
+      });
+    }
+  }
+
+  async listReservations(
+    userPublicId: string,
+    businessPublicId: string,
+    documentPublicId?: string,
+  ): Promise<StockReservation[]> {
+    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    return this.database.withScope(access, async (transaction) => {
+      const document = documentPublicId
+        ? await transaction.document.findFirst({
+            where: { businessId: access.businessId, publicId: documentPublicId },
+            select: { id: true },
+          })
+        : null;
+      if (documentPublicId && !document)
+        throw new NotFoundException("We could not find that document.");
+      const rows = (await transaction.stockReservation.findMany({
+        where: {
+          businessId: access.businessId,
+          ...(document ? { documentId: document.id } : {}),
+        },
+        include: {
+          document: { select: { publicId: true } },
+          item: { select: { publicId: true, name: true, sku: true } },
+          location: { select: { publicId: true, code: true, name: true } },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 500,
+      })) as unknown as StockReservationRecord[];
+      return rows.map((row) => ({
+        id: row.publicId,
+        documentId: row.document.publicId,
+        itemId: row.item.publicId,
+        locationId: row.location.publicId,
+        quantity: row.quantity,
+        status: row.status,
+        releasedAt: row.releasedAt?.toISOString() ?? null,
+        fulfilledAt: row.fulfilledAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+      }));
     });
   }
 

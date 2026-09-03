@@ -23,6 +23,7 @@ export function salesOrderStatusLabel(status: z.infer<typeof salesOrderStatusSch
 }
 
 export const salesOrderLineInputSchema = z.strictObject({
+  inventoryItemId: z.uuid().optional(),
   description: z.string().trim().min(1).max(500),
   quantity: decimalSchema
     .refine((value) => !/^0(?:\.0+)?$/.test(value), "Quantity must be greater than zero.")
@@ -54,6 +55,7 @@ export const sendSalesOrderRequestSchema = z.strictObject({
 });
 
 export const salesOrderLineSchema = z.strictObject({
+  inventoryItemId: z.uuid().optional(),
   position: z.number().int().positive(),
   description: z.string(),
   quantity: z.string(),

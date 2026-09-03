@@ -1,9 +1,10 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 
 import { type CreateDeliveryNoteRequest, type DeliveryNote } from "@bizo/contracts/delivery-notes";
 import { DocumentType, type Prisma } from "@bizo/database";
 
 import { DatabaseService } from "../database/database.service";
+import { InventoryService } from "../inventory/inventory.service.js";
 import { allocateDocumentNumber } from "../numbering/numbering";
 import {
   type AuthorizationAction,
@@ -36,7 +37,7 @@ interface DeliveryNoteRecord {
   publicId: string;
   lines: DeliveryNoteLineRecord[];
   receivedAt: Date | null;
-  sourceDocument: { number: string; publicId: string } | null;
+  sourceDocument: { id: bigint; number: string; publicId: string } | null;
   status: DocumentType;
   updatedAt: Date;
 }
@@ -46,6 +47,7 @@ export class DeliveryNotesService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(BusinessAccessService) private readonly businessAccess: BusinessAccessService,
+    @Optional() @Inject(InventoryService) private readonly inventory?: InventoryService,
   ) {}
 
   async create(
@@ -192,6 +194,16 @@ export class DeliveryNotesService {
     return this.database.withScope(access, async (transaction) => {
       const existing = await this.findRecord(transaction, access, deliveryNotePublicId);
 
+      if (existing.sourceDocument) {
+        await this.inventory?.fulfillDocumentStock(
+          transaction,
+          access,
+          existing.sourceDocument.id,
+          existing.sourceDocument.publicId,
+          requestId,
+        );
+      }
+
       const updated = (await transaction.document.update({
         where: { id: existing.id },
         data: { receivedAt: new Date() },
@@ -228,7 +240,7 @@ export class DeliveryNotesService {
     return {
       customer: true,
       lines: { orderBy: { position: "asc" as const } },
-      sourceDocument: { select: { publicId: true, number: true } },
+      sourceDocument: { select: { id: true, publicId: true, number: true } },
     } satisfies Prisma.DocumentInclude;
   }
 

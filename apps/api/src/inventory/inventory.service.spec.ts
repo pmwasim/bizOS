@@ -75,11 +75,19 @@ function createDatabaseMock(
       }),
     ),
   };
+  const stockReservation = {
+    findFirst: vi.fn().mockResolvedValue(null),
+    findMany: vi.fn().mockResolvedValue([]),
+    create: vi.fn().mockResolvedValue({}),
+    update: vi.fn().mockResolvedValue({}),
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+  };
   const auditEvent = { create: vi.fn().mockResolvedValue({}) };
   const transaction = {
     inventoryItem,
     stockLocation,
     stockMovement,
+    stockReservation,
     auditEvent,
     // Advisory-lock calls (pg_advisory_xact_lock) are no-ops against the mock.
     $executeRaw: vi.fn().mockResolvedValue(1),
@@ -93,9 +101,11 @@ function createDatabaseMock(
   };
   return {
     database: database as unknown as DatabaseService,
+    transaction,
     inventoryItem,
     stockLocation,
     stockMovement,
+    stockReservation,
   };
 }
 
@@ -237,5 +247,40 @@ describe("InventoryService: multi-location stock", () => {
         "req-transfer-same",
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("reserves available inventory at the default location", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    mock.inventoryItem.findFirst.mockResolvedValue({ id: 10n, itemType: "INVENTORY" });
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await service.reserveDocumentStock(mock.transaction as never, ACCESS as never, 77n, [
+      { inventoryItemId: ITEM, quantity: 4 },
+    ]);
+
+    expect(mock.stockReservation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          documentId: 77n,
+          itemId: 10n,
+          locationId: 20n,
+          quantity: 4,
+        }),
+      }),
+    );
+  });
+
+  it("calculates available-to-promise stock after active reservations", async () => {
+    const mock = createDatabaseMock({ onHandRows: [{ movementType: "RECEIPT", quantity: 10 }] });
+    mock.stockReservation.findMany.mockResolvedValue([{ quantity: 3 }]);
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await expect(service.atp(ACCESS.userPublicId, ACCESS.businessPublicId, ITEM)).resolves.toEqual({
+      itemId: ITEM,
+      locationId: null,
+      quantityOnHand: 10,
+      reservedQuantity: 3,
+      availableQuantity: 7,
+    });
   });
 });
