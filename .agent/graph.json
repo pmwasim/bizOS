@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 29,
-    "handbookDocumentCount": 93
+    "adrCount": 30,
+    "handbookDocumentCount": 94
   },
   "buildOrder": [
     {
@@ -844,6 +844,13 @@
       "status": "Proposed",
       "date": "2026-09-02",
       "path": "docs/decisions/0027-autonomous-gated-production-deploy.md"
+    },
+    {
+      "id": "0028",
+      "title": "ADR-0028: Stock reservation lifecycle",
+      "status": "Accepted Date: 2026-09-03 Deciders: Michael (god)",
+      "date": null,
+      "path": "docs/decisions/0028-stock-reservation-lifecycle.md"
     }
   ],
   "rootCommands": [
