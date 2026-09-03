@@ -162,6 +162,104 @@ describe.runIf(databaseEnabled)("phase 1 modules journey with PostgreSQL boundar
     expect(item.sku).toBe("SKU-100");
   }, 30_000);
 
+  it("values persisted stock movements with FIFO and AVCO", async () => {
+    const { owner, business } = await setUpBusinessWithCustomer("Valuation");
+    const item = await inventory.create(
+      owner.id,
+      business.id,
+      {
+        sku: `SKU-VALUATION-${RUN_ID}`,
+        name: "Valuation Widget",
+        description: null,
+        itemType: "INVENTORY",
+        unit: "each",
+        costPriceMinor: "10000",
+        sellingPriceMinor: "20000",
+        taxRatePpm: 0,
+        reorderLevel: null,
+      },
+      "integration-valuation-item",
+    );
+    const location = await inventory.createLocation(
+      owner.id,
+      business.id,
+      { code: `VAL-${RUN_ID}`, name: "Valuation Warehouse", isDefault: true },
+      "integration-valuation-location",
+    );
+    const movement = async (
+      quantity: number,
+      movementType: "RECEIPT" | "DISPATCH" | "ADJUSTMENT",
+      unitCostMinor: string,
+      requestId: string,
+    ) =>
+      inventory.recordMovement(
+        owner.id,
+        business.id,
+        {
+          itemId: item.id,
+          locationId: location.id,
+          movementType,
+          quantity,
+          unitCostMinor,
+        },
+        requestId,
+      );
+    await movement(10, "RECEIPT", "10000", "integration-valuation-receipt-a");
+    await movement(10, "RECEIPT", "20000", "integration-valuation-receipt-b");
+    await movement(5, "DISPATCH", "0", "integration-valuation-dispatch");
+    await movement(5, "ADJUSTMENT", "10000", "integration-valuation-adjustment-in");
+    await movement(-5, "ADJUSTMENT", "0", "integration-valuation-adjustment-out");
+
+    await expect(
+      inventory.valuation(owner.id, business.id, item.id, location.id, "FIFO"),
+    ).resolves.toMatchObject({
+      valuationMethod: "FIFO",
+      totalQuantity: 15,
+      totalAssetValueMinor: "250000",
+      averageUnitCostMinor: "16667",
+    });
+    await expect(
+      inventory.valuation(owner.id, business.id, item.id, location.id, "AVCO"),
+    ).resolves.toMatchObject({
+      valuationMethod: "AVCO",
+      totalQuantity: 15,
+      totalAssetValueMinor: "206250",
+      averageUnitCostMinor: "13750",
+    });
+
+    const transferLocation = await inventory.createLocation(
+      owner.id,
+      business.id,
+      { code: `VAL-XFER-${RUN_ID}`, name: "Valuation Transfer Warehouse" },
+      "integration-valuation-transfer-location",
+    );
+    await inventory.transferStock(
+      owner.id,
+      business.id,
+      {
+        itemId: item.id,
+        fromLocationId: location.id,
+        toLocationId: transferLocation.id,
+        quantity: 1,
+      },
+      "integration-valuation-transfer",
+    );
+    await expect(
+      inventory.valuation(owner.id, business.id, item.id, transferLocation.id, "FIFO"),
+    ).resolves.toMatchObject({
+      totalQuantity: 1,
+      totalAssetValueMinor: "16667",
+      averageUnitCostMinor: "16667",
+    });
+    await expect(
+      inventory.valuation(owner.id, business.id, item.id, transferLocation.id, "AVCO"),
+    ).resolves.toMatchObject({
+      totalQuantity: 1,
+      totalAssetValueMinor: "13750",
+      averageUnitCostMinor: "13750",
+    });
+  }, 30_000);
+
   it("creates a project linked to a customer", async () => {
     const { owner, business, customer } = await setUpBusinessWithCustomer("Project");
     const project = await projects.create(

@@ -11,6 +11,8 @@ import {
   stockReservationQuerySchema,
   type StockReservationQuery,
   type StockOnHandQuery,
+  stockValuationQuerySchema,
+  type StockValuationQuery,
   transferStockRequestSchema,
   type TransferStockRequest,
   updateInventoryItemRequestSchema,
@@ -144,6 +146,21 @@ export class StockController {
     @Query(new ContractPipe(stockOnHandQuerySchema)) query: StockOnHandQuery,
   ) {
     return this.inventory.atp(principal.userId, businessId, query.itemId, query.locationId);
+  }
+
+  @Get("valuation")
+  valuation(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Query(new ContractPipe(stockValuationQuerySchema)) query: StockValuationQuery,
+  ) {
+    return this.inventory.valuation(
+      principal.userId,
+      businessId,
+      query.itemId,
+      query.locationId,
+      query.method,
+    );
   }
 
   @Get("reservations")

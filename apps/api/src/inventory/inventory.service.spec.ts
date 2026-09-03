@@ -49,7 +49,9 @@ function createDatabaseMock(
     reservationRows?: Array<Record<string, unknown>>;
   } = {},
 ) {
-  const inventoryItem = { findFirst: vi.fn().mockResolvedValue({ id: 10n }) };
+  const inventoryItem = {
+    findFirst: vi.fn().mockResolvedValue({ id: 10n, sku: "SKU-1", name: "Widget" }),
+  };
   const stockLocation = {
     findFirst: vi.fn().mockImplementation(async ({ where }: { where: { publicId: string } }) => ({
       id: where.publicId === LOC_B ? 21n : 20n,
@@ -406,6 +408,59 @@ describe("InventoryService: multi-location stock", () => {
     expect(mock.stockReservation.update).toHaveBeenCalledWith({
       where: { id: 1n },
       data: { quantity: 7 },
+    });
+  });
+
+  it("values persisted movement layers with FIFO and AVCO using minor-unit strings", async () => {
+    const mock = createDatabaseMock();
+    mock.stockMovement.findMany.mockResolvedValue([
+      { id: 1n, movementType: "RECEIPT", quantity: 10, unitCostMinor: { toString: () => "10000" } },
+      { id: 2n, movementType: "RECEIPT", quantity: 10, unitCostMinor: { toString: () => "20000" } },
+      { id: 3n, movementType: "DISPATCH", quantity: 5, unitCostMinor: { toString: () => "0" } },
+      {
+        id: 4n,
+        movementType: "ADJUSTMENT",
+        quantity: 5,
+        unitCostMinor: { toString: () => "10000" },
+      },
+      { id: 5n, movementType: "ADJUSTMENT", quantity: -5, unitCostMinor: { toString: () => "0" } },
+    ]);
+    const service = new InventoryService(mock.database, createAccessMock());
+
+    await expect(
+      service.valuation(ACCESS.userPublicId, ACCESS.businessPublicId, ITEM, LOC_A, "FIFO"),
+    ).resolves.toMatchObject({
+      valuationMethod: "FIFO",
+      totalQuantity: 15,
+      totalAssetValueMinor: "250000",
+      averageUnitCostMinor: "16667",
+    });
+    await expect(
+      service.valuation(ACCESS.userPublicId, ACCESS.businessPublicId, ITEM, LOC_A, "AVCO"),
+    ).resolves.toMatchObject({
+      valuationMethod: "AVCO",
+      totalQuantity: 15,
+      totalAssetValueMinor: "206250",
+      averageUnitCostMinor: "13750",
+    });
+
+    mock.stockMovement.findMany.mockResolvedValue([
+      { id: 6n, movementType: "RECEIPT", quantity: 1, unitCostMinor: { toString: () => "100" } },
+      { id: 7n, movementType: "RECEIPT", quantity: 2, unitCostMinor: { toString: () => "0" } },
+    ]);
+    await expect(
+      service.valuation(ACCESS.userPublicId, ACCESS.businessPublicId, ITEM, LOC_A, "AVCO"),
+    ).resolves.toMatchObject({
+      totalQuantity: 3,
+      totalAssetValueMinor: "100",
+      averageUnitCostMinor: "33",
+    });
+    await expect(
+      service.valuation(ACCESS.userPublicId, ACCESS.businessPublicId, ITEM, LOC_A, "FIFO"),
+    ).resolves.toMatchObject({
+      totalQuantity: 3,
+      totalAssetValueMinor: "100",
+      averageUnitCostMinor: "33",
     });
   });
 });

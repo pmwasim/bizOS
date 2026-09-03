@@ -15,6 +15,8 @@ Rules:
 
 ## Entries
 
+- [2026-09-03 — Implement FIFO and AVCO stock valuation](2026-09-03-implement-fifo-and-avco-stock-valuation.md)
+  - Agent: jim · Status: Complete
 - [2026-09-03 — Implement core apps-api backend logic and endpoints](2026-09-03-implement-core-apps-api-backend-logic-and-endpoints.md)
   - Agent: jim · Status: Complete
 - [2026-09-02 — Resume bizOS from maintenance and add homepage maintenance banner](2026-09-02-resume-bizos-from-maintenance-and-add-homepage-maintenance-b.md)

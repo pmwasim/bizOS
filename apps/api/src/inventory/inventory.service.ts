@@ -9,6 +9,8 @@ import {
   type StockMovement,
   type StockOnHand,
   type StockReservation,
+  type StockValuation,
+  type StockValuationMethod,
   type TransferStockRequest,
   type UpdateInventoryItemRequest,
 } from "@bizo/contracts/inventory";
@@ -77,6 +79,21 @@ interface StockReservationRecord {
   quantity: number;
   releasedAt: Date | null;
   status: StockReservationStatus;
+}
+
+interface ValuationMovement {
+  id: bigint;
+  locationId?: bigint;
+  requestId?: string | null;
+  occurredAt?: Date;
+  movementType: string;
+  quantity: number;
+  unitCostMinor: Prisma.Decimal | string;
+}
+
+interface FifoLayer {
+  quantity: bigint;
+  unitCostMinor: bigint;
 }
 
 @Injectable()
@@ -514,6 +531,233 @@ export class InventoryService {
         availableQuantity: quantityOnHand - reservedQuantity,
       };
     });
+  }
+
+  async valuation(
+    userPublicId: string,
+    businessPublicId: string,
+    itemPublicId: string,
+    locationPublicId: string | undefined,
+    method: StockValuationMethod,
+  ): Promise<StockValuation> {
+    const access = await this.authorize(userPublicId, businessPublicId, "read");
+    return this.database.withScope(access, async (transaction) => {
+      const item = await transaction.inventoryItem.findFirst({
+        where: { businessId: access.businessId, publicId: itemPublicId },
+        select: { id: true, sku: true, name: true },
+      });
+      if (!item) throw new NotFoundException("We could not find that inventory item.");
+      const locationId = locationPublicId
+        ? await this.resolveLocationId(transaction, access, locationPublicId)
+        : undefined;
+      const movements = (await transaction.stockMovement.findMany({
+        where: {
+          businessId: access.businessId,
+          itemId: item.id,
+          ...(locationId !== undefined ? { locationId } : {}),
+        },
+        select: {
+          id: true,
+          locationId: true,
+          movementType: true,
+          quantity: true,
+          unitCostMinor: true,
+          requestId: true,
+          occurredAt: true,
+        },
+        orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+      })) as unknown as ValuationMovement[];
+      const groups = locationId === undefined ? this.groupMovements(movements) : [movements];
+      let quantity = 0n;
+      let value = 0n;
+      for (const group of groups) {
+        const resolved = await this.resolveInboundCosts(
+          transaction,
+          access.businessId,
+          item.id,
+          group,
+          method,
+        );
+        const result =
+          method === "FIFO" ? this.calculateFifo(resolved) : this.calculateAvco(resolved);
+        quantity += result.quantity;
+        value += result.value;
+      }
+      return {
+        itemId: itemPublicId,
+        sku: item.sku,
+        name: item.name,
+        locationId: locationPublicId ?? null,
+        valuationMethod: method,
+        totalQuantity: Number(quantity),
+        totalAssetValueMinor: value.toString(),
+        averageUnitCostMinor: this.roundMinor(value, quantity).toString(),
+      };
+    });
+  }
+
+  private groupMovements(movements: ValuationMovement[]): ValuationMovement[][] {
+    const groups = new Map<string, ValuationMovement[]>();
+    for (const movement of movements) {
+      const key = movement.locationId?.toString() ?? "all";
+      const group = groups.get(key) ?? [];
+      group.push(movement);
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  }
+
+  private async resolveInboundCosts(
+    transaction: Prisma.TransactionClient,
+    businessId: bigint,
+    itemId: bigint,
+    movements: ValuationMovement[],
+    method: StockValuationMethod,
+  ): Promise<ValuationMovement[]> {
+    const resolved = movements.map((movement) => ({ ...movement }));
+    for (const [index, movement] of resolved.entries()) {
+      const quantity = BigInt(movement.quantity);
+      const inbound =
+        (movement.movementType === "ADJUSTMENT" || movement.movementType === "TRANSFER") &&
+        quantity > 0n;
+      if (!inbound || this.costMinor(movement) !== 0n) continue;
+
+      let sourceMovements: ValuationMovement[] = [];
+      if (movement.movementType === "ADJUSTMENT") {
+        sourceMovements = resolved.slice(0, index);
+      } else if (movement.requestId) {
+        const source = await transaction.stockMovement.findFirst({
+          where: {
+            businessId,
+            itemId,
+            movementType: "TRANSFER",
+            requestId: movement.requestId,
+            quantity: { lt: 0 },
+          },
+          select: { id: true, locationId: true, occurredAt: true },
+        });
+        if (source && movement.occurredAt) {
+          sourceMovements = (await transaction.stockMovement.findMany({
+            where: {
+              businessId,
+              itemId,
+              locationId: source.locationId,
+              OR: [
+                { occurredAt: { lt: movement.occurredAt } },
+                { occurredAt: movement.occurredAt, id: { lt: source.id } },
+              ],
+            },
+            select: {
+              id: true,
+              locationId: true,
+              movementType: true,
+              quantity: true,
+              unitCostMinor: true,
+              requestId: true,
+              occurredAt: true,
+            },
+            orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+          })) as unknown as ValuationMovement[];
+        }
+      }
+      const sourceResult =
+        method === "FIFO"
+          ? this.calculateFifo(sourceMovements)
+          : this.calculateAvco(sourceMovements);
+      movement.unitCostMinor = this.roundMinor(
+        sourceResult.value,
+        sourceResult.quantity,
+      ).toString();
+    }
+    return resolved;
+  }
+
+  private calculateFifo(movements: ValuationMovement[]): { quantity: bigint; value: bigint } {
+    const layers: FifoLayer[] = [];
+    for (const movement of movements) {
+      const quantity = BigInt(movement.quantity);
+      const cost = this.costMinor(movement);
+      const inbound =
+        movement.movementType === "RECEIPT" ||
+        ((movement.movementType === "ADJUSTMENT" || movement.movementType === "TRANSFER") &&
+          quantity > 0n);
+      if (inbound && quantity > 0n) {
+        layers.push({ quantity, unitCostMinor: cost });
+        continue;
+      }
+      const outbound =
+        movement.movementType === "DISPATCH" ||
+        ((movement.movementType === "ADJUSTMENT" || movement.movementType === "TRANSFER") &&
+          quantity < 0n);
+      if (!outbound) continue;
+      let remaining = quantity < 0n ? -quantity : quantity;
+      while (remaining > 0n && layers.length) {
+        const layer = layers[0]!;
+        const consumed = layer.quantity < remaining ? layer.quantity : remaining;
+        layer.quantity -= consumed;
+        remaining -= consumed;
+        if (layer.quantity === 0n) layers.shift();
+      }
+    }
+    return {
+      quantity: layers.reduce((sum, layer) => sum + layer.quantity, 0n),
+      value: layers.reduce((sum, layer) => sum + layer.quantity * layer.unitCostMinor, 0n),
+    };
+  }
+
+  private calculateAvco(movements: ValuationMovement[]): { quantity: bigint; value: bigint } {
+    let quantity = 0n;
+    let numerator = 0n;
+    let denominator = 1n;
+    for (const movement of movements) {
+      const signedQuantity = BigInt(movement.quantity);
+      const cost = this.costMinor(movement);
+      const inbound =
+        movement.movementType === "RECEIPT" ||
+        ((movement.movementType === "ADJUSTMENT" || movement.movementType === "TRANSFER") &&
+          signedQuantity > 0n);
+      if (inbound && signedQuantity > 0n) {
+        numerator += signedQuantity * cost * denominator;
+        quantity += signedQuantity;
+        continue;
+      }
+      const outbound =
+        movement.movementType === "DISPATCH" ||
+        ((movement.movementType === "ADJUSTMENT" || movement.movementType === "TRANSFER") &&
+          signedQuantity < 0n);
+      if (!outbound || quantity === 0n) continue;
+      const requested = signedQuantity < 0n ? -signedQuantity : signedQuantity;
+      const consumed = requested > quantity ? quantity : requested;
+      if (consumed === quantity) {
+        quantity = 0n;
+        numerator = 0n;
+        denominator = 1n;
+      } else {
+        numerator *= quantity - consumed;
+        denominator *= quantity;
+        quantity -= consumed;
+        const divisor = this.greatestCommonDivisor(numerator, denominator);
+        numerator /= divisor;
+        denominator /= divisor;
+      }
+    }
+    return { quantity, value: this.roundMinor(numerator, denominator) };
+  }
+
+  private roundMinor(numerator: bigint, denominator: bigint): bigint {
+    if (denominator === 0n || numerator === 0n) return 0n;
+    return (numerator * 2n + denominator) / (2n * denominator);
+  }
+
+  private costMinor(movement: ValuationMovement): bigint {
+    return BigInt(movement.unitCostMinor.toString());
+  }
+
+  private greatestCommonDivisor(left: bigint, right: bigint): bigint {
+    let a = left < 0n ? -left : left;
+    let b = right < 0n ? -right : right;
+    while (b !== 0n) [a, b] = [b, a % b];
+    return a || 1n;
   }
 
   /** Hold stock for a document. This method is transaction-scoped so status changes and holds

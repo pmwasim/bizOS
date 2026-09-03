@@ -109,6 +109,18 @@ export const stockOnHandSchema = z.strictObject({
   quantityOnHand: z.number().int(),
 });
 
+export const stockValuationMethodSchema = z.enum(["FIFO", "AVCO"]);
+export const stockValuationSchema = z.strictObject({
+  itemId: z.uuid(),
+  sku: z.string(),
+  name: z.string(),
+  locationId: z.uuid().nullable(),
+  valuationMethod: stockValuationMethodSchema,
+  totalQuantity: z.number().int().nonnegative(),
+  totalAssetValueMinor: minorUnitSchema,
+  averageUnitCostMinor: minorUnitSchema,
+});
+
 export const stockAtpSchema = z.strictObject({
   itemId: z.uuid(),
   locationId: z.uuid().nullable(),
@@ -139,6 +151,9 @@ export const stockOnHandQuerySchema = z.strictObject({
   itemId: z.uuid(),
   locationId: z.uuid().optional(),
 });
+export const stockValuationQuerySchema = stockOnHandQuerySchema.extend({
+  method: stockValuationMethodSchema.default("FIFO"),
+});
 
 export type InventoryItemType = z.infer<typeof inventoryItemStatusSchema>;
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;
@@ -151,6 +166,9 @@ export type RecordStockMovementRequest = z.infer<typeof recordStockMovementReque
 export type TransferStockRequest = z.infer<typeof transferStockRequestSchema>;
 export type StockMovement = z.infer<typeof stockMovementSchema>;
 export type StockOnHand = z.infer<typeof stockOnHandSchema>;
+export type StockValuationMethod = z.infer<typeof stockValuationMethodSchema>;
+export type StockValuationQuery = z.infer<typeof stockValuationQuerySchema>;
+export type StockValuation = z.infer<typeof stockValuationSchema>;
 export type StockAtp = z.infer<typeof stockAtpSchema>;
 export type StockOnHandQuery = z.infer<typeof stockOnHandQuerySchema>;
 export type StockReservation = z.infer<typeof stockReservationSchema>;
