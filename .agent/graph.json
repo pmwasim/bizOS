@@ -841,7 +841,7 @@
     {
       "id": "0027",
       "title": "ADR-0027: Autonomous, gated production deploy with a kill switch",
-      "status": "Proposed",
+      "status": "Accepted",
       "date": "2026-09-02",
       "path": "docs/decisions/0027-autonomous-gated-production-deploy.md"
     }

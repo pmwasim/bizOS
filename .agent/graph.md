@@ -117,7 +117,7 @@ First-level source areas. These are the natural units for a work claim
 | 0024 | ADR-0024: Receivables and statements are derived per currency, and never estimated | Accepted |
 | 0025 | ADR-0025: Payment voiding, reversal, and refunds | Accepted |
 | 0026 | ADR-0026: Local, human-triggered production deploy script | Superseded by ADR-0027 |
-| 0027 | ADR-0027: Autonomous, gated production deploy with a kill switch | Proposed |
+| 0027 | ADR-0027: Autonomous, gated production deploy with a kill switch | Accepted |
 
 ## Governing documents
 

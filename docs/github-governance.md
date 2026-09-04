@@ -17,9 +17,9 @@ through the same checks.
 
 ## Pull requests
 
-Pull requests require a linked issue or decision context, Conventional Commit title, scoped change,
-tests, documentation, security/tenant analysis, and rollback notes. While only one maintainer
-exists, CODEOWNERS remains ownership metadata and approving reviews are not a merge gate; see
+Pull requests are required to land on `main` (direct pushes are blocked). While only one maintainer
+exists, CODEOWNERS remains ownership metadata and approving reviews are not a merge gate
+(`required_approving_review_count: 0`); see
 [ADR-0014](decisions/0014-single-maintainer-branch-protection.md). Restore required approvals when a
 trusted second maintainer is added. Authors still must not treat self-review as a substitute for
 required checks and conversation resolution.

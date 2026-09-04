@@ -1,6 +1,6 @@
 # ADR-0027: Autonomous, gated production deploy with a kill switch
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-09-02  
 Deciders: Product owner
 
@@ -134,9 +134,9 @@ informally covering:
   change — only reasoned through and code-reviewed — because doing so would mean deliberately
   breaking something against production to prove it. The kill switch, activation gate, blast-radius
   cap, and lock were all exercised for real (see the journal entry for 2026-09-02).
-- This system has not yet been activated (`deploy-kill-switch.sh activate` was deliberately not run
-  in this change — see Follow-ups in the journal entry). The current 11-commit gap must be closed by
-  a deliberate manual deploy first.
+- Activation completed 2026-09-02 after a deliberate manual catch-up closed a 14-commit gap (see
+  journal entry “Catch up production, activate autodeploy, require PR on main”). The one-time
+  activation gate remains in the scripts for any future re-arm.
 
 ## Note on authority
 
