@@ -23,6 +23,31 @@ Then read `.agent/graph.md` and the last two or three entries in
 [docs/journal](docs/journal/README.md) before you propose an approach. The approach you are about to
 suggest may already have been tried and rejected.
 
+## Host layout
+
+This repo is one of several directories on the host (`ubuntu-ms-7978`) that together make up bizOS.
+Know these before you touch anything outside the repo working tree:
+
+- **`/home/wasim/bizOS`** (this checkout) — the development working tree. This is where you work:
+  branch, edit, commit, push, open PRs.
+- **`/home/wasim/bizos-production`** — a _separate_ git clone (its own remote, its own history,
+  currently pinned to whatever commit was last deployed), not a copy of this working tree.
+  `bizos-web.service` and `bizos-api.service` run their production build from here. **Never edit
+  files in it directly.** It only changes via the deploy script
+  (`scripts/ops/deploy-production.sh`), which pulls, builds, and restarts it. This split exists
+  because production used to run `next dev` straight out of this checkout, so an uncommitted edit
+  here changed the live site instantly — see
+  [docs/operations/ubuntu-production-cutover.md](docs/operations/ubuntu-production-cutover.md) for
+  the full incident and cutover record.
+- **`/home/wasim/bizos-backups`** — database dumps (`databases/`), pre-deploy snapshots, and
+  repo/config backups (`repos/`, `configs/`) written by the ops utilities below. Not a git repo;
+  treat it as output, not source.
+- **`/home/wasim/bizos-maintenance`** — the static maintenance page served during a deploy window.
+- **`/home/wasim/machine-monitor`** — host-level health checks (disk, services, certs, backups,
+  autodeploy state), independent of this repo, running on its own systemd timer.
+- **`~/bin`** (`db-backup`, `repo-backup`, and related scripts) — host-level ops utilities that back
+  up the databases and repos above; not part of this repo and not deployed with it.
+
 ## Claim before you edit
 
 ```bash
