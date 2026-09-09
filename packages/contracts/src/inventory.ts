@@ -109,6 +109,30 @@ export const stockOnHandSchema = z.strictObject({
   quantityOnHand: z.number().int(),
 });
 
+export const stockAtpSchema = z.strictObject({
+  itemId: z.uuid(),
+  locationId: z.uuid().nullable(),
+  quantityOnHand: z.number().int(),
+  reservedQuantity: z.number().int().nonnegative(),
+  availableQuantity: z.number().int(),
+});
+
+export const stockReservationStatusSchema = z.enum(["RESERVED", "RELEASED", "FULFILLED"]);
+export const stockReservationSchema = z.strictObject({
+  id: z.uuid(),
+  documentId: z.uuid(),
+  itemId: z.uuid(),
+  locationId: z.uuid(),
+  quantity: z.number().int().positive(),
+  status: stockReservationStatusSchema,
+  releasedAt: z.iso.datetime().nullable(),
+  fulfilledAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export const stockReservationQuerySchema = z.strictObject({
+  documentId: z.uuid().optional(),
+});
+
 // Query for GET .../stock/on-hand: itemId is required and must be a UUID, so a
 // missing/malformed value fails closed with a 400 instead of reaching Prisma.
 export const stockOnHandQuerySchema = z.strictObject({
@@ -127,4 +151,7 @@ export type RecordStockMovementRequest = z.infer<typeof recordStockMovementReque
 export type TransferStockRequest = z.infer<typeof transferStockRequestSchema>;
 export type StockMovement = z.infer<typeof stockMovementSchema>;
 export type StockOnHand = z.infer<typeof stockOnHandSchema>;
+export type StockAtp = z.infer<typeof stockAtpSchema>;
 export type StockOnHandQuery = z.infer<typeof stockOnHandQuerySchema>;
+export type StockReservation = z.infer<typeof stockReservationSchema>;
+export type StockReservationQuery = z.infer<typeof stockReservationQuerySchema>;

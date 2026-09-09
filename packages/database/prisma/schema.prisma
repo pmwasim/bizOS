@@ -311,6 +311,7 @@ model Business {
   crmActivities            CrmActivity[]
   stockLocations           StockLocation[]
   stockMovements           StockMovement[]
+  stockReservations        StockReservation[]
   projects                 Project[]
   inventoryItems           InventoryItem[]
   creditNoteAllocations    CreditNoteAllocation[]
@@ -482,6 +483,7 @@ model Document {
   creditNoteAllocationsAsCreditNote CreditNoteAllocation[]   @relation("CreditNoteAllocationCreditNote")
   creditNoteAllocationsAsInvoice    CreditNoteAllocation[]   @relation("CreditNoteAllocationInvoice")
   workflowContext                   DocumentWorkflowContext?
+  stockReservations                 StockReservation[]
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, type, number])
@@ -680,8 +682,10 @@ model InventoryItem {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business       Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  stockMovements StockMovement[]
+  business          Business           @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  stockMovements    StockMovement[]
+  stockReservations StockReservation[]
+  documentLines     DocumentLine[]
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, sku])
@@ -710,8 +714,9 @@ model StockLocation {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  business  Business        @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
-  movements StockMovement[]
+  business     Business           @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  movements    StockMovement[]
+  reservations StockReservation[]
 
   @@unique([tenantId, businessId, id])
   @@unique([tenantId, businessId, code])
@@ -748,6 +753,39 @@ model StockMovement {
   @@index([tenantId, businessId, itemId, locationId, occurredAt])
   @@index([tenantId, businessId, locationId, occurredAt])
   @@map("stock_movements")
+}
+
+enum StockReservationStatus {
+  RESERVED
+  RELEASED
+  FULFILLED
+}
+
+// A reservation holds available stock for one commercial document. Fulfillment
+// posts a DISPATCH movement; cancellation merely releases the hold.
+model StockReservation {
+  id          BigInt                 @id @default(autoincrement())
+  publicId    String                 @unique @default(uuid()) @map("public_id") @db.Uuid
+  tenantId    BigInt                 @map("tenant_id")
+  businessId  BigInt                 @map("business_id")
+  documentId  BigInt                 @map("document_id")
+  itemId      BigInt                 @map("item_id")
+  locationId  BigInt                 @map("location_id")
+  quantity    Int
+  status      StockReservationStatus @default(RESERVED)
+  releasedAt  DateTime?              @map("released_at") @db.Timestamptz(3)
+  fulfilledAt DateTime?              @map("fulfilled_at") @db.Timestamptz(3)
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  business Business      @relation(fields: [tenantId, businessId], references: [tenantId, id], onDelete: Restrict)
+  document Document      @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Restrict)
+  item     InventoryItem @relation(fields: [tenantId, businessId, itemId], references: [tenantId, businessId, id], onDelete: Restrict)
+  location StockLocation @relation(fields: [tenantId, businessId, locationId], references: [tenantId, businessId, id], onDelete: Restrict)
+
+  @@unique([tenantId, businessId, id])
+  @@index([tenantId, businessId, documentId, status])
+  @@index([tenantId, businessId, itemId, locationId, status])
+  @@map("stock_reservations")
 }
 
 model CreditNoteAllocation {
@@ -861,20 +899,22 @@ model StoredObject {
 }
 
 model DocumentLine {
-  id             BigInt  @id @default(autoincrement())
-  tenantId       BigInt  @map("tenant_id")
-  businessId     BigInt  @map("business_id")
-  documentId     BigInt  @map("document_id")
-  position       Int
-  description    String  @db.VarChar(500)
-  quantity       Decimal @db.Decimal(20, 6)
-  unitPriceMinor Decimal @map("unit_price_minor") @db.Decimal(38, 0)
-  taxRatePpm     Int     @map("tax_rate_ppm")
-  subtotalMinor  Decimal @map("subtotal_minor") @db.Decimal(38, 0)
-  taxMinor       Decimal @map("tax_minor") @db.Decimal(38, 0)
-  totalMinor     Decimal @map("total_minor") @db.Decimal(38, 0)
+  id              BigInt  @id @default(autoincrement())
+  tenantId        BigInt  @map("tenant_id")
+  businessId      BigInt  @map("business_id")
+  documentId      BigInt  @map("document_id")
+  inventoryItemId BigInt? @map("inventory_item_id")
+  position        Int
+  description     String  @db.VarChar(500)
+  quantity        Decimal @db.Decimal(20, 6)
+  unitPriceMinor  Decimal @map("unit_price_minor") @db.Decimal(38, 0)
+  taxRatePpm      Int     @map("tax_rate_ppm")
+  subtotalMinor   Decimal @map("subtotal_minor") @db.Decimal(38, 0)
+  taxMinor        Decimal @map("tax_minor") @db.Decimal(38, 0)
+  totalMinor      Decimal @map("total_minor") @db.Decimal(38, 0)
 
-  document Document @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Cascade)
+  document      Document       @relation(fields: [tenantId, businessId, documentId], references: [tenantId, businessId, id], onDelete: Cascade)
+  inventoryItem InventoryItem? @relation(fields: [tenantId, businessId, inventoryItemId], references: [tenantId, businessId, id], onDelete: Restrict)
 
   @@unique([tenantId, businessId, documentId, position])
   @@index([tenantId, businessId, documentId])

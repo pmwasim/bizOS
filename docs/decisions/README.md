@@ -32,6 +32,7 @@ constraints until superseded.
 | [0023](0023-invoice-settlement-is-derived.md)                       | Invoice settlement is derived, not stored         | Proposed   |
 | [0024](0024-receivables-and-statements-are-derived-per-currency.md) | Receivables and statements derived per currency   | Proposed   |
 | [0025](0025-payment-void-reversal-refund.md)                        | Payment voiding, reversal, and refunds            | Accepted   |
+| [0028](0028-stock-reservation-lifecycle.md)                         | Stock reservation lifecycle                       | Proposed   |
 
 ## Template
 

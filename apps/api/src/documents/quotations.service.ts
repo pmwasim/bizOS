@@ -55,6 +55,7 @@ interface QuotationRecord {
   issueDate: Date;
   lines: Array<{
     description: string;
+    inventoryItem?: { publicId: string } | null;
     position: number;
     quantity: DecimalLike;
     subtotalMinor: DecimalLike;
@@ -178,19 +179,30 @@ export class QuotationsService {
           totalMinor: calculated.totalMinor.toString(),
           createdByMembershipId: access.membershipId,
           lines: {
-            create: calculated.lines.map((line): Prisma.DocumentLineCreateWithoutDocumentInput => ({
-              position: line.position,
-              description: line.description,
-              quantity: line.quantity,
-              unitPriceMinor: line.unitPriceMinor.toString(),
-              taxRatePpm: line.taxRatePpm,
-              subtotalMinor: line.subtotalMinor.toString(),
-              taxMinor: line.taxMinor.toString(),
-              totalMinor: line.totalMinor.toString(),
-            })),
+            create: calculated.lines.map(
+              (line, index): Prisma.DocumentLineCreateWithoutDocumentInput => ({
+                position: line.position,
+                ...(input.lines[index]?.inventoryItemId
+                  ? { inventoryItem: { connect: { publicId: input.lines[index].inventoryItemId } } }
+                  : {}),
+                description: line.description,
+                quantity: line.quantity,
+                unitPriceMinor: line.unitPriceMinor.toString(),
+                taxRatePpm: line.taxRatePpm,
+                subtotalMinor: line.subtotalMinor.toString(),
+                taxMinor: line.taxMinor.toString(),
+                totalMinor: line.totalMinor.toString(),
+              }),
+            ),
           },
         },
-        include: { customer: true, lines: { orderBy: { position: "asc" } } },
+        include: {
+          customer: true,
+          lines: {
+            orderBy: { position: "asc" },
+            include: { inventoryItem: { select: { publicId: true } } },
+          },
+        },
       })) as unknown as QuotationRecord;
 
       await transaction.auditEvent.create({
@@ -240,7 +252,13 @@ export class QuotationsService {
     return this.database.withScope(access, async (transaction) => {
       const records = await transaction.document.findMany({
         where: { businessId: access.businessId, type: DocumentType.QUOTATION },
-        include: { customer: true, lines: { orderBy: { position: "asc" } } },
+        include: {
+          customer: true,
+          lines: {
+            orderBy: { position: "asc" },
+            include: { inventoryItem: { select: { publicId: true } } },
+          },
+        },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 200,
       });
@@ -347,7 +365,13 @@ export class QuotationsService {
         updated = (await transaction.document.update({
           where: { id: record.id },
           data: { status: DocumentStatus.SENT, sentAt },
-          include: { customer: true, lines: { orderBy: { position: "asc" } } },
+          include: {
+            customer: true,
+            lines: {
+              orderBy: { position: "asc" },
+              include: { inventoryItem: { select: { publicId: true } } },
+            },
+          },
         })) as unknown as QuotationRecord;
       } else {
         const version = await transaction.documentVersion.findFirst({
@@ -557,7 +581,13 @@ export class QuotationsService {
         publicId: quotationPublicId,
         type: DocumentType.QUOTATION,
       },
-      include: { customer: true, lines: { orderBy: { position: "asc" } } },
+      include: {
+        customer: true,
+        lines: {
+          orderBy: { position: "asc" },
+          include: { inventoryItem: { select: { publicId: true } } },
+        },
+      },
     });
     if (!record) {
       throw new NotFoundException("We could not find that quotation.");
@@ -630,6 +660,7 @@ export class QuotationsService {
       taxMinor: record.taxMinor.toString(),
       totalMinor: record.totalMinor.toString(),
       lines: record.lines.map((line) => ({
+        ...(line.inventoryItem ? { inventoryItemId: line.inventoryItem.publicId } : {}),
         position: line.position,
         description: line.description,
         quantity: line.quantity.toString(),

@@ -8,6 +8,8 @@ import {
   recordStockMovementRequestSchema,
   type RecordStockMovementRequest,
   stockOnHandQuerySchema,
+  stockReservationQuerySchema,
+  type StockReservationQuery,
   type StockOnHandQuery,
   transferStockRequestSchema,
   type TransferStockRequest,
@@ -133,5 +135,23 @@ export class StockController {
     @Query(new ContractPipe(stockOnHandQuerySchema)) query: StockOnHandQuery,
   ) {
     return this.inventory.onHand(principal.userId, businessId, query.itemId, query.locationId);
+  }
+
+  @Get("atp")
+  atp(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Query(new ContractPipe(stockOnHandQuerySchema)) query: StockOnHandQuery,
+  ) {
+    return this.inventory.atp(principal.userId, businessId, query.itemId, query.locationId);
+  }
+
+  @Get("reservations")
+  listReservations(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param("businessId") businessId: string,
+    @Query(new ContractPipe(stockReservationQuerySchema)) query: StockReservationQuery,
+  ) {
+    return this.inventory.listReservations(principal.userId, businessId, query.documentId);
   }
 }

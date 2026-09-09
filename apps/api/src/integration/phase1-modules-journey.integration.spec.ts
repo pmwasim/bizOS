@@ -100,8 +100,8 @@ describe.runIf(databaseEnabled)("phase 1 modules journey with PostgreSQL boundar
     // This suite exercises only opportunities.create, never the quotation
     // conversion, so the quotation engine is stubbed rather than fully wired.
     opportunities = new OpportunitiesService(database, access, {} as never);
-    salesOrders = new SalesOrdersService(database, access);
-    deliveryNotes = new DeliveryNotesService(database, access);
+    salesOrders = new SalesOrdersService(database, access, inventory);
+    deliveryNotes = new DeliveryNotesService(database, access, inventory);
     creditNotes = new CreditNotesService(database, access);
   });
 
@@ -384,4 +384,82 @@ describe.runIf(databaseEnabled)("phase 1 modules journey with PostgreSQL boundar
     );
     expect(issued.status).toBe("ISSUED");
   }, 30_000);
+
+  it("reserves stock on confirmation and dispatches it on delivery", async () => {
+    const { owner, business, customer } = await setUpBusinessWithCustomer("Reservation");
+    const item = await inventory.create(
+      owner.id,
+      business.id,
+      { sku: "RES-001", name: "Reserved widget", costPriceMinor: "100" },
+      "integration-reservation-item",
+    );
+    const location = await inventory.createLocation(
+      owner.id,
+      business.id,
+      { code: "MAIN", name: "Main", isDefault: true },
+      "integration-reservation-location",
+    );
+    await inventory.recordMovement(
+      owner.id,
+      business.id,
+      {
+        itemId: item.id,
+        locationId: location.id,
+        movementType: "RECEIPT",
+        quantity: 10,
+        unitCostMinor: "100",
+      },
+      "integration-reservation-receipt",
+    );
+    const order = await salesOrders.create(
+      owner.id,
+      business.id,
+      {
+        customerId: customer.id,
+        lines: [
+          {
+            inventoryItemId: item.id,
+            description: "Reserved widget",
+            quantity: "4",
+            unitPrice: "2.00",
+            taxRatePercent: "0",
+          },
+        ],
+      },
+      "integration-reservation-order",
+    );
+    await salesOrders.confirm(owner.id, business.id, order.id, "integration-reservation-confirm");
+    expect((await inventory.listReservations(owner.id, business.id, order.id))[0]?.status).toBe(
+      "RESERVED",
+    );
+    expect(
+      (await inventory.atp(owner.id, business.id, item.id, location.id)).availableQuantity,
+    ).toBe(6);
+
+    const note = await deliveryNotes.create(
+      owner.id,
+      business.id,
+      {
+        customerId: customer.id,
+        salesOrderId: order.id,
+        lines: [{ description: "Reserved widget", quantity: "4" }],
+      },
+      "integration-reservation-note",
+    );
+    await deliveryNotes.markDelivered(
+      owner.id,
+      business.id,
+      note.id,
+      "integration-reservation-deliver",
+    );
+    expect((await inventory.listReservations(owner.id, business.id, order.id))[0]?.status).toBe(
+      "FULFILLED",
+    );
+    expect(
+      (await inventory.onHand(owner.id, business.id, item.id, location.id)).quantityOnHand,
+    ).toBe(6);
+    expect(
+      (await inventory.atp(owner.id, business.id, item.id, location.id)).availableQuantity,
+    ).toBe(6);
+  });
 });

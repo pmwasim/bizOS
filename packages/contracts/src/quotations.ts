@@ -10,6 +10,7 @@ const percentageSchema = z
   .regex(/^(?:100(?:\.0{1,4})?|\d{1,2}(?:\.\d{1,4})?)$/);
 
 export const quotationLineInputSchema = z.strictObject({
+  inventoryItemId: z.uuid().optional(),
   description: z.string().trim().min(1).max(500),
   quantity: decimalSchema
     .refine((value) => !/^0(?:\.0+)?$/.test(value), "Quantity must be greater than zero.")
@@ -34,6 +35,7 @@ export const sendQuotationRequestSchema = z.strictObject({
 });
 
 export const quotationLineSchema = z.strictObject({
+  inventoryItemId: z.uuid().optional(),
   position: z.number().int().positive(),
   description: z.string(),
   quantity: z.string(),
