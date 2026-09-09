@@ -320,10 +320,12 @@ export class InventoryService {
       // A DISPATCH must never drive on-hand negative at its location.
       if (input.movementType === "DISPATCH") {
         const onHand = await this.onHandQuantity(transaction, access, itemId, locationId);
-        if (onHand < input.quantity) {
+        const reserved = await this.reservedQuantity(transaction, access, itemId, locationId);
+        const available = onHand - reserved;
+        if (available < input.quantity) {
           throw new BadRequestException({
-            code: "INSUFFICIENT_STOCK",
-            detail: `Only ${onHand} unit(s) on hand at this location.`,
+            code: "INSUFFICIENT_AVAILABLE_STOCK",
+            detail: `Only ${available} unit(s) are available at this location after reservations.`,
           });
         }
       }
@@ -387,10 +389,12 @@ export class InventoryService {
       }
 
       const onHand = await this.onHandQuantity(transaction, access, itemId, fromId);
-      if (onHand < input.quantity) {
+      const reserved = await this.reservedQuantity(transaction, access, itemId, fromId);
+      const available = onHand - reserved;
+      if (available < input.quantity) {
         throw new BadRequestException({
-          code: "INSUFFICIENT_STOCK",
-          detail: `Only ${onHand} unit(s) on hand at the source location.`,
+          code: "INSUFFICIENT_AVAILABLE_STOCK",
+          detail: `Only ${available} unit(s) are available at the source location after reservations.`,
         });
       }
 
@@ -519,6 +523,7 @@ export class InventoryService {
     access: BusinessAccessContext,
     documentId: bigint,
     lines: ReservationLine[],
+    sourceDocumentId?: bigint,
   ): Promise<void> {
     const quantities = new Map<string, number>();
     for (const line of lines) {
@@ -552,7 +557,6 @@ export class InventoryService {
         detail: "Create an active default stock location before reserving inventory.",
       });
     }
-
     for (const [itemPublicId, quantity] of quantities) {
       const item = await transaction.inventoryItem.findFirst({
         where: { businessId: access.businessId, publicId: itemPublicId },
@@ -562,6 +566,19 @@ export class InventoryService {
       if (item.itemType !== "INVENTORY") continue;
 
       await this.lockItem(transaction, access.businessId, item.id);
+      if (sourceDocumentId) {
+        const sourceReservation = await transaction.stockReservation.findFirst({
+          where: {
+            businessId: access.businessId,
+            documentId: sourceDocumentId,
+            itemId: item.id,
+            locationId: location.id,
+            status: StockReservationStatus.RESERVED,
+          },
+          select: { id: true },
+        });
+        if (sourceReservation) continue;
+      }
       const existing = await transaction.stockReservation.findFirst({
         where: {
           businessId: access.businessId,
@@ -630,23 +647,66 @@ export class InventoryService {
     documentId: bigint,
     referenceId: string,
     requestId: string,
+    lines?: ReservationLine[],
+    relatedDocumentId?: bigint,
   ): Promise<void> {
+    const documentIds = relatedDocumentId ? [documentId, relatedDocumentId] : [documentId];
+    const requested = lines
+      ? await this.resolveStockQuantities(transaction, access, this.stockQuantities(lines))
+      : null;
+    const itemIds = requested
+      ? [...requested.keys()].map((itemId) => BigInt(itemId))
+      : [
+          ...new Set(
+            (
+              (await transaction.stockReservation.findMany({
+                where: {
+                  businessId: access.businessId,
+                  documentId: { in: documentIds },
+                  status: StockReservationStatus.RESERVED,
+                },
+                select: { itemId: true },
+              })) as Array<{ itemId: bigint }>
+            ).map((reservation) => reservation.itemId),
+          ),
+        ];
+    itemIds.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+    for (const itemId of itemIds) {
+      await this.lockItem(transaction, access.businessId, itemId);
+    }
+    // Re-read only after every relevant item lock: concurrent fulfillment cannot dispatch a
+    // reservation row that the first transaction has already fulfilled.
     const reservations = await transaction.stockReservation.findMany({
       where: {
         businessId: access.businessId,
-        documentId,
+        documentId: { in: documentIds },
         status: StockReservationStatus.RESERVED,
       },
     });
     for (const reservation of reservations) {
-      await this.lockItem(transaction, access.businessId, reservation.itemId);
+      const requestedQuantity =
+        requested?.get(reservation.itemId.toString()) ?? reservation.quantity;
+      if (requested && requestedQuantity === 0) continue;
+      if (requestedQuantity > reservation.quantity) {
+        throw new BadRequestException({
+          code: "FULFILLMENT_EXCEEDS_RESERVATION",
+          detail: "Delivered quantity cannot exceed the active stock reservation.",
+        });
+      }
+      const otherReserved = await this.reservedQuantity(
+        transaction,
+        access,
+        reservation.itemId,
+        reservation.locationId,
+        reservation.id,
+      );
       const onHand = await this.onHandQuantity(
         transaction,
         access,
         reservation.itemId,
         reservation.locationId,
       );
-      if (onHand < reservation.quantity) {
+      if (onHand - otherReserved < requestedQuantity) {
         throw new BadRequestException({
           code: "INSUFFICIENT_STOCK",
           detail: "Stock changed after reservation; fulfillment cannot be completed.",
@@ -659,7 +719,7 @@ export class InventoryService {
           itemId: reservation.itemId,
           locationId: reservation.locationId,
           movementType: "DISPATCH",
-          quantity: reservation.quantity,
+          quantity: requestedQuantity,
           referenceType: "SALE",
           referenceId,
           requestId,
@@ -668,9 +728,52 @@ export class InventoryService {
       });
       await transaction.stockReservation.update({
         where: { id: reservation.id },
-        data: { status: StockReservationStatus.FULFILLED, fulfilledAt: new Date() },
+        data:
+          requestedQuantity === reservation.quantity
+            ? { status: StockReservationStatus.FULFILLED, fulfilledAt: new Date() }
+            : { quantity: reservation.quantity - requestedQuantity },
       });
     }
+  }
+
+  private stockQuantities(lines: ReservationLine[]): Map<string, number> {
+    const quantities = new Map<string, number>();
+    for (const line of lines) {
+      if (!line.inventoryItemId) continue;
+      const quantity = Number(line.quantity.toString());
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+        throw new BadRequestException({
+          code: "INVALID_STOCK_QUANTITY",
+          detail: "Stock item quantities must be positive whole units.",
+        });
+      }
+      const total = (quantities.get(line.inventoryItemId) ?? 0) + quantity;
+      if (!Number.isSafeInteger(total)) {
+        throw new BadRequestException({
+          code: "INVALID_STOCK_QUANTITY",
+          detail: "The total stock quantity must be a safe whole number.",
+        });
+      }
+      quantities.set(line.inventoryItemId, total);
+    }
+    return quantities;
+  }
+
+  private async resolveStockQuantities(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    quantities: Map<string, number>,
+  ): Promise<Map<string, number>> {
+    const resolved = new Map<string, number>();
+    for (const [itemPublicId, quantity] of quantities) {
+      const item = await transaction.inventoryItem.findFirst({
+        where: { businessId: access.businessId, publicId: itemPublicId },
+        select: { id: true },
+      });
+      if (!item) throw new NotFoundException("We could not find that inventory item.");
+      resolved.set(item.id.toString(), quantity);
+    }
+    return resolved;
   }
 
   async listReservations(
@@ -737,6 +840,26 @@ export class InventoryService {
       else quantity += movement.quantity;
     }
     return quantity;
+  }
+
+  private async reservedQuantity(
+    transaction: Prisma.TransactionClient,
+    access: BusinessAccessContext,
+    itemId: bigint,
+    locationId: bigint,
+    excludingReservationId?: bigint,
+  ): Promise<number> {
+    const rows = await transaction.stockReservation.findMany({
+      where: {
+        businessId: access.businessId,
+        itemId,
+        locationId,
+        status: StockReservationStatus.RESERVED,
+        ...(excludingReservationId ? { id: { not: excludingReservationId } } : {}),
+      },
+      select: { quantity: true },
+    });
+    return rows.reduce((sum: number, row: { quantity: number }) => sum + row.quantity, 0);
   }
 
   private async resolveItemId(

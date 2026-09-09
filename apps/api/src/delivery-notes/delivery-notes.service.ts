@@ -37,7 +37,17 @@ interface DeliveryNoteRecord {
   publicId: string;
   lines: DeliveryNoteLineRecord[];
   receivedAt: Date | null;
-  sourceDocument: { id: bigint; number: string; publicId: string } | null;
+  sourceDocument: {
+    id: bigint;
+    number: string;
+    publicId: string;
+    lines: Array<{
+      description: string;
+      inventoryItem: { publicId: string } | null;
+      position: number;
+      quantity: DecimalLike;
+    }>;
+  } | null;
   status: DocumentType;
   updatedAt: Date;
 }
@@ -128,8 +138,8 @@ export class DeliveryNotesService {
           notes: input.notes ?? null,
           createdByMembershipId: access.membershipId,
           lines: {
-            create: input.lines.map((line) => ({
-              position: 1,
+            create: input.lines.map((line, index) => ({
+              position: index + 1,
               description: line.description,
               quantity: line.quantity,
               unitPriceMinor: "0",
@@ -195,12 +205,19 @@ export class DeliveryNotesService {
       const existing = await this.findRecord(transaction, access, deliveryNotePublicId);
 
       if (existing.sourceDocument) {
+        const sourceLines = existing.sourceDocument.lines;
         await this.inventory?.fulfillDocumentStock(
           transaction,
           access,
           existing.sourceDocument.id,
           existing.sourceDocument.publicId,
           requestId,
+          existing.lines.map((line, index) => ({
+            inventoryItemId:
+              sourceLines[line.position - 1]?.inventoryItem?.publicId ??
+              sourceLines[index]?.inventoryItem?.publicId,
+            quantity: line.quantity,
+          })),
         );
       }
 
@@ -240,7 +257,22 @@ export class DeliveryNotesService {
     return {
       customer: true,
       lines: { orderBy: { position: "asc" as const } },
-      sourceDocument: { select: { id: true, publicId: true, number: true } },
+      sourceDocument: {
+        select: {
+          id: true,
+          publicId: true,
+          number: true,
+          lines: {
+            orderBy: { position: "asc" as const },
+            select: {
+              description: true,
+              inventoryItem: { select: { publicId: true } },
+              position: true,
+              quantity: true,
+            },
+          },
+        },
+      },
     } satisfies Prisma.DocumentInclude;
   }
 

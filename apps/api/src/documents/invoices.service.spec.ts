@@ -257,6 +257,104 @@ describe("InvoicesService", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("fulfills stock once when sending an invoice derived from a held sales order", async () => {
+    const record = baseInvoiceRecord({
+      sourceDocumentId: 901n,
+      lines: [
+        {
+          description: "Widget",
+          inventoryItem: { publicId: "i0000000-0000-4000-8000-000000000001" },
+          position: 1,
+          quantity: "2",
+          unitPriceMinor: "10000",
+          taxRatePpm: 0,
+          subtotalMinor: "20000",
+          taxMinor: "0",
+          totalMinor: "20000",
+        },
+      ],
+    });
+    const documentUpdate = vi
+      .fn()
+      .mockImplementation(async (args: { data: Record<string, unknown> }) => ({
+        ...record,
+        ...args.data,
+      }));
+    const transaction = {
+      document: { findFirst: vi.fn().mockResolvedValue(record), update: documentUpdate },
+      documentDelivery: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 20n, publicId: "delivery-1" }),
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+      documentVersion: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ publicId: "version-1" }),
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+      business: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          name: "Acme Services",
+          legalName: null,
+          email: null,
+          phone: null,
+          addressLine1: null,
+          addressLine2: null,
+          city: null,
+          postalCode: null,
+          countryCode: "SA",
+          timeZone: "Asia/Riyadh",
+          settings: { invoiceDueDays: 30, invoicePrefix: "INV", nextInvoiceNumber: 2 },
+          taxProfile: { name: "Tax", registrationNumber: null },
+        }),
+      },
+      auditEvent: { create: vi.fn().mockResolvedValue(undefined) },
+    };
+    const database = {
+      withScope: vi
+        .fn()
+        .mockImplementation(async (_scope: unknown, work: (value: never) => Promise<unknown>) =>
+          work(transaction as never),
+        ),
+    } as unknown as DatabaseService;
+    const businessAccess = {
+      resolve: vi.fn().mockResolvedValue(access),
+      assertAllowed: vi.fn().mockResolvedValue(undefined),
+    } as unknown as BusinessAccessService;
+    const mail = { sendInvoice: vi.fn().mockResolvedValue("provider-1") } as unknown as MailService;
+    const pdf = {
+      renderInvoice: vi.fn().mockResolvedValue(Buffer.from("%PDF-test")),
+    } as unknown as PdfService;
+    const objectStore = { put: vi.fn(), get: vi.fn() } as unknown as ObjectStore;
+    const inventory = {
+      reserveDocumentStock: vi.fn(),
+      fulfillDocumentStock: vi.fn(),
+    };
+    const service = new InvoicesService(
+      database,
+      businessAccess,
+      pdf,
+      mail,
+      objectStore,
+      { isConfigured: () => false } as never,
+      configuration,
+      inventory as never,
+    );
+
+    await service.send(
+      access.userPublicId,
+      access.businessPublicId,
+      record.publicId,
+      { recipientEmail: "customer@example.test", message: null },
+      "request-invoice-send",
+    );
+
+    expect(inventory.reserveDocumentStock).toHaveBeenCalledOnce();
+    expect(inventory.fulfillDocumentStock).toHaveBeenCalledOnce();
+    expect(inventory.fulfillDocumentStock.mock.calls[0]?.[2]).toBe(10n);
+    expect(inventory.fulfillDocumentStock.mock.calls[0]?.[6]).toBe(901n);
+  });
+
   it("rejects create when quotation readiness is not READY_TO_INVOICE", async () => {
     const transaction = {
       document: {

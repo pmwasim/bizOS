@@ -1,6 +1,6 @@
 # ADR-0028: Stock reservation lifecycle
 
-Status: Proposed Date: 2026-09-03 Deciders: Product owner
+Status: Accepted Date: 2026-09-03 Deciders: Michael (god)
 
 ## Context
 
@@ -14,6 +14,8 @@ process restarts and leave an auditable stock movement when fulfilled.
 - Tenant and business isolation must be enforced by PostgreSQL RLS.
 - Cancellation must not fabricate a compensating movement; fulfillment must reduce on-hand exactly
   once.
+- Manual outbound dispatch and transfer must preserve available-to-promise stock after active
+  reservations.
 - Existing free-form service lines remain valid and non-stock.
 
 ## Decision
@@ -26,8 +28,12 @@ an optional `inventoryItemId`; omitted IDs are treated as non-stock lines for ba
 compatibility.
 
 All lifecycle writes run through `InventoryService` inside the caller's database transaction and use
-the existing per-item advisory lock. The reservation table is append-preserving: status timestamps
-record release/fulfillment rather than deleting the original hold.
+the existing per-item advisory lock. Manual outbound dispatch and transfer are rejected when they
+would breach ATP. Delivery notes fulfill by delivered quantity, leaving a remainder `RESERVED` until
+fully delivered. Sending an invoice fulfills its own hold, or an existing source sales-order hold,
+and never creates a second hold for the same source item. The reservation table is
+append-preserving: status timestamps record release/fulfillment rather than deleting the original
+hold.
 
 ## Consequences
 
@@ -39,5 +45,5 @@ future lot/serial tracking can extend the reservation key without changing docum
 ## Validation and review trigger
 
 The real-PostgreSQL phase1 integration covers receipt → reservation → delivery dispatch and on-hand.
-Revisit when multiple fulfillment locations, fractional/batch stock, or partial fulfillment is
+Revisit when multiple fulfillment locations, fractional/batch stock, or lot/serial tracking is
 required.

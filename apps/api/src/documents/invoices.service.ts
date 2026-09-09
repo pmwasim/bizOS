@@ -127,6 +127,7 @@ interface InvoiceRecord {
   sentAt: Date | null;
   sourceQuotation: { number: string; publicId: string } | null;
   sourceQuotationId: bigint | null;
+  sourceDocumentId: bigint | null;
   status: DocumentStatus;
   subtotalMinor: DecimalLike;
   taxMinor: DecimalLike;
@@ -754,6 +755,7 @@ export class InvoicesService {
           inventoryItemId: line.inventoryItem?.publicId,
           quantity: line.quantity,
         })),
+        existing.sourceDocumentId ?? undefined,
       );
 
       const updated = (await transaction.document.update({
@@ -863,6 +865,7 @@ export class InvoicesService {
             inventoryItemId: line.inventoryItem?.publicId,
             quantity: line.quantity,
           })),
+          record.sourceDocumentId ?? undefined,
         );
       }
       const context = await this.loadSnapshotContext(transaction, access);
@@ -1026,6 +1029,18 @@ export class InvoicesService {
     );
 
     const updated = await this.database.withScope(access, async (transaction) => {
+      await this.inventory?.fulfillDocumentStock(
+        transaction,
+        access,
+        prepared.record.id,
+        prepared.record.publicId,
+        requestId,
+        prepared.record.lines.map((line) => ({
+          inventoryItemId: line.inventoryItem?.publicId,
+          quantity: line.quantity,
+        })),
+        prepared.record.sourceDocumentId ?? undefined,
+      );
       return (await transaction.document.update({
         where: { id: prepared.record.id },
         data: { status: DocumentStatus.SENT, sentAt },
