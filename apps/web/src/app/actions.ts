@@ -68,6 +68,7 @@ import { ApiError, apiFetch, apiJson, publicApiFetch } from "@/lib/api";
 
 export interface ActionState {
   error?: string;
+  fieldErrors?: Record<string, string>;
 }
 
 export async function signUpAction(_state: ActionState, formData: FormData): Promise<ActionState> {
@@ -76,7 +77,7 @@ export async function signUpAction(_state: ActionState, formData: FormData): Pro
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   const response = await publicApiFetch("/auth/signup", {
     method: "POST",
@@ -130,7 +131,7 @@ export async function requestPasswordResetAction(
   const parsed = requestPasswordResetRequestSchema.safeParse({
     email: formData.get("email"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   const response = await publicApiFetch("/auth/password-reset/request", {
     method: "POST",
@@ -155,7 +156,7 @@ export async function confirmPasswordResetAction(
     token: formData.get("token"),
     password: formData.get("password"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   const response = await publicApiFetch("/auth/password-reset/confirm", {
     method: "POST",
@@ -187,7 +188,7 @@ export async function createBusinessAction(
     taxName: formData.get("taxName"),
     taxRatePercent: formData.get("taxEnabled") === "on" ? formData.get("taxRatePercent") : "0",
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     const business = await apiJson<BusinessSummary>("/businesses", {
@@ -219,7 +220,7 @@ export async function createCustomerAction(
     postalCode: null,
     countryCode: optional("countryCode"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     const customer = await apiJson<Customer>(`/businesses/${businessId}/customers`, {
@@ -247,7 +248,7 @@ export async function createQuotationAction(
     customerId: formData.get("customerId"),
     lines,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     const quotation = await apiJson<Quotation>(`/businesses/${businessId}/quotations`, {
@@ -270,7 +271,7 @@ export async function sendQuotationAction(
     recipientEmail: formData.get("recipientEmail"),
     message: String(formData.get("message") ?? "").trim() || null,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson(`/businesses/${businessId}/quotations/${quotationId}/send`, {
@@ -301,7 +302,7 @@ export async function sendStatementAction(
     startDate,
     endDate,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson(`/businesses/${businessId}/statements/customers/${customerId}/send`, {
@@ -326,7 +327,7 @@ export async function createInvoiceFromQuotationAction(
   _formData: FormData,
 ): Promise<ActionState> {
   const parsed = createInvoiceFromQuotationRequestSchema.safeParse({ quotationId });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     const invoice = await apiJson<Invoice>(`/businesses/${businessId}/invoices`, {
@@ -382,7 +383,7 @@ export async function updateInvoiceAction(
     notes: String(formData.get("notes") ?? "").trim() || null,
     lines,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson(`/businesses/${businessId}/invoices/${invoiceId}`, {
@@ -422,7 +423,7 @@ export async function sendInvoiceAction(
     recipientEmail: formData.get("recipientEmail"),
     message: String(formData.get("message") ?? "").trim() || null,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson(`/businesses/${businessId}/invoices/${invoiceId}/send`, {
@@ -504,7 +505,7 @@ export async function recordPaymentAction(
     notes,
     allocations,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     const payment = await apiJson<Payment>(`/businesses/${businessId}/payments`, {
@@ -595,7 +596,7 @@ export async function refundPaymentAction(
     amountMinor,
     reason: String(formData.get("reason") ?? "").trim() || null,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson(`/businesses/${businessId}/payments/${paymentId}/refunds`, {
@@ -647,7 +648,7 @@ export async function updateSettingsAction(
     taxRegistrationNumber: optional("taxRegistrationNumber"),
     taxRatePercent: formData.get("taxRatePercent"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson(`/businesses/${businessId}/settings`, {
@@ -696,7 +697,7 @@ export async function createPurchaseOrderAction(
     currencyScale: amountMinor ? currencyScale : null,
     notes: optional("notes"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     const purchaseOrder = await apiJson<PurchaseOrder>(
@@ -721,7 +722,7 @@ export async function updateApprovalStatusAction(
   const parsed = updateApprovalStatusRequestSchema.safeParse({
     approvalStatus: formData.get("approvalStatus"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson(`/businesses/${businessId}/purchase-orders/${purchaseOrderId}/approval`, {
@@ -829,8 +830,22 @@ function actionError(error: unknown): ActionState {
   throw error;
 }
 
-function validationMessage(error: { issues: Array<{ message: string }> }): string {
-  return error.issues[0]?.message ?? "Check the information and try again.";
+// Every schema below is parsed straight from FormData with keys matching each input's `name`, so
+// a Zod issue's first path segment doubles as the field name for aria-describedby wiring.
+function validationMessage(error: {
+  issues: Array<{ path: PropertyKey[]; message: string }>;
+}): Pick<ActionState, "error" | "fieldErrors"> {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const field = issue.path[0];
+    if (typeof field === "string" && !(field in fieldErrors)) {
+      fieldErrors[field] = issue.message;
+    }
+  }
+  return {
+    error: error.issues[0]?.message ?? "Check the information and try again.",
+    fieldErrors,
+  };
 }
 
 export interface OnboardingActionState extends ActionState {
@@ -908,7 +923,7 @@ export async function createCustomizationRequestAction(
     notes: notes || undefined,
     consentToReview: formData.get("consentToReview") === "on" ? true : undefined,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<BusinessCustomizationRequestSummary>(
@@ -1029,7 +1044,7 @@ export async function createLeadAction(
     estimatedValue,
     notes: optional("notes"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<Lead>(`/businesses/${businessId}/leads`, {
@@ -1065,7 +1080,7 @@ export async function createOpportunityAction(
     expectedCloseDate: optional("expectedCloseDate"),
     notes: optional("notes"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<Opportunity>(`/businesses/${businessId}/opportunities`, {
@@ -1089,7 +1104,7 @@ export async function createSalesOrderAction(
     deliveryDate: formData.get("deliveryDate") || undefined,
     notes: formData.get("notes") || null,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     const order = await apiJson<SalesOrder>(`/businesses/${businessId}/sales-orders`, {
@@ -1118,7 +1133,7 @@ export async function createDeliveryNoteAction(
       quantity: quantities[i] || "1",
     })),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<DeliveryNote>(`/businesses/${businessId}/delivery-notes`, {
@@ -1151,7 +1166,7 @@ export async function createSupplierAction(
     paymentTerms: paymentTerms ? Number(paymentTerms) : null,
     notes: optional("notes"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<Supplier>(`/businesses/${businessId}/suppliers`, {
@@ -1252,7 +1267,7 @@ export async function updateOpportunityStageAction(
   stage: string,
 ): Promise<ActionState> {
   const parsed = opportunityStageSchema.safeParse(stage);
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<Opportunity>(`/businesses/${businessId}/opportunities/${opportunityId}`, {
@@ -1288,7 +1303,7 @@ export async function createInventoryItemAction(
     taxRatePpm: taxRatePpm === null ? undefined : Number(taxRatePpm),
     reorderLevel: reorderLevel === null ? null : Number(reorderLevel),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<InventoryItem>(`/businesses/${businessId}/inventory`, {
@@ -1320,7 +1335,7 @@ export async function createProjectAction(
     budgetMinor: optional("budgetMinor"),
     notes: optional("notes"),
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   try {
     await apiJson<Project>(`/businesses/${businessId}/projects`, {
@@ -1358,7 +1373,7 @@ export async function createCreditNoteAction(
     notes: String(formData.get("notes") ?? "").trim() || null,
     lines,
   });
-  if (!parsed.success) return { error: validationMessage(parsed.error) };
+  if (!parsed.success) return validationMessage(parsed.error);
 
   // The API creates the credit note as DRAFT; issuing is a separate action and is not triggered here.
   try {

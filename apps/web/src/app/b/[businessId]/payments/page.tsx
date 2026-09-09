@@ -16,9 +16,7 @@ export default async function PaymentsPage({
   params: Promise<{ businessId: string }>;
 }) {
   const { businessId } = await params;
-  const payments = await apiJson<Payment[]>(`/businesses/${businessId}/payments`).catch(
-    () => [] as Payment[],
-  );
+  const payments = await apiJson<Payment[]>(`/businesses/${businessId}/payments`);
 
   const inboundTotalMinor = payments
     .filter((p) => p.type === "INBOUND" && p.status === "COMPLETED")

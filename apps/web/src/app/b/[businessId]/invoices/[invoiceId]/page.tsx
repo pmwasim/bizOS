@@ -24,7 +24,7 @@ export default async function InvoiceDetailPage({
   const query = await searchParams;
   const [invoice, payments] = await Promise.all([
     apiJson<Invoice>(`/businesses/${businessId}/invoices/${invoiceId}`),
-    apiJson<Payment[]>(`/businesses/${businessId}/payments`).catch(() => [] as Payment[]),
+    apiJson<Payment[]>(`/businesses/${businessId}/payments`),
   ]);
   const justSent = query.sent === "1";
   const pdfPath = `/api/businesses/${businessId}/invoices/${invoiceId}/pdf`;

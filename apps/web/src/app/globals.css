@@ -443,6 +443,36 @@ select {
   margin: 0;
 }
 
+.app-modal {
+  box-sizing: border-box;
+  background: var(--surface);
+  color: var(--foreground);
+  border: none;
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.app-modal::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.app-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.app-modal-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
 .form-stack {
   display: flex;
   flex-direction: column;
@@ -546,6 +576,11 @@ textarea:focus {
   color: var(--danger);
   font-size: 0.86rem;
   padding: 0.85rem 1rem;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.78rem;
 }
 
 .form-success {
@@ -1323,7 +1358,7 @@ textarea:focus {
   }
 
   .mobile-nav {
-    background: rgba(255, 255, 255, 0.96);
+    background: var(--surface);
     border-top: 1px solid var(--border);
     bottom: 0;
     display: grid;
@@ -3414,9 +3449,31 @@ fieldset.field small {
 
     /* This banner uses --mkt-ink as a fixed dark bar background (not as text), with hardcoded
        near-white text — it doesn't follow ink's foreground-text convention, so it needs to stay
-       pinned to the old dark value rather than inherit the swap above. */
+       pinned to the old dark value rather than inherit the swap above. Same reasoning applies to
+       .mkt-promise-panel below: it's a fixed dark promo block with hardcoded white/near-white
+       text, not a surface that should invert with the theme. The primary buttons are the same
+       shape again: a fixed dark chip with the (non-flipping) signal-lime text, not a surface --
+       letting --mkt-ink flip made the button itself go near-invisible in dark mode. */
     .mkt-maintenance-banner {
       background: #0c1a1d;
+    }
+
+    .mkt-promise-panel {
+      background: #0c1a1d;
+    }
+
+    .mkt-promise-panel .mkt-btn-primary:hover {
+      color: #0c1a1d;
+    }
+
+    .mkt-btn-primary,
+    .marketing-site .button-primary {
+      background: #0c1a1d;
+    }
+
+    .mkt-btn-primary:hover,
+    .marketing-site .button-primary:hover {
+      background: #064e52;
     }
   }
 }
@@ -3430,6 +3487,24 @@ fieldset.field small {
 
   .mkt-maintenance-banner {
     background: #0c1a1d;
+  }
+
+  .mkt-promise-panel {
+    background: #0c1a1d;
+  }
+
+  .mkt-promise-panel .mkt-btn-primary:hover {
+    color: #0c1a1d;
+  }
+
+  .mkt-btn-primary,
+  .marketing-site .button-primary {
+    background: #0c1a1d;
+  }
+
+  .mkt-btn-primary:hover,
+  .marketing-site .button-primary:hover {
+    background: #064e52;
   }
 }
 
@@ -3717,7 +3792,7 @@ fieldset.field small {
 }
 
 .mkt-journey {
-  background: white;
+  background: var(--mkt-paper);
   border-block: 1px solid var(--mkt-line);
 }
 
@@ -3852,7 +3927,7 @@ fieldset.field small {
 }
 
 .mkt-market-list li {
-  background: white;
+  background: var(--mkt-paper);
   border: 1px solid var(--mkt-line);
   border-radius: 0.55rem;
   padding: 1.35rem 1.25rem;

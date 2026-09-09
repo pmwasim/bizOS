@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Folder, Plus, X } from "lucide-react";
+import { Folder, Plus } from "lucide-react";
 
 import { type Project, projectStatusLabel } from "@bizo/contracts/projects";
 import { type Customer } from "@bizo/contracts/customers";
 import { type ActionState, createProjectAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
+import { Modal } from "@/components/modal";
 import { SubmitButton } from "@/components/submit-button";
 import { formatMoney } from "@/lib/display";
 
@@ -136,111 +137,76 @@ export function ProjectsClientView({
       </div>
 
       {/* Modal for Project Creation */}
-      {isModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: "1rem",
-          }}
-        >
+      <Modal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Create New Project"
+        maxWidth="550px"
+      >
+        <ActionMessage error={state.error} />
+
+        <form action={formAction} className="form-stack">
+          <label className="field">
+            <span>Project Name</span>
+            <input name="name" placeholder="e.g. ERP System Implementation" required />
+          </label>
+
+          <label className="field">
+            <span>Customer</span>
+            <select name="customerId" defaultValue={customers[0]?.id ?? ""}>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Description</span>
+            <textarea name="description" rows={2} placeholder="Project scope and deliverables..." />
+          </label>
+
+          <div className="field-grid">
+            <label className="field">
+              <span>Start Date</span>
+              <input
+                name="startDate"
+                type="date"
+                defaultValue={new Date().toISOString().slice(0, 10)}
+              />
+            </label>
+
+            <label className="field">
+              <span>End Date</span>
+              <input name="endDate" type="date" defaultValue="2026-12-31" />
+            </label>
+          </div>
+
+          <label className="field">
+            <span>Budget (Minor Units)</span>
+            <input name="budgetMinor" type="number" defaultValue="5000000" />
+          </label>
+
           <div
             style={{
-              background: "var(--surface)",
-              borderRadius: "var(--radius)",
-              padding: "2rem",
-              maxWidth: "550px",
-              width: "100%",
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "0.75rem",
+              marginTop: "1rem",
             }}
           >
-            <div
-              style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => setIsModalOpen(false)}
             >
-              <h2 style={{ margin: 0, fontSize: "1.3rem" }}>Create New Project</h2>
-              <button
-                className="button button-quiet"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <ActionMessage error={state.error} />
-
-            <form action={formAction} className="form-stack">
-              <label className="field">
-                <span>Project Name</span>
-                <input name="name" placeholder="e.g. ERP System Implementation" required />
-              </label>
-
-              <label className="field">
-                <span>Customer</span>
-                <select name="customerId" defaultValue={customers[0]?.id ?? ""}>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field">
-                <span>Description</span>
-                <textarea
-                  name="description"
-                  rows={2}
-                  placeholder="Project scope and deliverables..."
-                />
-              </label>
-
-              <div className="field-grid">
-                <label className="field">
-                  <span>Start Date</span>
-                  <input
-                    name="startDate"
-                    type="date"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                  />
-                </label>
-
-                <label className="field">
-                  <span>End Date</span>
-                  <input name="endDate" type="date" defaultValue="2026-12-31" />
-                </label>
-              </div>
-
-              <label className="field">
-                <span>Budget (Minor Units)</span>
-                <input name="budgetMinor" type="number" defaultValue="5000000" />
-              </label>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "0.75rem",
-                  marginTop: "1rem",
-                }}
-              >
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <SubmitButton pendingText="Creating...">Save Project</SubmitButton>
-              </div>
-            </form>
+              Cancel
+            </button>
+            <SubmitButton pendingText="Creating...">Save Project</SubmitButton>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
     </>
   );
 }
