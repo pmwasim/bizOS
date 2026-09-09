@@ -856,7 +856,7 @@
     {
       "id": "0028",
       "title": "ADR-0028: Stock reservation lifecycle",
-      "status": "Proposed Date: 2026-09-03 Deciders: Product owner",
+      "status": "Accepted Date: 2026-09-03 Deciders: Michael (god)",
       "date": null,
       "path": "docs/decisions/0028-stock-reservation-lifecycle.md"
     }

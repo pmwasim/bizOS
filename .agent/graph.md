@@ -118,7 +118,7 @@ First-level source areas. These are the natural units for a work claim
 | 0025 | ADR-0025: Payment voiding, reversal, and refunds | Accepted |
 | 0026 | ADR-0026: Local, human-triggered production deploy script | Superseded by ADR-0027 |
 | 0027 | ADR-0027: Autonomous, gated production deploy with a kill switch | Accepted |
-| 0028 | ADR-0028: Stock reservation lifecycle | Proposed Date: 2026-09-03 Deciders: Product owner |
+| 0028 | ADR-0028: Stock reservation lifecycle | Accepted Date: 2026-09-03 Deciders: Michael (god) |
 
 ## Governing documents
 
