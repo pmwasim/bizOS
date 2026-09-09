@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Package, Plus, X } from "lucide-react";
+import { Package, Plus } from "lucide-react";
 
 import { type InventoryItem } from "@bizo/contracts/inventory";
 import { type ActionState, createInventoryItemAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
+import { Modal } from "@/components/modal";
 import { SubmitButton } from "@/components/submit-button";
 import { formatMoney } from "@/lib/display";
 
@@ -154,136 +155,89 @@ export function InventoryClientView({
       </div>
 
       {/* Modal / Form */}
-      {isModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: "1rem",
-          }}
-        >
+      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Stock Item">
+        <ActionMessage error={state.error} />
+
+        <form action={formAction} className="form-stack">
+          <div className="field-grid">
+            <label className="field">
+              <span>SKU</span>
+              <input name="sku" placeholder="e.g. SKU-PRO-009" required />
+            </label>
+
+            <label className="field">
+              <span>Item Type</span>
+              <select name="itemType" defaultValue="INVENTORY">
+                <option value="INVENTORY">INVENTORY (Physical)</option>
+                <option value="SERVICE">SERVICE (Labor)</option>
+                <option value="NON_INVENTORY">NON_INVENTORY</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="field">
+            <span>Item Name</span>
+            <input name="name" placeholder="Product or service name" required />
+          </label>
+
+          <label className="field">
+            <span>Description</span>
+            <textarea name="description" rows={2} placeholder="Detailed product specification..." />
+          </label>
+
+          <div className="field-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+            <label className="field">
+              <span>Unit</span>
+              <input name="unit" placeholder="e.g. pcs, hrs" defaultValue="pcs" />
+            </label>
+
+            <label className="field">
+              <span>Cost Price (Minor)</span>
+              <input name="costPriceMinor" type="number" placeholder="5000" defaultValue="5000" />
+            </label>
+
+            <label className="field">
+              <span>Selling Price (Minor)</span>
+              <input
+                name="sellingPriceMinor"
+                type="number"
+                placeholder="8500"
+                defaultValue="8500"
+              />
+            </label>
+          </div>
+
+          <div className="field-grid">
+            <label className="field">
+              <span>Tax Rate (PPM: 150000 = 15%)</span>
+              <input name="taxRatePpm" type="number" defaultValue={150000} />
+            </label>
+
+            <label className="field">
+              <span>Reorder Level Threshold</span>
+              <input name="reorderLevel" type="number" defaultValue={10} />
+            </label>
+          </div>
+
           <div
             style={{
-              background: "var(--surface)",
-              borderRadius: "var(--radius)",
-              padding: "2rem",
-              maxWidth: "600px",
-              width: "100%",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "0.75rem",
+              marginTop: "1rem",
             }}
           >
-            <div
-              style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => setIsModalOpen(false)}
             >
-              <h2 style={{ margin: 0, fontSize: "1.3rem" }}>Add Stock Item</h2>
-              <button
-                className="button button-quiet"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                style={{ padding: "0.4rem 0.6rem", minHeight: "auto" }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <ActionMessage error={state.error} />
-
-            <form action={formAction} className="form-stack">
-              <div className="field-grid">
-                <label className="field">
-                  <span>SKU</span>
-                  <input name="sku" placeholder="e.g. SKU-PRO-009" required />
-                </label>
-
-                <label className="field">
-                  <span>Item Type</span>
-                  <select name="itemType" defaultValue="INVENTORY">
-                    <option value="INVENTORY">INVENTORY (Physical)</option>
-                    <option value="SERVICE">SERVICE (Labor)</option>
-                    <option value="NON_INVENTORY">NON_INVENTORY</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="field">
-                <span>Item Name</span>
-                <input name="name" placeholder="Product or service name" required />
-              </label>
-
-              <label className="field">
-                <span>Description</span>
-                <textarea
-                  name="description"
-                  rows={2}
-                  placeholder="Detailed product specification..."
-                />
-              </label>
-
-              <div className="field-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-                <label className="field">
-                  <span>Unit</span>
-                  <input name="unit" placeholder="e.g. pcs, hrs" defaultValue="pcs" />
-                </label>
-
-                <label className="field">
-                  <span>Cost Price (Minor)</span>
-                  <input
-                    name="costPriceMinor"
-                    type="number"
-                    placeholder="5000"
-                    defaultValue="5000"
-                  />
-                </label>
-
-                <label className="field">
-                  <span>Selling Price (Minor)</span>
-                  <input
-                    name="sellingPriceMinor"
-                    type="number"
-                    placeholder="8500"
-                    defaultValue="8500"
-                  />
-                </label>
-              </div>
-
-              <div className="field-grid">
-                <label className="field">
-                  <span>Tax Rate (PPM: 150000 = 15%)</span>
-                  <input name="taxRatePpm" type="number" defaultValue={150000} />
-                </label>
-
-                <label className="field">
-                  <span>Reorder Level Threshold</span>
-                  <input name="reorderLevel" type="number" defaultValue={10} />
-                </label>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "0.75rem",
-                  marginTop: "1rem",
-                }}
-              >
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <SubmitButton pendingText="Saving...">Save Stock Item</SubmitButton>
-              </div>
-            </form>
+              Cancel
+            </button>
+            <SubmitButton pendingText="Saving...">Save Stock Item</SubmitButton>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
     </>
   );
 }

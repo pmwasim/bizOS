@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { type ActionState, signInAction, signUpAction } from "@/app/actions";
-import { ActionMessage } from "@/components/action-message";
+import { ActionMessage, FieldError, fieldA11y } from "@/components/action-message";
 import { SubmitButton } from "@/components/submit-button";
 
 export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
@@ -18,7 +18,15 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       {signup ? (
         <label className="field">
           <span>Your name</span>
-          <input name="displayName" autoComplete="name" required minLength={2} autoFocus />
+          <input
+            name="displayName"
+            autoComplete="name"
+            required
+            minLength={2}
+            autoFocus
+            {...fieldA11y(state.fieldErrors, "displayName")}
+          />
+          <FieldError name="displayName" fieldErrors={state.fieldErrors} />
         </label>
       ) : null}
       <label className="field">
@@ -30,7 +38,9 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           autoComplete="email"
           required
           autoFocus={!signup}
+          {...fieldA11y(state.fieldErrors, "email")}
         />
+        <FieldError name="email" fieldErrors={state.fieldErrors} />
       </label>
       <label className="field">
         <span>Password</span>
@@ -40,8 +50,10 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           autoComplete={signup ? "new-password" : "current-password"}
           required
           minLength={signup ? 10 : 1}
+          {...fieldA11y(state.fieldErrors, "password")}
         />
         {signup ? <small>10+ characters with upper, lower, and a number.</small> : null}
+        <FieldError name="password" fieldErrors={state.fieldErrors} />
       </label>
       <SubmitButton pendingText={signup ? "Creating account…" : "Signing in…"}>
         {signup ? "Create my account" : "Sign in"}

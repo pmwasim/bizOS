@@ -21,6 +21,8 @@ Rules:
   - Agent: claude-cli · Status: Complete
 - [2026-09-02 — Production automation and dark mode](2026-09-02-production-automation-and-dark-mode.md)
   - Agent: claude-cli · Status: Complete
+- [2026-09-02 — Catch up production, activate autodeploy, require PR on main](2026-09-02-catch-up-production-activate-autodeploy-require-pr-on-main.md)
+  - Agent: composer-main-gap · Status: Complete
 - [2026-09-02 — Autonomous deploy with kill switch](2026-09-02-autonomous-deploy-with-kill-switch.md)
   - Agent: claude-cli · Status: Complete
 - [2026-08-30 — Resolve outstanding open items: branch triage, main sync, hosting/module doc audit](2026-08-30-resolve-outstanding-open-items-branch-triage-main-sync-hosti.md)

@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { type ActionState, createCustomerAction } from "@/app/actions";
-import { ActionMessage } from "@/components/action-message";
+import { ActionMessage, FieldError, fieldA11y } from "@/components/action-message";
 import { SubmitButton } from "@/components/submit-button";
 
 export function CustomerForm({ businessId }: { businessId: string }) {
@@ -14,7 +14,15 @@ export function CustomerForm({ businessId }: { businessId: string }) {
       <ActionMessage error={state.error} />
       <label className="field">
         <span>Customer or company name</span>
-        <input name="name" required minLength={2} autoFocus placeholder="Acme Studio" />
+        <input
+          name="name"
+          required
+          minLength={2}
+          autoFocus
+          placeholder="Acme Studio"
+          {...fieldA11y(state.fieldErrors, "name")}
+        />
+        <FieldError name="name" fieldErrors={state.fieldErrors} />
       </label>
       <div className="field-grid">
         <label className="field">
@@ -25,8 +33,10 @@ export function CustomerForm({ businessId }: { businessId: string }) {
             inputMode="email"
             autoComplete="email"
             placeholder="hello@acme.com"
+            {...fieldA11y(state.fieldErrors, "email")}
           />
           <small>We’ll use this when you send the quotation.</small>
+          <FieldError name="email" fieldErrors={state.fieldErrors} />
         </label>
         <label className="field">
           <span>

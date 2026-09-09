@@ -8,6 +8,7 @@ import { type Customer } from "@bizo/contracts/customers";
 import { type Invoice } from "@bizo/contracts/invoices";
 import { type ActionState, createCreditNoteAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
+import { Modal } from "@/components/modal";
 import { SubmitButton } from "@/components/submit-button";
 
 import { formatMoney } from "@/lib/display";
@@ -189,195 +190,156 @@ export function CreditNotesClientView({
       )}
 
       {/* Modal / Form */}
-      {isModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: "1rem",
-          }}
-        >
+      <Modal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Create New Credit Note"
+        maxWidth="650px"
+      >
+        <ActionMessage error={state.error} />
+
+        <form action={formAction} className="form-stack">
+          <label className="field">
+            <span>Customer</span>
+            <select name="customerId" defaultValue={customers[0]?.id ?? ""} required>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="field-grid">
+            <label className="field">
+              <span>Reference Invoice (Optional)</span>
+              <select name="referenceInvoiceId" defaultValue="">
+                <option value="">-- None (Standalone) --</option>
+                {invoices.map((inv) => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.number} ({inv.customer.name})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Reason</span>
+              <select name="reason" defaultValue="BILLING_ERROR">
+                <option value="RETURNED_GOODS">Returned Goods</option>
+                <option value="BILLING_ERROR">Billing Error</option>
+                <option value="DISCOUNT">Discount</option>
+                <option value="CANCELLATION">Cancellation</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="field">
+            <span>Issue Date</span>
+            <input
+              name="issueDate"
+              type="date"
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              required
+            />
+          </label>
+
           <div
+            className="panel"
             style={{
-              background: "var(--surface)",
-              borderRadius: "var(--radius)",
-              padding: "2rem",
-              maxWidth: "650px",
-              width: "100%",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
+              padding: "0.75rem",
+              background: "var(--surface-subtle)",
+              borderRadius: "0.5rem",
             }}
           >
-            <div
-              style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}
-            >
-              <h2 style={{ margin: 0, fontSize: "1.3rem" }}>Create New Credit Note</h2>
-              <button
-                className="button button-quiet"
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                style={{ padding: "0.4rem 0.6rem", minHeight: "auto" }}
+            <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>Credit Line Items</span>
+            {lines.map((l) => (
+              <div
+                key={l.id}
+                className="field-grid"
+                style={{
+                  gridTemplateColumns: "2fr 1fr 1fr 1fr auto",
+                  gap: "0.5rem",
+                  marginTop: "0.5rem",
+                }}
               >
-                <X size={18} />
-              </button>
-            </div>
-
-            <ActionMessage error={state.error} />
-
-            <form action={formAction} className="form-stack">
-              <label className="field">
-                <span>Customer</span>
-                <select name="customerId" defaultValue={customers[0]?.id ?? ""} required>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="field-grid">
-                <label className="field">
-                  <span>Reference Invoice (Optional)</span>
-                  <select name="referenceInvoiceId" defaultValue="">
-                    <option value="">-- None (Standalone) --</option>
-                    {invoices.map((inv) => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.number} ({inv.customer.name})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>Reason</span>
-                  <select name="reason" defaultValue="BILLING_ERROR">
-                    <option value="RETURNED_GOODS">Returned Goods</option>
-                    <option value="BILLING_ERROR">Billing Error</option>
-                    <option value="DISCOUNT">Discount</option>
-                    <option value="CANCELLATION">Cancellation</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="field">
-                <span>Issue Date</span>
                 <input
-                  name="issueDate"
-                  type="date"
-                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  name="description"
+                  placeholder="Description"
+                  value={l.description}
+                  onChange={(e) => updateLine(l.id, "description", e.target.value)}
                   required
                 />
-              </label>
-
-              <div
-                className="panel"
-                style={{
-                  padding: "0.75rem",
-                  background: "var(--surface-subtle)",
-                  borderRadius: "0.5rem",
-                }}
-              >
-                <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>Credit Line Items</span>
-                {lines.map((l) => (
-                  <div
-                    key={l.id}
-                    className="field-grid"
-                    style={{
-                      gridTemplateColumns: "2fr 1fr 1fr 1fr auto",
-                      gap: "0.5rem",
-                      marginTop: "0.5rem",
-                    }}
-                  >
-                    <input
-                      name="description"
-                      placeholder="Description"
-                      value={l.description}
-                      onChange={(e) => updateLine(l.id, "description", e.target.value)}
-                      required
-                    />
-                    <input
-                      name="quantity"
-                      placeholder="Qty"
-                      type="number"
-                      value={l.quantity}
-                      onChange={(e) => updateLine(l.id, "quantity", e.target.value)}
-                      required
-                    />
-                    <input
-                      name="unitPrice"
-                      placeholder="Unit Price"
-                      type="number"
-                      step="0.01"
-                      value={l.unitPrice}
-                      onChange={(e) => updateLine(l.id, "unitPrice", e.target.value)}
-                      required
-                    />
-                    <input
-                      name="taxRatePercent"
-                      placeholder="Tax %"
-                      type="number"
-                      value={l.taxRatePercent}
-                      onChange={(e) => updateLine(l.id, "taxRatePercent", e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="button button-quiet"
-                      onClick={() => removeLine(l.id)}
-                      disabled={lines.length === 1}
-                      style={{ padding: "0.4rem" }}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  onClick={addLine}
-                  style={{ marginTop: "0.75rem", fontSize: "0.8rem", minHeight: "36px" }}
-                >
-                  + Add Line Item
-                </button>
-              </div>
-
-              <label className="field">
-                <span>Notes / Reason Description</span>
-                <textarea
-                  name="notes"
-                  rows={2}
-                  placeholder="Additional notes for customer credit..."
+                <input
+                  name="quantity"
+                  placeholder="Qty"
+                  type="number"
+                  value={l.quantity}
+                  onChange={(e) => updateLine(l.id, "quantity", e.target.value)}
+                  required
                 />
-              </label>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "0.75rem",
-                  marginTop: "1rem",
-                }}
-              >
+                <input
+                  name="unitPrice"
+                  placeholder="Unit Price"
+                  type="number"
+                  step="0.01"
+                  value={l.unitPrice}
+                  onChange={(e) => updateLine(l.id, "unitPrice", e.target.value)}
+                  required
+                />
+                <input
+                  name="taxRatePercent"
+                  placeholder="Tax %"
+                  type="number"
+                  value={l.taxRatePercent}
+                  onChange={(e) => updateLine(l.id, "taxRatePercent", e.target.value)}
+                />
                 <button
-                  className="button button-secondary"
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  className="button button-quiet"
+                  onClick={() => removeLine(l.id)}
+                  disabled={lines.length === 1}
+                  style={{ padding: "0.4rem" }}
                 >
-                  Cancel
+                  <X size={16} />
                 </button>
-                <SubmitButton pendingText="Creating...">Save Credit Note (Draft)</SubmitButton>
               </div>
-            </form>
+            ))}
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={addLine}
+              style={{ marginTop: "0.75rem", fontSize: "0.8rem", minHeight: "36px" }}
+            >
+              + Add Line Item
+            </button>
           </div>
-        </div>
-      )}
+
+          <label className="field">
+            <span>Notes / Reason Description</span>
+            <textarea name="notes" rows={2} placeholder="Additional notes for customer credit..." />
+          </label>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "0.75rem",
+              marginTop: "1rem",
+            }}
+          >
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <SubmitButton pendingText="Creating...">Save Credit Note (Draft)</SubmitButton>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }

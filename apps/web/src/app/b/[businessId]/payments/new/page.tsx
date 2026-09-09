@@ -20,7 +20,7 @@ export default async function NewPaymentPage({
 
   const [settings, invoices] = await Promise.all([
     apiJson<BusinessSettings>(`/businesses/${businessId}/settings`),
-    apiJson<Invoice[]>(`/businesses/${businessId}/invoices`).catch(() => [] as Invoice[]),
+    apiJson<Invoice[]>(`/businesses/${businessId}/invoices`),
   ]);
 
   const invoiceOptions = invoices.map((inv) => ({
