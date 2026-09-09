@@ -7,8 +7,8 @@
     "appCount": 2,
     "packageCount": 7,
     "edgeCount": 10,
-    "adrCount": 29,
-    "handbookDocumentCount": 93
+    "adrCount": 30,
+    "handbookDocumentCount": 95
   },
   "buildOrder": [
     {
@@ -287,6 +287,7 @@
         "docs/mmf.md",
         "docs/multi-agent-protocol.md",
         "docs/operations/issue-60-object-store-blob-audit.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/n8n-integration-policy.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
@@ -323,7 +324,8 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md"
       ]
     },
     {
@@ -353,6 +355,7 @@
       "governingDocs": [
         "docs/architecture.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/security.md"
       ]
@@ -390,6 +393,7 @@
         "docs/document-templates-plan.md",
         "docs/multi-agent-protocol.md",
         "docs/operations/invoice-vertical-slice-checkpoint.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
         "docs/operations/ubuntu-production-cutover.md"
@@ -431,6 +435,7 @@
         "docs/database-strategy.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
         "docs/deployment-handoff-cursor.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/phase4-configuration-architecture-design.md",
@@ -462,7 +467,8 @@
       "areas": [],
       "governingDocs": [
         "docs/architecture.md",
-        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md"
+        "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md"
       ]
     },
     {
@@ -494,6 +500,7 @@
         "docs/decisions/0017-po-object-storage.md",
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
         "docs/operations/invoice-vertical-slice-checkpoint.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
         "docs/operations/r2-object-storage.md"
@@ -552,19 +559,19 @@
         "test:coverage",
         "typecheck"
       ],
-      "sourceFiles": 156,
+      "sourceFiles": 158,
       "testFiles": 8,
       "areas": [
         {
           "name": "app",
           "path": "apps/web/src/app",
-          "sourceFiles": 86,
+          "sourceFiles": 87,
           "testFiles": 5
         },
         {
           "name": "components",
           "path": "apps/web/src/components",
-          "sourceFiles": 51,
+          "sourceFiles": 52,
           "testFiles": 0
         },
         {
@@ -580,6 +587,7 @@
         "docs/decisions/0019-open-source-leverage-default-erp-foundation.md",
         "docs/decisions/0024-receivables-and-statements-are-derived-per-currency.md",
         "docs/deployment-handoff-cursor.md",
+        "docs/operations/launch-readiness-assessment-2026-09-07.md",
         "docs/operations/local-test-evaluation-2026-08-06.md",
         "docs/operations/phase1-authoritative-state-checkpoint.md",
         "docs/operations/phase2-hardcoded-assumptions-audit.md",
@@ -844,6 +852,13 @@
       "status": "Accepted",
       "date": "2026-09-02",
       "path": "docs/decisions/0027-autonomous-gated-production-deploy.md"
+    },
+    {
+      "id": "0028",
+      "title": "ADR-0028: Stock reservation lifecycle",
+      "status": "Proposed Date: 2026-09-03 Deciders: Product owner",
+      "date": null,
+      "path": "docs/decisions/0028-stock-reservation-lifecycle.md"
     }
   ],
   "rootCommands": [
