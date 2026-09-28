@@ -30,11 +30,11 @@
     "pg": "8.23.0"
   },
   "devDependencies": {
-    "@types/node": "26.2.0",
-    "@types/pg": "8.21.0",
+    "@types/node": "26.6.2",
+    "@types/pg": "8.23.1",
     "dotenv": "17.4.2",
     "esbuild": "0.28.2",
-    "prisma": "7.9.1",
+    "prisma": "7.10.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
