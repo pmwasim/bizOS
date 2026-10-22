@@ -26,10 +26,10 @@ export default async function DashboardPage({
 }) {
   const { businessId } = await params;
   const [customers, quotations, invoices, payments] = await Promise.all([
-    apiJson<Customer[]>(`/businesses/${businessId}/customers`).catch(() => [] as Customer[]),
-    apiJson<Quotation[]>(`/businesses/${businessId}/quotations`).catch(() => [] as Quotation[]),
-    apiJson<Invoice[]>(`/businesses/${businessId}/invoices`).catch(() => [] as Invoice[]),
-    apiJson<Payment[]>(`/businesses/${businessId}/payments`).catch(() => [] as Payment[]),
+    apiJson<Customer[]>(`/businesses/${businessId}/customers`),
+    apiJson<Quotation[]>(`/businesses/${businessId}/quotations`),
+    apiJson<Invoice[]>(`/businesses/${businessId}/invoices`),
+    apiJson<Payment[]>(`/businesses/${businessId}/payments`),
   ]);
 
   const isBrandNew = customers.length === 0 && quotations.length === 0;

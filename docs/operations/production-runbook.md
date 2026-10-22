@@ -85,17 +85,21 @@ scripts/ops/deploy-kill-switch.sh activate
 
 which itself refuses if production is more than the blast-radius cap behind `origin/main` — this is
 what stops the very first tick of this system from silently shipping a backlog nobody chose to
-release. **As of 2026-09-02, `bizos-production` is 11 commits behind `main`** (Sprint 7–8 work — CRM
-lifecycle, multi-warehouse stock, zero-budget AI, etc. — see the linked journal entries), which is
-over the 5-commit cap. Closing that gap is a deliberate, one-time manual step:
+release.
+
+**Activated 2026-09-02.** Production was caught up to `origin/main`
+(`7c2c3ccee127a032b8141d61b256f2232bb52d8a`) with a deliberate manual
+`deploy-production.sh --sha … --confirm` (four additive Sprint 7–8 migrations + release-readiness
+14/14), then `deploy-kill-switch.sh activate`. The timer is live; `status` should report
+“activated”. If production ever falls more than `MAX_AUTO_COMMITS` (5) behind again, the timer skips
+until another deliberate manual catch-up — it will not self-swallow a large backlog.
+
+To re-arm after a fresh checkout or if `.autodeploy-activated` is missing:
 
 ```bash
 scripts/ops/deploy-production.sh --sha $(git -C /home/wasim/bizos-production rev-parse origin/main) --confirm
 scripts/ops/deploy-kill-switch.sh activate
 ```
-
-Do this only after actually looking at what's in that gap — the cap and the activation gate keep the
-_pipeline_ from deciding to ship it for you, they don't substitute for someone deciding it's fine.
 
 ### Manual / emergency deploy
 

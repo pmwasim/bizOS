@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Target, Plus, X, ArrowRight, MessageSquare, Sparkles } from "lucide-react";
+import { Users, Target, Plus, ArrowRight, MessageSquare, Sparkles } from "lucide-react";
 
 import {
   type CrmActivity,
@@ -16,6 +16,7 @@ import { type Customer } from "@bizo/contracts/customers";
 import { formatMoney } from "@/lib/display";
 import { convertLeadAction, updateOpportunityStageAction } from "@/app/actions";
 import { ActionMessage } from "@/components/action-message";
+import { Modal } from "@/components/modal";
 
 function formatOpportunityTotals(
   opportunities: Opportunity[],
@@ -451,142 +452,82 @@ export function CrmClientView({
       )}
 
       {/* Modal for Lead Creation */}
-      {isLeadModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: "1rem",
+      <Modal
+        open={isLeadModalOpen}
+        onClose={() => setIsLeadModalOpen(false)}
+        title="Create Sales Lead"
+        maxWidth="500px"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setIsLeadModalOpen(false);
           }}
+          className="form-stack"
         >
-          <div
-            style={{
-              background: "var(--surface)",
-              borderRadius: "var(--radius)",
-              padding: "2rem",
-              maxWidth: "500px",
-              width: "100%",
-            }}
-          >
-            <div
-              style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}
+          <label className="field">
+            <span>Lead Name</span>
+            <input placeholder="e.g. John Doe" required />
+          </label>
+          <label className="field">
+            <span>Company Name</span>
+            <input placeholder="e.g. Acme Corp" />
+          </label>
+          <label className="field">
+            <span>Email</span>
+            <input type="email" placeholder="john@acme.com" />
+          </label>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => setIsLeadModalOpen(false)}
             >
-              <h2 style={{ margin: 0, fontSize: "1.3rem" }}>Create Sales Lead</h2>
-              <button
-                className="button button-quiet"
-                type="button"
-                onClick={() => setIsLeadModalOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setIsLeadModalOpen(false);
-              }}
-              className="form-stack"
-            >
-              <label className="field">
-                <span>Lead Name</span>
-                <input placeholder="e.g. John Doe" required />
-              </label>
-              <label className="field">
-                <span>Company Name</span>
-                <input placeholder="e.g. Acme Corp" />
-              </label>
-              <label className="field">
-                <span>Email</span>
-                <input type="email" placeholder="john@acme.com" />
-              </label>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => setIsLeadModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button className="button button-primary" type="submit">
-                  Save Lead
-                </button>
-              </div>
-            </form>
+              Cancel
+            </button>
+            <button className="button button-primary" type="submit">
+              Save Lead
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       {/* Modal for Opportunity Creation */}
-      {isOppModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: "1rem",
+      <Modal
+        open={isOppModalOpen}
+        onClose={() => setIsOppModalOpen(false)}
+        title="New Opportunity"
+        maxWidth="500px"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setIsOppModalOpen(false);
           }}
+          className="form-stack"
         >
-          <div
-            style={{
-              background: "var(--surface)",
-              borderRadius: "var(--radius)",
-              padding: "2rem",
-              maxWidth: "500px",
-              width: "100%",
-            }}
-          >
-            <div
-              style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}
+          <label className="field">
+            <span>Deal Name</span>
+            <input placeholder="e.g. Enterprise Cloud Migration" required />
+          </label>
+          <label className="field">
+            <span>Estimated Deal Value (Minor Units)</span>
+            <input type="number" placeholder="1500000" required />
+          </label>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => setIsOppModalOpen(false)}
             >
-              <h2 style={{ margin: 0, fontSize: "1.3rem" }}>New Opportunity</h2>
-              <button
-                className="button button-quiet"
-                type="button"
-                onClick={() => setIsOppModalOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setIsOppModalOpen(false);
-              }}
-              className="form-stack"
-            >
-              <label className="field">
-                <span>Deal Name</span>
-                <input placeholder="e.g. Enterprise Cloud Migration" required />
-              </label>
-              <label className="field">
-                <span>Estimated Deal Value (Minor Units)</span>
-                <input type="number" placeholder="1500000" required />
-              </label>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => setIsOppModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button className="button button-primary" type="submit">
-                  Create Opportunity
-                </button>
-              </div>
-            </form>
+              Cancel
+            </button>
+            <button className="button button-primary" type="submit">
+              Create Opportunity
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
     </>
   );
 }

@@ -95,6 +95,17 @@ regenerated.
 
 Never hand-edit the graph. Change the repository, then regenerate.
 
+**Obsidian rendering (added 2026-09-08) is not a fourth artifact.**
+`scripts/agent/graphify-obsidian.mjs` renders this same `.agent/graph.json` into the owner's real
+Obsidian vault (`~/second-brain/Generated/bizOS/`) as one note per workspace/decision/owner with
+wikilinks between them — a human-readable view for browsing in Obsidian, not a second place this
+data lives. It has no data of its own (every note is derived from fields already in the graph —
+nothing invented), can't drift from it (regenerated in the same run, via `~/bin/graphify-obsidian`),
+and every note carries a generated/do-not-hand-edit marker. A prior version of this rendering (and
+its destination, `docs/vault/`) was deliberately removed 2026-08-30 for being exactly the kind of
+undocumented, hand-editable, fictional-content parallel mirror this paragraph exists to rule out
+again — see that day's journal entry, Decision 5.
+
 ## The work registry
 
 `.agent/registry.json` holds active claims. It is coordination state, so it is committed and it does
